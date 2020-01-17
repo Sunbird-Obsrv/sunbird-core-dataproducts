@@ -1,0 +1,30 @@
+version: 2.1
+jobs:
+  analytics-build:
+    machine: true
+    steps:
+    - checkout
+    - restore_cache:
+        key: dp-dependency-cache-{{ checksum "pom.xml" }}
+    - run:
+        name: data-products-build
+        command: mvn clean install -DskipTests && mvn scoverage:report
+    - save_cache:
+        key: dp-dependency-cache-{{ checksum "pom.xml" }}
+        paths: ~/.m2
+    - run: mkdir temp && cp batch-models/target/batch-models-2.0.jar temp/
+    - run: cp job-manager/target/job-manager-2.0-jar temp/
+    - store_artifacts:
+        path: temp
+        destination: temp/
+
+    - run:
+        name: sonar
+        command: |
+          mvn -X sonar:sonar -Dsonar.projectKey=project-sunbird_sunbird-analytics -Dsonar.organization=project-sunbird -Dsonar.exclusions=video-streaming/**,optional-master/**,batch-models/src/main/scala/org/ekstep/analytics/job/batch/VideoStreamingJob.scala -Dsonar.host.url=https://sonarcloud.io -Dsonar.scala.coverage.reportPaths=/home/circleci/project/target/scoverage.xml
+
+workflows:
+  version: 2.1
+  workflow:
+    jobs:
+    - analytics-core-dp-build
