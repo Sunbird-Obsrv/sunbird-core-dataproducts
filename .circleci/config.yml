@@ -1,6 +1,6 @@
 version: 2.1
 jobs:
-  analytics-build:
+  analytics-core-dp-build:
     machine: true
     steps:
     - checkout
