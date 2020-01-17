@@ -1,0 +1,9 @@
+id,channel,datetime,hashtagid,isrootorg,locationid,locationids,orgname,provider,rootorgid,slug,status
+org1,ap,2018-07-25 12:35:58:066+0000,Ext1,TRUE,,['1'],AP,channel-1,0126391644091351040,ApSlug,1
+org2,ap,2018-05-10 10:15:40:396+0000,Ext2,FALSE,,"['2','3','4']",MPPS SIMHACHALNAGAR,skap,org1,ApSlug,1
+org3,ap,2018-05-10 10:15:40:396+0000,Ext2,FALSE,,"['3']",Another school,skap,org1,ApSlug,1
+org30,tn,2019-01-29 11:15:31:877+0000,Ext3,TRUE,,"['5']",TN,tamilnadutesttenant,01254587086334361650,TnSlug,1
+org4,tn,2019-01-31 08:39:25:192+0000,Ext4,FALSE,,"['6','7']","SACRED HEART(B)PS,TIRUVARANGAM",tamilnadutesttenant,org30,TnSlug,1
+org5,tn,2019-01-29 11:18:18:447+0000,Ext5,FALSE,,,"PUPS, Chithamur",tamilnadutesttenant,org30,TnSlug,1
+org6,otherTenant,2018-05-10 12:22:08:852+0000,Ext6,TRUE,,"['9']",Other tenant name,sktn,01250894314817126443,OtherSlug,1
+org7,otherTenant,2019-01-28 02:54:28:169+0000,Ext7,FALSE,,"['10','11','12','13']",BALA VEDAMMAL N & P,tamilnadutesttenant,org6,OtherSlug,1
