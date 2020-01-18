@@ -1,6 +1,7 @@
 version: 2.1
 jobs:
   analytics-core-dp-build:
+    machine: true
     steps:
     - checkout
     - run: git clone https://github.com/project-sunbird/sunbird-analytics-core
