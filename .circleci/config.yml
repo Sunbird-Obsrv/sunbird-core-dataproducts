@@ -8,6 +8,7 @@ jobs:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
           - dp-core-libraries
+          - dp-dependency-cache
     - run: mvn install:install-file -Dfile=analytics-core/target/analytics-core-2.0.jar -DgroupId=org.sunbird -DartifactId=analytics-core -Dversion=2.0 -Dpackaging=jar
     - run: mvn install:install-file -Dfile=analytics-core/target/analytics-job-driver-2.0.jar -DgroupId=org.sunbird -DartifactId=analytics-job-driver -Dversion=2.0 -Dpackaging=jar
     - run:
