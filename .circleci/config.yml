@@ -9,13 +9,12 @@ jobs:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
     - run: cd sunbird-analytics-core && mvn install -DskipTests
-    - run: mvn dependency:go-offline
-    - save_cache:
-        key: dp-dependency-cache-{{ checksum "pom.xml" }}
-        paths: ~/.m2
     - run:
         name: data-products-build
         command: mvn scoverage:report
+    - save_cache:
+        key: dp-dependency-cache-{{ checksum "pom.xml" }}
+        paths: ~/.m2
 #    - run:
 #        name: sonar
 #        command: |
