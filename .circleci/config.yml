@@ -4,7 +4,6 @@ jobs:
     machine: true
     steps:
     - checkout
-
     - run:
         name: clone analytics core
         command: |
@@ -16,7 +15,6 @@ jobs:
           target_branch=$(echo "${prdata}" | jq -r '.base.ref')
           git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
           fi
-          
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
