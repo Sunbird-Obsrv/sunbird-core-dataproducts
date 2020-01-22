@@ -30,7 +30,7 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     implicit val fc = new FrameworkContext()
     val tempDir = AppConf.getConfig("admin.metrics.temp.dir")
     val reportDF = StateAdminGeoReportJob.generateGeoReport()(spark, fc)
-    assert(reportDF.count() === 6)
+    assert(reportDF.count() === 7)
     //for geo report we expect these columns
     assert(reportDF.columns.contains("index") === true)
     assert(reportDF.columns.contains("School id") === true)
@@ -45,7 +45,7 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     val school_name = apslug.select("School name").collect().map(_ (0)).toList
     assert(school_name(0) === "MPPS SIMHACHALNAGAR")
     assert(school_name(1) === "Another school")
-    assert(reportDF.select("District id").distinct().count == 4)
+    assert(reportDF.select("District id").distinct().count == 5)
     //checking reports were created under slug folder
     val slugName = apslug.select("slug").collect().map(_ (0)).toList
     val apslugDirPath = tempDir+"/renamed/"+slugName(0)+"/"

@@ -37,21 +37,22 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
   }
 
   private def execute(config: JobConfig)(implicit sparkSession: SparkSession, fc: FrameworkContext) = {
-      try{
-        fSFileUtils.purgeDirectory(renamedDir)
-      } catch {
-        case t: Throwable => null;
-      }
-      generateGeoReport()
-      uploadReport(renamedDir)
-      JobLogger.end("StateAdminGeoReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
+    try{
+      fSFileUtils.purgeDirectory(renamedDir)
+    } catch {
+      case t: Throwable => null;
+    }
+    generateGeoReport()
+    uploadReport(renamedDir)
+    JobLogger.end("StateAdminGeoReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
 
 
   }
 
   def generateGeoReport() (implicit sparkSession: SparkSession, fc: FrameworkContext): DataFrame = {
     val organisationDF: DataFrame = loadOrganisationDF()
-    val blockData:DataFrame = generateGeoBlockData(organisationDF)
+    val subOrgDF: DataFrame = generateSubOrgData(organisationDF)
+    val blockData:DataFrame = generateBlockLevelData(subOrgDF)
     blockData.write
       .partitionBy("slug")
       .mode("overwrite")
@@ -59,15 +60,15 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
       .csv(s"$detailDir")
 
     blockData
-          .groupBy(col("slug"))
-          .agg(countDistinct("School id").as("schools"),
-            countDistinct(col("District id")).as("districts"),
-            countDistinct(col("Block id")).as("blocks"))
-          .coalesce(1)
-          .write
-          .partitionBy("slug")
-          .mode("overwrite")
-          .json(s"$summaryDir")
+      .groupBy(col("slug"))
+      .agg(countDistinct("School id").as("schools"),
+        countDistinct(col("District id")).as("districts"),
+        countDistinct(col("Block id")).as("blocks"))
+      .coalesce(1)
+      .write
+      .partitionBy("slug")
+      .mode("overwrite")
+      .json(s"$summaryDir")
 
     fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "geo-summary")
     fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "geo-detail")
@@ -83,7 +84,7 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
       select("*")
       .groupBy(col("slug"),col("District name").as("districtName")).
       agg(countDistinct("Block id").as("blocks"),countDistinct("externalid").as("schools"))
-        .withColumn("index", row_number().over(window))
+      .withColumn("index", row_number().over(window))
     dataFrameToJsonFile(blockDataWithSlug)
   }
 
@@ -92,11 +93,11 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
       .collect()
       .groupBy(
         f => f.getString(0)).map(f => {
-          val summary = f._2.map(f => DistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4)))
-          val arrDistrictSummary = Array(JSONUtils.serialize(summary))
-          val fileName = s"$renamedDir/${f._1}/geo-summary-district.json"
-          OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> fileName)), arrDistrictSummary);
-      })
+      val summary = f._2.map(f => DistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4)))
+      val arrDistrictSummary = Array(JSONUtils.serialize(summary))
+      val fileName = s"$renamedDir/${f._1}/geo-summary-district.json"
+      OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> fileName)), arrDistrictSummary);
+    })
   }
 
   def uploadReport(sourcePath: String)(implicit fc: FrameworkContext) = {
