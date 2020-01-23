@@ -77,12 +77,10 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     val shadowDataEncoder = Encoders.product[ShadowUserData].schema
     val shadowUserDF = loadData(sparkSession, Map("table" -> "shadow_user", "keyspace" -> sunbirdKeyspace), Some(shadowDataEncoder)).as[ShadowUserData]
     val claimedShadowUserDF = shadowUserDF.where(col("claimstatus")=== ClaimedStatus.id)
-
     val shadowDataSummary = generateSummaryData(shadowUserDF)
 
     saveUserSummaryReport(shadowDataSummary, s"$summaryDir")
     saveUserDetailsReport(shadowUserDF.toDF(), s"$detailDir")
-
     fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "user-detail")
     fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "user-summary")
 
@@ -96,15 +94,15 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     val organisationDF = loadOrganisationDF()
     val channelSlugMap: Map[String, String] = getChannelSlugMap(organisationDF)
 
-
     // We can directly write to the slug folder
     val subOrgDF: DataFrame = generateSubOrgData(organisationDF)
     val blockDataWithSlug:DataFrame = generateBlockLevelData(subOrgDF)
     val userDistrictSummaryDF = claimedShadowUserDF.join(blockDataWithSlug, blockDataWithSlug.col("externalid") === (claimedShadowUserDF.col("orgextid")),"inner")
-    val validatedUsersWithDst = userDistrictSummaryDF.groupBy(col("slug"), col("Channels")).agg(countDistinct("District name").as("districts"),countDistinct("Block id").as("blocks"),countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"))
+    val validatedUsersWithDst = userDistrictSummaryDF.groupBy(col("slug"), col("Channels")).agg(countDistinct("District name").as("districts"),
+      countDistinct("Block id").as("blocks"), countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"), count("userid").as("subOrgRegistered"))
     val validatedShadowDataSummaryDF = claimedShadowDataSummaryDF.join(validatedUsersWithDst, claimedShadowDataSummaryDF.col("channel") === validatedUsersWithDst.col("Channels"))
     val validatedGeoSummaryDF = validatedShadowDataSummaryDF.withColumn("registered",
-      when(col("1").isNull, 0).otherwise(col("1"))).drop("1", "channel", "Channels")
+      when(col("1").isNull, 0).otherwise(col("1"))).withColumn("rootOrgRegistered", col("registered")-col("subOrgRegistered")).drop("1", "channel", "Channels")
 
     saveUserValidatedSummaryReport(validatedGeoSummaryDF, s"$summaryDir")
     fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "validated-user-summary")
@@ -122,10 +120,6 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
       agg(countDistinct("Block id").as("blocks"),countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"), count("userextid").as("registered"))
     saveUserDistrictSummary(districtUserResult)
 
-
-    val stateUserResult = stateOrgDf.groupBy(col("slug"), col("District name").as("districtName")).
-      agg(when(col("District name").isin(""), 0).otherwise(countDistinct("Block id")).as("blocks"), countDistinct(col("externalid")).as("schools"), count("userextid").as("registered"))
-    saveUserStateSummary(stateUserResult)
     districtUserResult
   }
 
@@ -147,11 +141,6 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     val window = Window.partitionBy("slug").orderBy(asc("districtName"))
     val districtSummaryDF = resultDF.withColumn("index", row_number().over(window))
     dataFrameToJsonFile(districtSummaryDF,"validated-user-summary-district.json")
-  }
-
-  def saveUserStateSummary(resultDF: DataFrame)(implicit fc: FrameworkContext) {
-    val districtSummaryDF = resultDF.withColumn("index", lit(1))
-    dataFrameToJsonFile(districtSummaryDF,"validated-user-summary-state.json")
   }
 
   private def getChannelSlugMap(organisationDF: DataFrame)(implicit sparkSession: SparkSession): Map[String, String] = {

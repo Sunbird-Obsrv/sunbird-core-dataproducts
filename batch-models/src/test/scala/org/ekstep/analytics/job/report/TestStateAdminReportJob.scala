@@ -50,16 +50,12 @@ class TestStateAdminReportJob extends BaseReportSpec with MockFactory {
     val validateUserDetail = new File(apslugDirPath+"validated-user-detail.csv")
     val validateUserSummary = new File(apslugDirPath+"validated-user-summary.json")
     val validateUserDstSummary = new File(apslugDirPath+"validated-user-summary-district.json");
-    val validateUserStateSummary = new File(apslugDirPath+"validated-user-summary-state.json");
-    val tnValidateUserStateSummary = new File(tnslugDirPath+"validated-user-summary-state.json");
     assert(userDetail.exists() === true)
     assert(userSummary.exists() === true)
     assert(validateUserDetail.exists() === true)
     assert(validateUserSummary.exists() === true)
     assert(validateUserDstSummary.exists())
-    assert(validateUserStateSummary.exists())
     assert(stateUserDetail.exists())
-    assert(tnValidateUserStateSummary.exists() === false)
   }
 
 }
