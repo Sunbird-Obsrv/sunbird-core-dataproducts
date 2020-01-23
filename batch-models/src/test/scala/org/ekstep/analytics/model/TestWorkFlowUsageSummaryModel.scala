@@ -1,15 +1,10 @@
 package org.ekstep.analytics.model
 
-import org.ekstep.analytics.framework.util.CommonUtil
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.apache.spark.rdd.RDD
-import org.apache.spark.SparkContext
-import org.ekstep.analytics.framework.DerivedEvent
-import com.datastax.spark.connector.cql.CassandraConnector
-import org.ekstep.analytics.framework.RegisteredTag
-import org.ekstep.analytics.util.Constants
 import com.datastax.spark.connector._
-import org.ekstep.analytics.framework.FrameworkContext
+import com.datastax.spark.connector.cql.CassandraConnector
+import org.ekstep.analytics.framework.{DerivedEvent, FrameworkContext, RegisteredTag}
+import org.ekstep.analytics.framework.util.JSONUtils
+import org.ekstep.analytics.util.Constants
 
 class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
 
@@ -38,7 +33,7 @@ class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
         event1.dimensions.did.get should be("all");
         event1.dimensions.uid.get should be("all");
         event1.dimensions.period.get should be(20180123);
-        event1.dimensions.channel.get should be("in.ekstep");
+        event1.dimensions.channel.get should be("in.sunbird");
         event1.dimensions.mode.get should be("")
 
         val summary1 = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(event1.edata.eks));
@@ -69,7 +64,7 @@ class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
         event2.dimensions.did.get should be("all");
         event2.dimensions.uid.get should be("427");
         event2.dimensions.period.get should be(20180123);
-        event2.dimensions.channel.get should be("in.ekstep");
+        event2.dimensions.channel.get should be("in.sunbird");
         event2.dimensions.mode.get should be("")
 
         val summary2 = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(event2.edata.eks));
@@ -110,7 +105,7 @@ class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
         event1.dimensions.did.get should be("all");
         event1.dimensions.uid.get should be("all");
         event1.dimensions.period.get should be(20180108);
-        event1.dimensions.channel.get should be("in.ekstep");
+        event1.dimensions.channel.get should be("in.sunbird");
         event1.dimensions.mode.get should be("play")
 
         val summary1 = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(event1.edata.eks));
@@ -141,7 +136,7 @@ class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
         event2.dimensions.did.get should be("11573c50cae2078e847f12c91a2d1965eaa73714");
         event2.dimensions.uid.get should be("all");
         event2.dimensions.period.get should be(20180108);
-        event2.dimensions.channel.get should be("in.ekstep");
+        event2.dimensions.channel.get should be("in.sunbird");
         event2.dimensions.mode.get should be("play")
 
         val summary2 = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(event2.edata.eks));
@@ -172,7 +167,7 @@ class TestWorkFlowUsageSummaryModel extends SparkSpec(null) {
         event3.dimensions.did.get should be("11573c50cae2078e847f12c91a2d1965eaa73714");
         event3.dimensions.uid.get should be("all");
         event3.dimensions.period.get should be(20180108);
-        event3.dimensions.channel.get should be("in.ekstep");
+        event3.dimensions.channel.get should be("in.sunbird");
         event3.dimensions.mode.get should be("play")
 
         val summary3 = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(event3.edata.eks));

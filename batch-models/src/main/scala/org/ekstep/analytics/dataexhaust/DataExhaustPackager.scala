@@ -184,14 +184,14 @@ object DataExhaustPackager extends optional.Application {
             val result = DataExhaustPackage(requestId, clientKey, jobId, exhaustExeTime + packageExeTime, "COMPLETED", 0L, Option(completedDate), Option(filePath), Option(fileSize), Option(fieCreatedDate), Option(fileExpiryDate));
             sc.makeRDD(Seq(result)).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME, Constants.JOB_REQUEST, SomeColumns("request_id", "client_key", "job_id", "execution_time", "status", "latency", "dt_job_completed", "location", "file_size", "dt_file_created", "dt_expiration"));
             // JOB_END event with success
-            JobLogger.end("DataExhaust Job Completed for "+requestId, "SUCCESS", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> outputEventsCount, "timeTaken" -> Double.box((exhaustExeTime + packageExeTime) / 1000), "SubmittedDate" -> jobRequest.dt_job_submitted.toString(), "channel" -> "in.ekstep")), "org.ekstep.analytics", requestId);
+            JobLogger.end("DataExhaust Job Completed for "+requestId, "SUCCESS", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> outputEventsCount, "timeTaken" -> Double.box((exhaustExeTime + packageExeTime) / 1000), "SubmittedDate" -> jobRequest.dt_job_submitted.toString(), "channel" -> "in.sunbird")), "org.ekstep.analytics", requestId);
         } catch {
             case t: Throwable =>
                 t.printStackTrace();
                 val result = DataExhaustPackage(requestId, clientKey, jobId, exhaustExeTime, "FAILED");
                 sc.makeRDD(Seq(result)).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME, Constants.JOB_REQUEST, SomeColumns("request_id", "client_key", "job_id", "execution_time", "status", "latency"));
                 // JOB_END event with failure
-                JobLogger.end("DataExhaust Job Failed for "+requestId, "FAILED", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> 0, "timeTaken" -> Double.box(exhaustExeTime / 1000), "SubmittedDate" -> jobRequest.dt_job_submitted.toString(), "channel" -> "in.ekstep")), "org.ekstep.analytics", requestId);
+                JobLogger.end("DataExhaust Job Failed for "+requestId, "FAILED", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> 0, "timeTaken" -> Double.box(exhaustExeTime / 1000), "SubmittedDate" -> jobRequest.dt_job_submitted.toString(), "channel" -> "in.sunbird")), "org.ekstep.analytics", requestId);
         }
     }
 
