@@ -55,7 +55,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
     playerSummaryEvent1.size should be(0)
     editorSummaryEvent1.size should be(0)
 
-    val event1 = appSummaryEvent1.filter(f => f.mid.equals("871C7971EAE4142CF94EB8BE79AFDA0E")).last
+    val event1 = appSummaryEvent1.filter(f => f.mid.equals("47377F637676DDE217BAFA1DF95E6FF1")).last
 
     // Validate for event envelope
     event1.eid should be("ME_WORKFLOW_SUMMARY");
@@ -136,7 +136,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
     playerSummaryEvent1.size should be(2)
     editorSummaryEvent1.size should be(0)
 
-    val event1 = playerSummaryEvent1.filter(f => f.mid.equals("F12DB24FEE7385ED1F824D689BA2B220")).last
+    val event1 = playerSummaryEvent1.filter(f => f.mid.equals("B30D043CA457042F71E73C24404737BE")).last
 
     event1.eid should be("ME_WORKFLOW_SUMMARY");
     event1.context.pdata.model.get should be("WorkflowSummarizer");
