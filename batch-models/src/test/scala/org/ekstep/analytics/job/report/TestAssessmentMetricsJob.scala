@@ -197,9 +197,9 @@ class TestAssessmentMetricsJob extends BaseReportSpec with MockFactory {
 
   it should "Sort and get the best score" in {
     val df = spark.createDataFrame(Seq(
-      ("do_112835335135993856149", "A3", "user030", "do_1125559882615357441175", "1010", "1971-09-22 02:10:53.444+0000", "2019-09-04 09:59:51.000+0000", "10", "5", "2019-09-06 09:59:51.000+0000", "10/2", ""),
-      ("do_112835335135993856149", "A3", "user030", "do_1125559882615357441175", "1010", "1971-09-22 02:10:53.444+0000", "2019-09-05 09:59:51.000+0000", "12", "4", "2019-09-06 09:59:51.000+0000", "10/2", "")
-    )).toDF("content_id", "attempt_id", "user_id", "course_id", "batch_id", "created_on", "last_attempted_on", "total_max_score", "total_score", "updated_on", "grand_total", "question")
+      ("do_112835335135993856149", "A3", "user030", "do_1125559882615357441175", "1010", "1971-09-22 02:10:53.444+0000", "2019-09-04 09:59:51.000+0000", "10", "5", "2019-09-06 09:59:51.000+0000", "10/2", "", "50"),
+      ("do_112835335135993856149", "A3", "user030", "do_1125559882615357441175", "1010", "1971-09-22 02:10:53.444+0000", "2019-09-05 09:59:51.000+0000", "12", "4", "2019-09-06 09:59:51.000+0000", "10/2", "", "33.33")
+    )).toDF("content_id", "attempt_id", "user_id", "course_id", "batch_id", "created_on", "last_attempted_on", "total_max_score", "total_score", "updated_on", "grand_total", "question", "percentage")
     val bestScoreDF = AssessmentMetricsJob.getAssessmentData(df);
     val bestScore = bestScoreDF.select("total_score").collect().map(_ (0)).toList
     assert(bestScore(0) === "5")
@@ -254,6 +254,7 @@ class TestAssessmentMetricsJob extends BaseReportSpec with MockFactory {
     assert(column_names.contains("District Name") === true)
     assert(column_names.contains("School Name") === true)
     assert(column_names.contains("Total Score") === true)
+    assert(column_names.contains("Percentage") === true)
   }
 
   it should "generate reports" in {
