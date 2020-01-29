@@ -102,7 +102,7 @@ object DataExhaustJob extends optional.Application with IJob {
 
                     sc.makeRDD(Seq(result)).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME, Constants.JOB_REQUEST, SomeColumns("request_id", "client_key", "status", "iteration", "err_message", "input_events", "output_events", "dt_first_event", "dt_last_event", "execution_time", "dt_job_completed"));
                     if(status.equals("COMPLETED"))
-                        JobLogger.end("DataExhaust Job Completed for "+requestId, "SUCCESS", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> outputEventsCount, "timeTaken" -> Double.box(exeMetrics._1 / 1000), "channel" -> "in.ekstep")), "org.ekstep.analytics", requestId);
+                        JobLogger.end("DataExhaust Job Completed for "+requestId, "SUCCESS", Option(Map("tag" -> clientKey, "inputEvents" -> inputEventsCount, "outputEvents" -> outputEventsCount, "timeTaken" -> Double.box(exeMetrics._1 / 1000), "channel" -> "in.sunbird")), "org.ekstep.analytics", requestId);
 
                 } catch {
                     case ex: Exception =>
