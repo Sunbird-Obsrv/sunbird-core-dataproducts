@@ -30,11 +30,11 @@ trait StateAdminReportHelper extends  BaseReportsJob {
       .withColumn("explodedlocation", explode(when(size(col("locationids")).equalTo(0), array(lit(null).cast("string")))
         .otherwise(when(col("locationids").isNotNull, col("locationids"))
           .otherwise(array(lit(null).cast("string"))))))
-    val subOrgJoinedDF = subOrgDF
+    val activeSubOrgDF = subOrgDF
       .where(col("status").equalTo(1))
       .join(locationDF, subOrgDF.col("explodedlocation") === locationDF.col("locid"), "left")
       .join(rootOrgDF, subOrgDF.col("rootorgid") === rootOrgDF.col("rootorgjoinid"), "left")
-    subOrgJoinedDF
+    activeSubOrgDF
   }
 
   def generateBlockLevelData(subOrgJoinedDF: DataFrame)(implicit sparkSession: SparkSession) = {
@@ -44,31 +44,31 @@ trait StateAdminReportHelper extends  BaseReportsJob {
     val window = Window.partitionBy("slug").orderBy(asc("districtName"))
     val blockData = blockDF.join(districtDF, blockDF.col("schooljoinid").equalTo(districtDF.col("schoolid")), "right_outer").drop(col("schooljoinid")).coalesce(1)
       .withColumn("index",row_number().over(window)).select(
-      col("index"),
-      col("schoolid").as("School id"),
-      col("schoolname").as("School name"),
-      col("channel").as("Channels"),
-      col("districtid").as("District id"),
-      col("districtname").as("District name"),
-      col("blockid").as("Block id"),
-      col("blockname").as("Block name"),
-      col("slug").as("slug"),
-      col("externalid"))
+        col("index"),
+        col("schoolid").as("School id"),
+        col("schoolname").as("School name"),
+        col("channel").as("Channels"),
+        col("districtid").as("District id"),
+        col("districtname").as("District name"),
+        col("blockid").as("Block id"),
+        col("blockname").as("Block name"),
+        col("slug").as("slug"),
+        col("externalid"))
     blockData
   }
 
   def loadOrganisationDF() (implicit sparkSession: SparkSession)  =  {
     loadData(sparkSession, Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace), None).select(
-      col("id").as("id"),
-      col("isrootorg").as("isrootorg"),
-      col("rootorgid").as("rootorgid"),
-      col("channel").as("channel"),
-      col("status").as("status"),
-      col("locationid").as("locationid"),
-      col("orgname").as("orgname"),
-      col("locationids").as("locationids"),
-      col("externalid").as("externalid"),
-      col("slug").as("slug")).cache();
+    col("id").as("id"),
+    col("isrootorg").as("isrootorg"),
+    col("rootorgid").as("rootorgid"),
+    col("channel").as("channel"),
+    col("status").as("status"),
+    col("locationid").as("locationid"),
+    col("orgname").as("orgname"),
+    col("locationids").as("locationids"),
+    col("externalid").as("externalid"),
+    col("slug").as("slug")).cache();
   }
 
 }
