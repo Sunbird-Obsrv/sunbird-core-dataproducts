@@ -90,7 +90,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         // Only claimed used
         val claimedShadowDataSummaryDF = claimedShadowUserDF.groupBy("channel")
           .pivot("claimstatus").agg(count("claimstatus")).na.fill(0)
-    
+
         val organisationDF = loadOrganisationDF()
         val channelSlugMap: Map[String, String] = getChannelSlugMap(organisationDF)
         
@@ -103,7 +103,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         val validatedShadowDataSummaryDF = claimedShadowDataSummaryDF.join(validatedUsersWithDst, claimedShadowDataSummaryDF.col("channel") === validatedUsersWithDst.col("Channels"))
         val validatedGeoSummaryDF = validatedShadowDataSummaryDF.withColumn("registered",
           when(col("1").isNull, 0).otherwise(col("1"))).withColumn("rootOrgRegistered", col("registered")-col("subOrgRegistered")).drop("1", "channel", "Channels")
-        
+
         saveUserValidatedSummaryReport(validatedGeoSummaryDF, s"$summaryDir")
         fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "validated-user-summary")
         fSFileUtils.purgeDirectory(summaryDir)
@@ -142,7 +142,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
       val districtSummaryDF = resultDF.withColumn("index", row_number().over(window))
       dataFrameToJsonFile(districtSummaryDF,"validated-user-summary-district.json")
     }
-    
+
     private def getChannelSlugMap(organisationDF: DataFrame)(implicit sparkSession: SparkSession): Map[String, String] = {
       val channelSlugMap: Map[String, String] = organisationDF
         .select(col("channel"), col("slug")).where(col("isrootorg") && col("status").===(1))
