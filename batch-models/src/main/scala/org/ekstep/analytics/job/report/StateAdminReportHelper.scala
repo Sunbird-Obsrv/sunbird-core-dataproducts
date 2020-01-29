@@ -30,11 +30,11 @@ trait StateAdminReportHelper extends  BaseReportsJob {
       .withColumn("explodedlocation", explode(when(size(col("locationids")).equalTo(0), array(lit(null).cast("string")))
         .otherwise(when(col("locationids").isNotNull, col("locationids"))
           .otherwise(array(lit(null).cast("string"))))))
-    val activeSubOrgDF = subOrgDF
+    val activeOrgDF = subOrgDF
       .where(col("status").equalTo(1))
       .join(locationDF, subOrgDF.col("explodedlocation") === locationDF.col("locid"), "left")
       .join(rootOrgDF, subOrgDF.col("rootorgid") === rootOrgDF.col("rootorgjoinid"), "left")
-    activeSubOrgDF
+    activeOrgDF
   }
 
   def generateBlockLevelData(subOrgJoinedDF: DataFrame)(implicit sparkSession: SparkSession) = {
