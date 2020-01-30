@@ -59,7 +59,17 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         uploadReport(renamedDir)
         JobLogger.end("StateAdminReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
     }
-
+    
+    def generateStateRootSubOrgDF(subOrgDF: DataFrame, claimedShadowDataSummaryDF: DataFrame, claimedShadowUserDF: DataFrame) = {
+        val rootSubOrg = subOrgDF.where(col("isrootorg") && col("status").equalTo(1))
+        val stateUsersDf = rootSubOrg.join(claimedShadowUserDF, rootSubOrg.col("externalid") === (claimedShadowUserDF.col("orgextid")),"inner")
+            .withColumnRenamed("orgname","School name")
+            .withColumn("District id", lit("")).withColumn("District name", lit( "")).withColumn("Block id", lit("")).withColumn("Block name", lit(""))
+            .select(col("School name"), col("District id"), col("District name"), col("Block id"), col("Block name"), col("slug"),
+                col("externalid"),col("userextid"),col("name"),col("userid"))
+        stateUsersDf
+    }
+    
     def generateReport()(implicit sparkSession: SparkSession, fc: FrameworkContext)   = {
 
         import sparkSession.implicits._
@@ -67,16 +77,13 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         val shadowDataEncoder = Encoders.product[ShadowUserData].schema
         val shadowUserDF = loadData(sparkSession, Map("table" -> "shadow_user", "keyspace" -> sunbirdKeyspace), Some(shadowDataEncoder)).as[ShadowUserData]
         val claimedShadowUserDF = shadowUserDF.where(col("claimstatus")=== ClaimedStatus.id)
-
         val shadowDataSummary = generateSummaryData(shadowUserDF)
 
         saveUserSummaryReport(shadowDataSummary, s"$summaryDir")
         saveUserDetailsReport(shadowUserDF.toDF(), s"$detailDir")
-
         fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "user-detail")
         fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "user-summary")
-
-
+        
         // Purge the directories after copying to the upload staging area
         fSFileUtils.purgeDirectory(detailDir)
         fSFileUtils.purgeDirectory(summaryDir)
@@ -86,30 +93,34 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
 
         val organisationDF = loadOrganisationDF()
         val channelSlugMap: Map[String, String] = getChannelSlugMap(organisationDF)
-
-
+        
         // We can directly write to the slug folder
-        val blockDataWithSlug = generateGeoBlockData(organisationDF)
-        val userDistrictSummaryDF = blockDataWithSlug.where(col("Block id").isNotNull).join(claimedShadowUserDF, blockDataWithSlug.col("externalid") === (claimedShadowUserDF.col("orgextid")),"left_outer")
-        val validatedUsersWithDst = userDistrictSummaryDF.groupBy(col("slug"), col("Channels")).agg(countDistinct("District name").as("districts"),countDistinct("Block id").as("blocks"),countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"))
-
+        val subOrgDF: DataFrame = generateSubOrgData(organisationDF)
+        val blockDataWithSlug:DataFrame = generateBlockLevelData(subOrgDF)
+        val userDistrictSummaryDF = claimedShadowUserDF.join(blockDataWithSlug, blockDataWithSlug.col("externalid") === (claimedShadowUserDF.col("orgextid")),"inner")
+        val validatedUsersWithDst = userDistrictSummaryDF.groupBy(col("slug"), col("Channels")).agg(countDistinct("District name").as("districts"),
+            countDistinct("Block id").as("blocks"), countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"), count("userid").as("subOrgRegistered"))
         val validatedShadowDataSummaryDF = claimedShadowDataSummaryDF.join(validatedUsersWithDst, claimedShadowDataSummaryDF.col("channel") === validatedUsersWithDst.col("Channels"))
         val validatedGeoSummaryDF = validatedShadowDataSummaryDF.withColumn("registered",
-          when(col("1").isNull, 0).otherwise(col("1"))).drop("1", "channel", "Channels")
+          when(col("1").isNull, 0).otherwise(col("1"))).withColumn("rootOrgRegistered", col("registered")-col("subOrgRegistered")).drop("1", "channel", "Channels")
 
         saveUserValidatedSummaryReport(validatedGeoSummaryDF, s"$summaryDir")
         fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "validated-user-summary")
         fSFileUtils.purgeDirectory(summaryDir)
-
+        val stateOrgDf = generateStateRootSubOrgDF(subOrgDF, claimedShadowDataSummaryDF, claimedShadowUserDF.toDF());
         saveValidatedUserDetailsReport(userDistrictSummaryDF, s"$detailDir")
         fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "validated-user-detail")
         fSFileUtils.purgeDirectory(detailDir)
+        saveValidatedUserDetailsReport(stateOrgDf, s"$detailDir")
+        fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "validated-user-detail-state")
+        fSFileUtils.purgeDirectory(detailDir)
         renameChannelDirsToSlug(renamedDir, channelSlugMap)
-
-        val resultDF = userDistrictSummaryDF.groupBy(col("slug"), col("index"), col("District name").as("districtName")).
-          agg(countDistinct("Block id").as("blocks"),countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"), count("userextid").as("registered"))
-        saveUserDistrictSummary(resultDF)
-          resultDF
+        
+        val districtUserResult = userDistrictSummaryDF.groupBy(col("slug"), col("District name").as("districtName")).
+            agg(countDistinct("Block id").as("blocks"),countDistinct(claimedShadowUserDF.col("orgextid")).as("schools"), count("userextid").as("registered"))
+        saveUserDistrictSummary(districtUserResult)
+        
+        districtUserResult
     }
 
     def saveValidatedUserDetailsReport(userDistrictSummaryDF: DataFrame, url: String) {
@@ -129,7 +140,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     def saveUserDistrictSummary(resultDF: DataFrame)(implicit fc: FrameworkContext) {
       val window = Window.partitionBy("slug").orderBy(asc("districtName"))
       val districtSummaryDF = resultDF.withColumn("index", row_number().over(window))
-      dataFrameToJsonFile(districtSummaryDF)
+      dataFrameToJsonFile(districtSummaryDF,"validated-user-summary-district.json")
     }
 
     private def getChannelSlugMap(organisationDF: DataFrame)(implicit sparkSession: SparkSession): Map[String, String] = {
@@ -219,22 +230,23 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         JobLogger.log(s"columns to add in this report $columns")
 
         correctedReportDF.coalesce(1)
-          .select(
-              col("channel"),
-              when(col(UnclaimedStatus.status).isNull, 0).otherwise(col(UnclaimedStatus.status)).as("accounts_unclaimed"),
-              when(col(ClaimedStatus.status).isNull, 0).otherwise(col(ClaimedStatus.status)).as("accounts_validated"),
-              when(col(RejectedStatus.status).isNull, 0).otherwise(col(RejectedStatus.status)).as("accounts_rejected"),
-              when(col(FailedStatus.status).isNull, 0).otherwise(col(FailedStatus.status)).as(FailedStatus.status),
-              when(col(MultiMatchStatus.status).isNull, 0).otherwise(col(MultiMatchStatus.status)).as(MultiMatchStatus.status),
-              when(col(OrgExtIdMismatch.status).isNull, 0).otherwise(col(OrgExtIdMismatch.status)).as(OrgExtIdMismatch.status))
-          .withColumn(
-              "accounts_failed",
-              col(FailedStatus.status) + col(MultiMatchStatus.status) + col(OrgExtIdMismatch.status))
-          .write
-          .partitionBy("channel")
-          .mode("overwrite")
-          .json(url)
-
+            .select(
+                col("channel"),
+                
+                when(col(UnclaimedStatus.status).isNull, 0).otherwise(col(UnclaimedStatus.status)).as("accounts_unclaimed"),
+                when(col(ClaimedStatus.status).isNull, 0).otherwise(col(ClaimedStatus.status)).as("accounts_validated"),
+                when(col(RejectedStatus.status).isNull, 0).otherwise(col(RejectedStatus.status)).as("accounts_rejected"),
+                when(col(FailedStatus.status).isNull, 0).otherwise(col(FailedStatus.status)).as(FailedStatus.status),
+                when(col(MultiMatchStatus.status).isNull, 0).otherwise(col(MultiMatchStatus.status)).as(MultiMatchStatus.status),
+                when(col(OrgExtIdMismatch.status).isNull, 0).otherwise(col(OrgExtIdMismatch.status)).as(OrgExtIdMismatch.status))
+            .withColumn(
+                "accounts_failed",
+                col(FailedStatus.status) + col(MultiMatchStatus.status) + col(OrgExtIdMismatch.status))
+            .write
+            .partitionBy("channel")
+            .mode("overwrite")
+            .json(url)
+        
         JobLogger.log(s"StateAdminReportJob: uploadedSuccess nRecords = ${reportDF.count()}", None, INFO)
     }
 
@@ -271,15 +283,15 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         storageService.closeContext()
     }
 
-    def dataFrameToJsonFile(dataFrame: DataFrame)(implicit fc: FrameworkContext): Unit = {
+    def dataFrameToJsonFile(dataFrame: DataFrame, fileName: String)(implicit fc: FrameworkContext): Unit = {
       val dfMap = dataFrame.select("slug", "index","districtName", "blocks", "schools","registered")
         .collect()
         .groupBy(
-          f => f.getString(0)).map(f => {
+        f => f.getString(0)).map(f => {
         val summary = f._2.map(f => ValidatedUserDistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4), f.getLong(5)))
         val arrDistrictSummary = Array(JSONUtils.serialize(summary))
-        val fileName = s"$renamedDir/${f._1}/validated-user-summary-district.json"
-        OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> fileName)), arrDistrictSummary);
+        val filePath = s"$renamedDir/${f._1}/$fileName"
+        OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> filePath)), arrDistrictSummary);
       })
 
     }
