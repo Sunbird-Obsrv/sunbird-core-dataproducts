@@ -49,6 +49,7 @@ object EmbeddedPostgresql {
   }
 
   def execute(sqlString: String): Boolean = {
+    println("query: " + sqlString)
     stmt.execute(sqlString)
   }
 
