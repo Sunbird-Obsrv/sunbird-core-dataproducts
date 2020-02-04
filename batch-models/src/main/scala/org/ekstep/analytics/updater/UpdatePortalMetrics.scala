@@ -116,7 +116,7 @@ object UpdatePortalMetrics extends IBatchModelTemplate[DerivedEvent, DerivedEven
     val measures = WorkFlowUsageMetrics(record.noOfUniqueDevices, record.totalContentPlaySessions, record.totalTimeSpent, record.totalContentPublished)
     val metrics = PortalMetrics(EVENT_ID, System.currentTimeMillis(), System.currentTimeMillis(), Some(measures))
     if (config.getOrElse("dispatch", false).asInstanceOf[Boolean]) {
-      AzureDispatcher.dispatch(Array(JSONUtils.serialize(metrics)), config)
+      AzureDispatcher.dispatch(config, sc.parallelize(Array(JSONUtils.serialize(metrics)), 1))
     }
     sc.parallelize(Array(metrics))
   }

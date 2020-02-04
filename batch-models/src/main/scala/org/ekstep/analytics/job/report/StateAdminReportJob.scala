@@ -137,7 +137,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         .csv(url)
     }
 
-    def saveUserDistrictSummary(resultDF: DataFrame)(implicit fc: FrameworkContext) {
+    def saveUserDistrictSummary(resultDF: DataFrame)(implicit sparkSession: SparkSession, fc: FrameworkContext) {
       val window = Window.partitionBy("slug").orderBy(asc("districtName"))
       val districtSummaryDF = resultDF.withColumn("index", row_number().over(window))
       dataFrameToJsonFile(districtSummaryDF,"validated-user-summary-district.json")
@@ -283,13 +283,14 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
         storageService.closeContext()
     }
 
-    def dataFrameToJsonFile(dataFrame: DataFrame, fileName: String)(implicit fc: FrameworkContext): Unit = {
+    def dataFrameToJsonFile(dataFrame: DataFrame, fileName: String)(implicit sparkSession: SparkSession, fc: FrameworkContext): Unit = {
+      implicit val sc = sparkSession.sparkContext;
       val dfMap = dataFrame.select("slug", "index","districtName", "blocks", "schools","registered")
         .collect()
         .groupBy(
         f => f.getString(0)).map(f => {
         val summary = f._2.map(f => ValidatedUserDistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4), f.getLong(5)))
-        val arrDistrictSummary = Array(JSONUtils.serialize(summary))
+        val arrDistrictSummary = sc.parallelize(Array(JSONUtils.serialize(summary)), 1)
         val filePath = s"$renamedDir/${f._1}/$fileName"
         OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> filePath)), arrDistrictSummary);
       })
