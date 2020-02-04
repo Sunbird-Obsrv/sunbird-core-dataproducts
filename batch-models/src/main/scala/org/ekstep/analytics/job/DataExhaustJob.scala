@@ -116,7 +116,7 @@ object DataExhaustJob extends optional.Application with IJob {
             }
             requests.length
         })
-        val requestDetails = DataExhaustUtils.getRequestDetails(new LocalDate().toString)
+        val requestDetails = sc.parallelize(DataExhaustUtils.getRequestDetails(new LocalDate().toString), 1)
         val dispatcher = config.output.getOrElse(null)
         if(dispatcher!=null){
             OutputDispatcher.dispatch(dispatcher.head, requestDetails.map { x => JSONUtils.serialize(x) });    
