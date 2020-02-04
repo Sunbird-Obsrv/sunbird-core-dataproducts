@@ -243,7 +243,7 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
   def transposeDF(reportDF: DataFrame): DataFrame = {
     // Re-shape the dataFrame (Convert the content name from the row to column)
 
-    val reshapedDF = reportDF.groupBy("courseid", "batchid", "userid").pivot("content_name").agg(concat((split(first("grand_total"), "\\/").getItem(0) * 100)/(split(first("grand_total"), "\\/").getItem(1)), lit("%")))
+    val reshapedDF = reportDF.groupBy("courseid", "batchid", "userid").pivot("content_name").agg(concat(ceil((split(first("grand_total"), "\\/").getItem(0) * 100)/(split(first("grand_total"), "\\/").getItem(1))), lit("%")))
     reshapedDF.join(reportDF, Seq("courseid", "batchid", "userid"), "inner").
       select(
         reportDF.col("externalid").as("External ID"),
