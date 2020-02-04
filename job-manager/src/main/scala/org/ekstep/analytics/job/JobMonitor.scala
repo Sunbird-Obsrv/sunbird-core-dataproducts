@@ -50,9 +50,9 @@ class JobEventListener(channel: String, userName: String) {
         val meEvent = JSONUtils.deserialize[V3DerivedEvent](event);
         meEvent.eid match {
             case "JOB_START" =>
-                OutputDispatcher.dispatch(dispatcher, Array(JobMonitor.jobStartMsg(meEvent)))
+                //OutputDispatcher.dispatch(dispatcher, Array(JobMonitor.jobStartMsg(meEvent)))
             case "JOB_END" =>
-                OutputDispatcher.dispatch(dispatcher, Array(JobMonitor.jobEndMsg(meEvent)))
+                //OutputDispatcher.dispatch(dispatcher, Array(JobMonitor.jobEndMsg(meEvent)))
         }
     }
     

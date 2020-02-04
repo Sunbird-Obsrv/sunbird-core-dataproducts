@@ -229,7 +229,7 @@ object DataExhaustPackager extends optional.Application {
 		val gson = new GsonBuilder().setPrettyPrinting().create();
 		val jsonString = gson.toJson(manifest)
 		val outputManifestPath = requestDataLocalPath + "manifest.json"
-		OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> outputManifestPath)), Array(jsonString));
+		OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> outputManifestPath)), sc.parallelize(Array(jsonString), 1));
 		manifest
 	}
 

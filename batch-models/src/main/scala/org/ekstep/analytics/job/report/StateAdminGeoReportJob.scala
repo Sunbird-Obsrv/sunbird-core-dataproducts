@@ -78,7 +78,7 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
     blockData
   }
 
-  def districtSummaryReport(blockData: DataFrame)(implicit fc: FrameworkContext): Unit = {
+  def districtSummaryReport(blockData: DataFrame)(implicit sparkSession: SparkSession, fc: FrameworkContext): Unit = {
     val window = Window.partitionBy("slug").orderBy(asc("districtName"))
     val blockDataWithSlug = blockData.
       select("*")
@@ -88,13 +88,14 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
     dataFrameToJsonFile(blockDataWithSlug)
   }
 
-  def dataFrameToJsonFile(dataFrame: DataFrame)(implicit fc: FrameworkContext): Unit = {
+  def dataFrameToJsonFile(dataFrame: DataFrame)(implicit sparkSession: SparkSession, fc: FrameworkContext): Unit = {
+    implicit val sc = sparkSession.sparkContext;
     val dfMap = dataFrame.select("slug", "index","districtName", "blocks", "schools")
       .collect()
       .groupBy(
         f => f.getString(0)).map(f => {
           val summary = f._2.map(f => DistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4)))
-          val arrDistrictSummary = Array(JSONUtils.serialize(summary))
+          val arrDistrictSummary = sc.parallelize(Array(JSONUtils.serialize(summary)), 1)
           val fileName = s"$renamedDir/${f._1}/geo-summary-district.json"
           OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> fileName)), arrDistrictSummary);
       })
