@@ -51,7 +51,8 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
 
   def generateGeoReport() (implicit sparkSession: SparkSession, fc: FrameworkContext): DataFrame = {
     val organisationDF: DataFrame = loadOrganisationDF()
-    val blockData:DataFrame = generateGeoBlockData(organisationDF)
+    val subOrgDF: DataFrame = generateSubOrgData(organisationDF)
+    val blockData:DataFrame = generateBlockLevelData(subOrgDF)
     blockData.write
       .partitionBy("slug")
       .mode("overwrite")

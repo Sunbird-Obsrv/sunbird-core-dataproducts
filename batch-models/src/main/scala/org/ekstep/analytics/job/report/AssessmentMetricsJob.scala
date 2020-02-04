@@ -43,6 +43,7 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
     val readConsistencyLevel: String = AppConf.getConfig("assessment.metrics.cassandra.input.consistency")
     val sparkConf = sc.getConf
       .set("spark.cassandra.input.consistency.level", readConsistencyLevel)
+      .set("spark.sql.caseSensitive", AppConf.getConfig(key = "spark.sql.caseSensitive"))
     implicit val spark: SparkSession = SparkSession.builder.config(sparkConf).getOrCreate()
     val reportDF = prepareReport(spark, loadData).cache()
     val denormalizedDF = denormAssessment(reportDF)

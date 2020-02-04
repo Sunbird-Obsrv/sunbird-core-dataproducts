@@ -12,7 +12,7 @@ trait StateAdminReportHelper extends  BaseReportsJob {
   val renamedDir = s"$tempDir/renamed"
   val detailDir = s"$tempDir/detail"
 
-  def generateGeoBlockData(organisationDF: DataFrame) (implicit sparkSession: SparkSession) = {
+  def generateSubOrgData(organisationDF: DataFrame) (implicit sparkSession: SparkSession) = {
     import sparkSession.implicits._
     val locationDF = loadData(sparkSession, Map("table" -> "location", "keyspace" -> sunbirdKeyspace), None).select(
       col("id").as("locid"),
@@ -30,16 +30,17 @@ trait StateAdminReportHelper extends  BaseReportsJob {
       .withColumn("explodedlocation", explode(when(size(col("locationids")).equalTo(0), array(lit(null).cast("string")))
         .otherwise(when(col("locationids").isNotNull, col("locationids"))
           .otherwise(array(lit(null).cast("string"))))))
-
-    val subOrgJoinedDF = subOrgDF
-      .where(col("status").equalTo(1) && not(col("isrootorg")))
+    val activeOrgDF = subOrgDF
+      .where(col("status").equalTo(1))
       .join(locationDF, subOrgDF.col("explodedlocation") === locationDF.col("locid"), "left")
-      .join(rootOrgDF, subOrgDF.col("rootorgid") === rootOrgDF.col("rootorgjoinid"), "left").as[SubOrgRow]
+      .join(rootOrgDF, subOrgDF.col("rootorgid") === rootOrgDF.col("rootorgjoinid"), "left")
+    activeOrgDF
+  }
 
+  def generateBlockLevelData(subOrgJoinedDF: DataFrame)(implicit sparkSession: SparkSession) = {
 
-    val districtDF = subOrgJoinedDF.where(col("loctype").equalTo("district")).select(col("channel").as("channel"), col("slug"), col("id").as("schoolid"), col("orgname").as("schoolname"), col("locid").as("districtid"), col("locname").as("districtname"));
-
-    val blockDF = subOrgJoinedDF.where(col("loctype").equalTo("block")).select(col("id").as("schooljoinid"), col("locid").as("blockid"), col("locname").as("blockname"), col("externalid"));
+    val districtDF = subOrgJoinedDF.where(col("loctype").equalTo("district")).select(col("channel"), col("slug"), col("id").as("schoolid"), col("orgname").as("schoolname"), col("locid").as("districtid"), col("locname").as("districtname"), col("externalid"));
+    val blockDF = subOrgJoinedDF.where(col("loctype").equalTo("block")).select(col("id").as("schooljoinid"), col("locid").as("blockid"), col("locname").as("blockname"));
     val window = Window.partitionBy("slug").orderBy(asc("districtName"))
     val blockData = blockDF.join(districtDF, blockDF.col("schooljoinid").equalTo(districtDF.col("schoolid")), "right_outer").drop(col("schooljoinid")).coalesce(1)
       .withColumn("index",row_number().over(window)).select(
