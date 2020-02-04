@@ -104,11 +104,11 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
 
     val slug = result.map(f => f.slug).toList
     val reportName = result.map(_.reportName).toList.head
-    slug.head should be ("MPSlug")
+    slug.head should be ("DelhiSlug")
     val filePath = jobConfig.get("filePath").get.asInstanceOf[String]
     val key = jobConfig.get("key").get.asInstanceOf[String]
     val outDir = filePath + key + "renamed/" + reportId + "/" + slug.head + "/"
-    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/MPSlug/")
+    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/DelhiSlug/")
   }
 
   it should "give error if there is no data for output" in {
@@ -184,10 +184,10 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
 
     val slug = result.map(f => f.slug).toList
     val reportName = result.map(_.reportName).toList.head
-    slug.head should be ("MPSlug")
+    slug.head should be ("DelhiSlug")
     val filePath = jobConfig.get("filePath").get.asInstanceOf[String]
     val key = jobConfig.get("key").get.asInstanceOf[String]
     val outDir = filePath + key + "renamed/" + reportId + "/" + slug.head + "/"
-    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/MPSlug/")
+    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/DelhiSlug/")
   }
 }
