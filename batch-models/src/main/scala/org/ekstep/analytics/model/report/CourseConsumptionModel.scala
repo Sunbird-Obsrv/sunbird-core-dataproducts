@@ -56,12 +56,6 @@ object CourseConsumptionModel extends BaseCourseMetrics[Empty, BaseCourseMetrics
           val storageService = fc.getStorageService("azure")
           CourseUtils.postDataToBlob(df, f,config, storageService)
           storageService.closeContext()
-        } else {
-          val provider = AppConf.getConfig("cloud_storage_type")
-          val dispatcher = Dispatcher(provider, config)
-
-          val strData = data.map(f => JSONUtils.serialize(f))
-          OutputDispatcher.dispatch(dispatcher, strData.collect())
         }
       }
     } else {
