@@ -11,6 +11,8 @@ import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.{ JSONUtils, JobLogger }
 import org.sunbird.cloud.storage.conf.AppConf
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions;
+import java.nio.file.Paths
 
 case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], total_scans: Option[Integer] = Option(0),
                        total_scans_on_portal: Option[Integer] = Option(0), total_scans_on_app: Option[Integer] = Option(0),
@@ -19,15 +21,15 @@ case class DruidOutput(date: Option[String], state: Option[String], district: Op
                        total_content_download: Option[Integer] = Option(0), total_content_plays: Option[Integer] = Option(0),
                        total_content_plays_on_portal: Option[Integer] = Option(0), total_content_plays_on_app: Option[Integer] = Option(0),
                        total_content_plays_on_desktop: Option[Integer] = Option(0), total_app_sessions: Option[Integer] = Option(0),
-                       total_unique_devices:           Option[Double]  = Option(0), total_unique_devices_on_portal: Option[Double] = Option(0),
+                       total_unique_devices: Option[Double] = Option(0), total_unique_devices_on_portal: Option[Double] = Option(0),
                        time_spent_on_app_in_hours: Option[Double] = Option(0), total_devices_playing_content: Option[Integer] = Option(0),
                        devices_playing_content_on_app: Option[Integer] = Option(0), devices_playing_content_on_portal: Option[Integer] = Option(0),
                        total_unique_devices_on_app: Option[Double] = Option(0), total_unique_devices_on_desktop: Option[Double] = Option(0),
                        total_time_spent_in_hours: Option[Double] = Option(0), total_time_spent_in_hours_on_app: Option[Double] = Option(0),
                        total_time_spent_in_hours_on_portal: Option[Double] = Option(0), total_time_spent_in_hours_on_desktop: Option[Double] = Option(0),
-                       total_percent_failed_scans: Option[Double] = Option(0), total_content_download_on_app:Option[Integer] = Option(0),
-                       total_content_download_on_portal:Option[Integer] = Option(0), total_content_download_on_desktop:Option[Integer] = Option(0),
-                       total_unique_devices_on_desktop_played_content:Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
+                       total_percent_failed_scans: Option[Double] = Option(0), total_content_download_on_app: Option[Integer] = Option(0),
+                       total_content_download_on_portal: Option[Integer] = Option(0), total_content_download_on_desktop: Option[Integer] = Option(0),
+                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
 
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig])
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String])
@@ -41,7 +43,24 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   override def name: String = "DruidQueryProcessingModel"
 
   override def preProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
+    
+    setStorageConf(getStringProperty(config, "store", "local"), config.get("accountKey").asInstanceOf[Option[String]], config.get("accountSecret").asInstanceOf[Option[String]])
     data
+  }
+  
+  private def setStorageConf(store: String, accountKey: Option[String], accountSecret: Option[String])(implicit sc: SparkContext) {
+    
+    store.toLowerCase() match {
+      case "s3" =>
+        sc.hadoopConfiguration.set("fs.s3n.awsAccessKeyId", AppConf.getConfig(accountKey.getOrElse("aws_storage_key")));
+        sc.hadoopConfiguration.set("fs.s3n.awsSecretAccessKey", AppConf.getConfig(accountSecret.getOrElse("aws_storage_secret")));
+      case "azure" =>
+        sc.hadoopConfiguration.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
+        sc.hadoopConfiguration.set("fs.azure.account.key." + AppConf.getConfig(accountKey.getOrElse("azure_storage_key")) + ".blob.core.windows.net", AppConf.getConfig(accountSecret.getOrElse("azure_storage_secret")))
+      case _ =>
+        // Do nothing
+    }
+
   }
 
   override def algorithm(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
@@ -97,92 +116,44 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       // Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
-        if ("csv".equalsIgnoreCase(f.`type`)) {
-          val df = data.toDF().na.fill(0L)
-          val metricFields = f.metrics
-          val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
-          val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
-          val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
-          val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*)
-          val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
-          renamedDf.show(150)
-          val dirPath = writeToCSVAndRename(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters))
-          AzureDispatcher.dispatchDirectory(config ++ Map("dirPath" -> (dirPath + reportFinalId + "/"), "key" -> (key + reportFinalId + "/")))
-        } else {
-          val strData = data.map(f => JSONUtils.serialize(f))
-          AzureDispatcher.dispatch(strData.collect(), config)
-        }
+        val df = data.toDF().na.fill(0L)
+        val metricFields = f.metrics
+        val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
+        val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
+        val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
+        val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*)
+        val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
+        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`))
       }
     } else {
       JobLogger.log("No data found from druid", None, Level.INFO)
     }
     data
   }
+  
+  private def getStringProperty(config: Map[String, AnyRef], key: String, defaultValue: String) : String = {
+    config.getOrElse(key, defaultValue).asInstanceOf[String]
+  }
 
-  def writeToCSVAndRename(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): String = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
+    
+    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), getStringProperty(config, "container", "test-container"), getStringProperty(config, "filePath", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
+    val format = config.getOrElse("format", "csv").asInstanceOf[String]
     val filePath = config.getOrElse("filePath", AppConf.getConfig("spark_output_temp_dir")).asInstanceOf[String]
     val key = config.getOrElse("key", null).asInstanceOf[String]
     val reportId = config.getOrElse("reportId", "").asInstanceOf[String]
     val fileParameters = config.getOrElse("fileParameters", List("")).asInstanceOf[List[String]]
-    var dims = config.getOrElse("dims", List()).asInstanceOf[List[String]]
-
-    dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) dims else dims ++ List("Date")
-    val finalPath = filePath + key.split("/").last
+    val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.getOrElse("dims", List()).asInstanceOf[List[String]] else config.getOrElse("dims", List()).asInstanceOf[List[String]] ++ List("Date")
     if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
       }
-      duplicateDimsDf.coalesce(1).write.format("com.databricks.spark.csv").option("header", "true").partitionBy(duplicateDims: _*).mode("overwrite").save(finalPath)
-    } else
-      data.coalesce(1).write.format("com.databricks.spark.csv").option("header", "true").mode("overwrite").save(finalPath)
-    val renameDir = finalPath + "/renamed/"
-    renameHadoopFiles(finalPath, renameDir, reportId, dims)
-  }
-
-  def renameHadoopFiles(tempDir: String, outDir: String, id: String, dims: List[String])(implicit sc: SparkContext): String = {
-
-    val fs = FileSystem.get(sc.hadoopConfiguration)
-    val fileList = fs.listFiles(new Path(s"$tempDir/"), true)
-    while (fileList.hasNext) {
-      val filePath = fileList.next().getPath.toString
-      if (!filePath.contains("_SUCCESS")) {
-        val breakUps = filePath.split("/").filter(f => f.contains("="))
-        val dimsKeys = breakUps.filter { f =>
-          val bool = dims.map(x => f.contains(x))
-          if (bool.contains(true)) true
-          else false
-        }
-        val finalKeys = dimsKeys.map { f =>
-          f.split("=").last
-        }
-        val key = if (finalKeys.isEmpty) {
-          id
-        } else if (finalKeys.length > 1) id + "/" + finalKeys.mkString("/")
-        else id + "/" + finalKeys.head
-        val crcKey = if (finalKeys.isEmpty) {
-          if (id.contains("/")) {
-            val ids = id.split("/")
-            ids.head + "/." + ids.last
-          } else "." + id
-        } else if (finalKeys.length > 1) {
-          val builder = new StringBuilder
-          val keyStr = finalKeys.mkString("/")
-          val replaceStr = "/."
-          builder.append(id + "/")
-          builder.append(keyStr.substring(0, keyStr.lastIndexOf("/")))
-          builder.append(replaceStr)
-          builder.append(keyStr.substring(keyStr.lastIndexOf("/") + replaceStr.length - 1))
-          builder.mkString
-        } else
-          id + "/." + finalKeys.head
-        val finalCSVPath = s"$outDir$key.csv"
-        val finalCRCPath = s"$outDir$crcKey.csv.crc"
-        fs.rename(new Path(filePath), new Path(finalCSVPath))
-        fs.delete(new Path(finalCRCPath), false)
-      }
+      duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
+    } else {
+      data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
     }
-    outDir
   }
+
 }
