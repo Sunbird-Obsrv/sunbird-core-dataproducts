@@ -3,13 +3,11 @@ package org.ekstep.analytics.util
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SQLContext, SparkSession}
-import org.ekstep.analytics.framework.{FrameworkContext, StorageConfig}
-import org.sunbird.cloud.storage.conf.AppConf
-import org.ekstep.analytics.framework.util.{JSONUtils, RestUtil}
-import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
-import org.sunbird.cloud.storage.BaseStorageService
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.ekstep.analytics.framework.util.CommonUtil
+import org.ekstep.analytics.framework.util.{JSONUtils, RestUtil}
+import org.ekstep.analytics.framework.{FrameworkContext, StorageConfig}
+import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
+import org.sunbird.cloud.storage.conf.AppConf
 
 //Getting live courses from compositesearch
 case class CourseDetails(result: Result)
@@ -61,7 +59,7 @@ object CourseUtils {
     loadData(Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace)).select("slug","id")
   }
 
-  def postDataToBlob(data: DataFrame, outputConfig: OutputConfig, config: Map[String, AnyRef], storageService: BaseStorageService)(implicit sc: SparkContext, fc: FrameworkContext) = {
+  def postDataToBlob(data: DataFrame, outputConfig: OutputConfig, config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext) = {
     val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap))
 
@@ -80,8 +78,6 @@ object CourseUtils {
   }
 
   def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): Unit = {
-    CommonUtil.setStorageConf(config.getOrElse("store", "local").toString, config.get("accountKey").asInstanceOf[Option[String]], config.get("accountSecret").asInstanceOf[Option[String]])
-
     val storageConfig = StorageConfig(config.getOrElse("store", "local").toString, config.getOrElse("container", "test-container").toString, config.getOrElse("filePath", "/tmp/druid-reports").toString, config.get("accountKey").asInstanceOf[Option[String]], config.get("accountSecret").asInstanceOf[Option[String]])
     val format = config.getOrElse("format", "csv").asInstanceOf[String]
     val filePath = config.getOrElse("filePath", AppConf.getConfig("spark_output_temp_dir")).asInstanceOf[String]

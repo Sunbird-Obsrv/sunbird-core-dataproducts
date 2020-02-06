@@ -7,8 +7,6 @@ import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework.util.JobLogger
 import org.sunbird.cloud.storage.conf.AppConf
 import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.SparkContext
 
 object FileUtil {
   implicit val className = "org.ekstep.analytics.util.FileUtil"

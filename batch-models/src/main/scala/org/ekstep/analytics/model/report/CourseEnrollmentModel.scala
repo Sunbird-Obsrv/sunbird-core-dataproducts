@@ -37,12 +37,8 @@ object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsO
 
       import sqlContext.implicits._
       reportConfig.output.map { f =>
-        if (f.`type`.equals("csv")) {
           val df = data.toDF().na.fill(0L)
-          val storageService = fc.getStorageService("azure")
-          CourseUtils.postDataToBlob(df, f,config, storageService)
-          storageService.closeContext()
-        }
+          CourseUtils.postDataToBlob(df, f,config)
       }
     } else {
       JobLogger.log("No data found", None, Level.INFO)

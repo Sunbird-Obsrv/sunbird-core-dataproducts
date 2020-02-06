@@ -89,6 +89,6 @@ class TestCourseUtils extends SparkSpec(null) with MockFactory{
     val userdata = Seq(
       ("2020-01-23","29 course","testCourseBatch","Ongoing",Some(0.09),"MPSlug","course_usage")
     ).toDF("date", "courseName", "batchName","status", "timespent", "slug", "reportName")
-    CourseUtils.postDataToBlob(userdata, outputConfig, jobConfig.get,mockStorageService)
+    CourseUtils.postDataToBlob(userdata, outputConfig, jobConfig.get)
   }
 }
