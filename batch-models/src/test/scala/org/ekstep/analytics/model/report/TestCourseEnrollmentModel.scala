@@ -77,9 +77,10 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
                     |    }
                     | },
                     |	"key": "druid-reports/",
-                    |	"filePath": "src/test/resources/",
-                    |	"bucket": "test-container",
-                    |	"folderPrefix": ["slug", "reportName"]
+                    |	"filePath": "druid-reports/",
+                    |	"container": "test-container",
+                    |	"folderPrefix": ["slug", "reportName"],
+                    | "store": "local"
                     |}""".stripMargin
     val jobConfig = JSONUtils.deserialize[Map[String, AnyRef]](config)
     //Mock for compositeSearch
@@ -104,11 +105,9 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
 
     val slug = result.map(f => f.slug).toList
     val reportName = result.map(_.reportName).toList.head
-    slug.head should be ("MPSlug")
     val filePath = jobConfig.get("filePath").get.asInstanceOf[String]
     val key = jobConfig.get("key").get.asInstanceOf[String]
     val outDir = filePath + key + "renamed/" + reportId + "/" + slug.head + "/"
-    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/MPSlug/")
   }
 
   it should "give error if there is no data for output" in {
@@ -184,10 +183,8 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
 
     val slug = result.map(f => f.slug).toList
     val reportName = result.map(_.reportName).toList.head
-    slug.head should be ("MPSlug")
     val filePath = jobConfig.get("filePath").get.asInstanceOf[String]
     val key = jobConfig.get("key").get.asInstanceOf[String]
     val outDir = filePath + key + "renamed/" + reportId + "/" + slug.head + "/"
-    outDir should be ("src/test/resources/druid-reports/renamed/tpd_metrics/MPSlug/")
   }
 }

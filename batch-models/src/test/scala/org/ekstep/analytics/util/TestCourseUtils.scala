@@ -70,7 +70,7 @@ class TestCourseUtils extends SparkSpec(null) with MockFactory{
                     |}""".stripMargin
     val jobConfig = JSONUtils.deserialize[Map[String, AnyRef]](config)
     val dataDf = sc.parallelize(List(CourseEnrollmentOutput("2020-03-20","TestCourse","TestBatch","Ongoing",3,4,"unknown","course-enrollments"))).toDF()
-    CourseUtils.writeToCSVAndRename(dataDf,jobConfig)
+    CourseUtils.saveReport(dataDf,jobConfig)
   }
 
   it should "execute even if druidQuery is not present" in {
