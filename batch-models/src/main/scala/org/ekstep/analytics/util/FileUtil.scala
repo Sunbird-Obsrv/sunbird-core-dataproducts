@@ -54,5 +54,6 @@ object FileUtil {
       .getStorageService(StorageConfig(provider, AppConf.getStorageKey(provider), AppConf.getStorageSecret(provider)))
     storageService.upload(container, sourcePath, objectKey.orNull, isDirectory = Option(true), Option(1), None)
   }
+
 }
 
