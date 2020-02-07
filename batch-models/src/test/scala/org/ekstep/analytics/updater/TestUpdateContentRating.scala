@@ -1,16 +1,19 @@
 package org.ekstep.analytics.updater
 
+import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.util.HTTPClient
 import org.ekstep.analytics.model.SparkSpec
+import org.ekstep.media.config.AppConfig
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
-import org.ekstep.analytics.framework.FrameworkContext
 
 class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
   implicit val fc = new FrameworkContext();
   "UpdateContentRating" should "get content list which are rated in given time" in {
+    var data = "[{\"play_sessions_count\":1,\"total_time_spent\":152.34,\"dimensions_pdata_id\":\"staging.diksha.TEST:\",\"object_id\":\"KP_FT_1576559515069\"},{\"play_sessions_count\":2,\"total_time_spent\":1.43,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"KP_FT_1576559537277\"},{\"play_sessions_count\":2,\"total_time_spent\":11.879999999999999,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"KP_FT_1576560445791\"},{\"play_sessions_count\":1,\"total_time_spent\":1.6,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"KP_FT_1576560467255\"},{\"play_sessions_count\":1,\"total_time_spent\":203.72,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"KP_FT_1576560489699\"},{\"play_sessions_count\":1,\"total_time_spent\":0.01,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_112777871922569216119\"},{\"play_sessions_count\":1,\"total_time_spent\":7.84,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_112777871922569216119\"},{\"play_sessions_count\":1,\"total_time_spent\":716.02,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_112835336960000000152\"},{\"play_sessions_count\":1,\"total_time_spent\":5.02,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_11285800480340377611027\"},{\"play_sessions_count\":1,\"total_time_spent\":0.38,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_20045067\"},{\"play_sessions_count\":1,\"total_time_spent\":0.2,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_20045289\"},{\"play_sessions_count\":2,\"total_time_spent\":191.94,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_2122161222933299201262\"},{\"play_sessions_count\":2,\"total_time_spent\":3.75,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2122432175175761921186\"},{\"play_sessions_count\":1,\"total_time_spent\":38.66,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_212292951494197248197\"},{\"play_sessions_count\":1,\"total_time_spent\":1.05,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2122951778195865601246\"},{\"play_sessions_count\":3,\"total_time_spent\":5.65,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2122952599231856641325\"},{\"play_sessions_count\":4,\"total_time_spent\":6.0600000000000005,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212295902628782080167\"},{\"play_sessions_count\":7,\"total_time_spent\":20.980000000000004,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212295908607836160179\"},{\"play_sessions_count\":12,\"total_time_spent\":384.71000000000004,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212295919143411712182\"},{\"play_sessions_count\":1,\"total_time_spent\":3.85,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_212295919143411712182\"},{\"play_sessions_count\":1,\"total_time_spent\":272.8,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212297326962860032139\"},{\"play_sessions_count\":1,\"total_time_spent\":610.92,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_212297326962860032139\"},{\"play_sessions_count\":1,\"total_time_spent\":32.17,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212305836974661632137\"},{\"play_sessions_count\":1,\"total_time_spent\":41.91,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_212305836974661632137\"},{\"play_sessions_count\":1,\"total_time_spent\":103.72,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123164671596052481388\"},{\"play_sessions_count\":4,\"total_time_spent\":14.96,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123208084795310081772\"},{\"play_sessions_count\":1,\"total_time_spent\":1.11,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123208084832829441775\"},{\"play_sessions_count\":2,\"total_time_spent\":4.1,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123208084868300801779\"},{\"play_sessions_count\":1,\"total_time_spent\":2.63,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123229899264573441612\"},{\"play_sessions_count\":1,\"total_time_spent\":1.41,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2123229899264573441612\"},{\"play_sessions_count\":1,\"total_time_spent\":2.47,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123229899293982721615\"},{\"play_sessions_count\":1,\"total_time_spent\":3.28,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2123277680390389761198\"},{\"play_sessions_count\":1,\"total_time_spent\":545.62,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2123278066849628161264\"},{\"play_sessions_count\":2,\"total_time_spent\":519.41,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_2123278267024343041278\"},{\"play_sessions_count\":2,\"total_time_spent\":8.67,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_2123320947346391041175\"},{\"play_sessions_count\":5,\"total_time_spent\":26.720000000000002,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212343330163007488137\"},{\"play_sessions_count\":4,\"total_time_spent\":897.3600000000001,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_212343332329766912138\"},{\"play_sessions_count\":8,\"total_time_spent\":388.76,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212343332329766912138\"},{\"play_sessions_count\":2,\"total_time_spent\":3.66,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_2123476114861506561132\"},{\"play_sessions_count\":1,\"total_time_spent\":4.8,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_212351887955853312146\"},{\"play_sessions_count\":1,\"total_time_spent\":0.24,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_212361708511485952140\"},{\"play_sessions_count\":4,\"total_time_spent\":49.3,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_2123618302937989121631\"},{\"play_sessions_count\":1,\"total_time_spent\":53.71,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2123618302937989121631\"},{\"play_sessions_count\":1,\"total_time_spent\":1.18,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212371257097060352128\"},{\"play_sessions_count\":1,\"total_time_spent\":238.77,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_2123795092172636161757\"},{\"play_sessions_count\":2,\"total_time_spent\":24.770000000000003,\"dimensions_pdata_id\":\"local.sunbird.desktop\",\"object_id\":\"do_212380089244606464116\"},{\"play_sessions_count\":1,\"total_time_spent\":1.11,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2124121620945059841219\"},{\"play_sessions_count\":3,\"total_time_spent\":60.510000000000005,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2124339505053450241746\"},{\"play_sessions_count\":2,\"total_time_spent\":120.53,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2124347141266391041106\"},{\"play_sessions_count\":1,\"total_time_spent\":2.92,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_21244095469408256011169\"},{\"play_sessions_count\":1,\"total_time_spent\":8.13,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_212459391424782336145\"},{\"play_sessions_count\":1,\"total_time_spent\":113.38,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2124700100688035841261\"},{\"play_sessions_count\":1,\"total_time_spent\":315.97,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_2124708442401751041124\"},{\"play_sessions_count\":1,\"total_time_spent\":4.34,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2124708443414036481125\"},{\"play_sessions_count\":1,\"total_time_spent\":2.56,\"dimensions_pdata_id\":\"staging.diksha.portal\",\"object_id\":\"do_2124742691037429761195\"},{\"play_sessions_count\":2,\"total_time_spent\":2.5500000000000003,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2124841348376985601751\"},{\"play_sessions_count\":2,\"total_time_spent\":2.34,\"dimensions_pdata_id\":\"prod.sunbird.desktop\",\"object_id\":\"do_2124905130588651521376\"},{\"play_sessions_count\":1,\"total_time_spent\":6.01,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_21249344488375091213752\"},{\"play_sessions_count\":1,\"total_time_spent\":1.39,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_2124948145232855041166\"},{\"play_sessions_count\":2,\"total_time_spent\":58.879999999999995,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_21249542373921587211269\"},{\"play_sessions_count\":1,\"total_time_spent\":18.64,\"dimensions_pdata_id\":\"staging.diksha.app\",\"object_id\":\"do_21249558183120896011342\"},{\"play_sessions_count\":1,\"total_time_spent\":1.27,\"dimensions_pdata_id\":\"staging.diksha.desktop\",\"object_id\":\"do_21249981114087014412566\"}]"
 
+    //UpdateContentRating.compute(JSONUtils.deserialize[List[Map[String, AnyRef]]](data))
     val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
@@ -36,26 +39,18 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
   }
 
   it should "get all content ratings" in {
-
     val mockRestUtil = mock[HTTPClient]
     (mockRestUtil.post[List[Map[String, AnyRef]]](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[List[Map[String, AnyRef]]]))
-      .expects("http://localhost:8082/druid/v2/sql/", "{\"query\": \"SELECT \\\"object_id\\\" AS ContentId, COUNT(*) AS \\\"Number of Ratings\\\", SUM(edata_rating) AS \\\"Total Ratings\\\", SUM(edata_rating)/COUNT(*) AS \\\"AverageRating\\\" FROM \\\"druid\\\".\\\"telemetry-events\\\" WHERE \\\"eid\\\" = 'FEEDBACK' GROUP BY \\\"object_id\\\"\"}", None, manifest[List[Map[String, AnyRef]]])
-      .returns(List(Map("ContentId" -> "test-1", "Total Ratings" -> 25.asInstanceOf[AnyRef], "Number of Ratings" -> 5.asInstanceOf[AnyRef], "AverageRating" -> 5.asInstanceOf[AnyRef]), Map("ContentId" -> "test-2", "AverageRating" -> 3.asInstanceOf[AnyRef])))
+      .expects("http://localhost:8082/druid/v2/sql/", AppConfig.getConfig("druid.content.rating.query"), None, manifest[List[Map[String, AnyRef]]])
+      .returns(List(Map("contentId" -> "test-1", "totalRatingsCount" -> 25.asInstanceOf[AnyRef], "Number of Ratings" -> 5.asInstanceOf[AnyRef], "averageRating" -> 5.asInstanceOf[AnyRef]), Map("contentId" -> "test-2", "averageRating" -> 3.asInstanceOf[AnyRef])))
 
-    val contentRatings = UpdateContentRating.getContentMetrics(mockRestUtil, null)
-    contentRatings.map {
-      f => f.averageRating should be()
-    }
-    //        contentRatings.map{f=>
-    //            contentRatings.size should be(2)
-    //            contentRatings(0).contentId should be("test-1")
-    //            contentRatings(0).averageRating should be(5)
-    //            contentRatings(0).numOfTimesRated should be(5)
-    //            contentRatings(1).contentId should be("test-2")
-    //            contentRatings(1).averageRating should be(3)
-    //            contentRatings(1).numOfTimesRated should be(0)
-    //        }
-
+    val contentRatings = UpdateContentRating.getContentMetrics(mockRestUtil, AppConfig.getConfig("druid.content.rating.query"))
+    contentRatings.count() should be(2)
+    contentRatings.take(1).map(x=> {
+      x.contentId should be("test-1")
+      x.totalRatingsCount should be(25)
+      x.averageRating should be(5.0)
+    })
   }
 
   ignore should "check for system update API call" in {
@@ -154,7 +149,6 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
     println(response)
     response.params.status.getOrElse("") should be("failed")
     response.result.getOrElse("node_id", "") should be("org.ekstep.jun16.story.test05")
-
   }
-
 }
+

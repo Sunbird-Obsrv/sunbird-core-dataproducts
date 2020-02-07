@@ -6,8 +6,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
-import org.joda.time.DateTime
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils, JobLogger, RestUtil}
+import org.joda.time.DateTime
 
 case class Response(id: String, ver: String, ts: String, params: Params, responseCode: String, result: Map[String, AnyRef])
 
@@ -59,8 +59,6 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
         consumptionData.totalPlaySessionCountInDeskTop
       )
     }
-    //JobLogger.log("content-ids: " + contentList.size + " rating list: " + contentRatingList.size + " filtered list: " + finalList.size, None, Level.INFO)
-
   }
 
   override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
@@ -100,28 +98,24 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def getContentMetrics(restUtil: HTTPClient, query: String)(implicit sc: SparkContext): RDD[ContentMetrics] = {
     val apiURL = AppConf.getConfig("druid.sql.host")
-    val response = compute(restUtil.post[List[Map[String, AnyRef]]](apiURL, query))
-    //response.map(x=> ContentMetrics(x.averageRating))
-    sc.parallelize(response.map(x =>
-      ContentMetrics(
-        x.getOrElse("ContentId", "").toString,
-        x.getOrElse("Number of Ratings", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("AverageRating", 0.0).asInstanceOf[Number].doubleValue(),
-        x.getOrElse("totalTimeSpentInApp", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("totalTimeSpentInPortal", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("totalTimeSpentInDeskTop", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("totalPlaySessionCountInApp", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("totalPlaySessionCountInPortal", 0.0).asInstanceOf[Number].longValue(),
-        x.getOrElse("totalPlaySessionCountInDeskTop", 0.0).asInstanceOf[Number].longValue()
-      )))
+    sc.parallelize(compute(restUtil.post[List[Map[String, AnyRef]]](apiURL, query)))
   }
 
-  def compute(response: List[Map[String, AnyRef]]): List[Map[String, AnyRef]] = {
-    var listData: List[Map[String, AnyRef]] = List()
-
-
-
-    listData
+  def compute(contentData: List[Map[String, AnyRef]]): List[ContentMetrics] = {
+    contentData.map(x => {
+      if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".app")) {
+        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+      }
+      if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".portal")) {
+        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+      }
+      if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".desktop")) {
+        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+      } else {
+        ContentMetrics(x.getOrElse("contentId", "").toString, x.getOrElse("totalRatingsCount", 0L).asInstanceOf[Number].longValue(), x.getOrElse("averageRating", 0.0).asInstanceOf[Number].doubleValue(), x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+      }
+    }
+    )
   }
 
   def publishMetricsToContentModel(contentMetrics: ContentMetrics, baseURL: String, restUtil: HTTPClient): Response = {
@@ -147,3 +141,4 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     JSONUtils.deserialize[Response](response)
   }
 }
+
