@@ -30,22 +30,19 @@ object CourseUtils {
     val response = RestUtil.post[CourseDetails](apiURL, request).result.content
     val resRDD = sc.parallelize(response)
     resRDD.toDF("channel", "identifier", "courseName")
-
   }
 
-  def loadData(settings: Map[String, String])(implicit sc: SparkContext, sqlContext: SQLContext): DataFrame = {
-
-    sqlContext.sparkSession
+  def loadData(spark: SparkSession, settings: Map[String, String]): DataFrame = {
+    spark
       .read
       .format("org.apache.spark.sql.cassandra")
-      .option("spark.cassandra.connection.host", AppConf.getConfig("spark.cassandra.connection.host"))
       .options(settings)
       .load()
   }
 
-  def getCourseBatchDetails()(implicit sc: SparkContext, sqlContext: SQLContext): DataFrame = {
+  def getCourseBatchDetails(spark: SparkSession, loadData: (SparkSession, Map[String, String]) => DataFrame): DataFrame = {
     val sunbirdCoursesKeyspace = Constants.SUNBIRD_COURSES_KEY_SPACE
-    loadData(Map("table" -> "course_batch", "keyspace" -> sunbirdCoursesKeyspace))
+    loadData(spark, Map("table" -> "course_batch", "keyspace" -> sunbirdCoursesKeyspace))
       .select(
         col("courseid").as("courseId"),
         col("batchid").as("batchId"),
@@ -54,9 +51,9 @@ object CourseUtils {
       )
   }
 
-  def getTenantInfo()(implicit sc: SparkContext, sqlContext: SQLContext): DataFrame = {
+  def getTenantInfo(spark: SparkSession, loadData: (SparkSession, Map[String, String]) => DataFrame): DataFrame = {
     val sunbirdKeyspace = AppConf.getConfig("course.metrics.cassandra.sunbirdKeyspace")
-    loadData(Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace)).select("slug","id")
+    loadData(spark, Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace)).select("slug","id")
   }
 
   def postDataToBlob(data: DataFrame, outputConfig: OutputConfig, config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext) = {
@@ -72,7 +69,7 @@ object CourseUtils {
     val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*)
     val reportFinalId = if (outputConfig.label.nonEmpty && outputConfig.label.get.nonEmpty) reportConfig.id + "/" + outputConfig.label.get else reportConfig.id
 
-    val finalDf = renamedDf.na.replace("status",Map("0"->BatchStatus(0).toString, "1"->BatchStatus(1).toString, "2"->BatchStatus(2).toString))
+    val finalDf = renamedDf.na.replace("status", Map("0"->BatchStatus(0).toString, "1"->BatchStatus(1).toString, "2"->BatchStatus(2).toString))
     finalDf.show()
     saveReport(data, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> outputConfig.fileParameters))
   }
