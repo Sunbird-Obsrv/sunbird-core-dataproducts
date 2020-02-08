@@ -13,14 +13,14 @@ case class Response(id: String, ver: String, ts: String, params: Params, respons
 
 case class ContentMetrics(
                            contentId: String,
-                           totalRatingsCount: Long,
-                           averageRating: Double,
-                           totalTimeSpentInApp: Long,
-                           totalTimeSpentInPortal: Long,
-                           totalTimeSpentInDeskTop: Long,
-                           totalPlaySessionCountInApp: Long,
-                           totalPlaySessionCountInPortal: Long,
-                           totalPlaySessionCountInDeskTop: Long
+                           totalRatingsCount: Option[Long],
+                           averageRating: Option[Double],
+                           totalTimeSpentInApp: Option[Long],
+                           totalTimeSpentInPortal: Option[Long],
+                           totalTimeSpentInDeskTop: Option[Long],
+                           totalPlaySessionCountInApp: Option[Long],
+                           totalPlaySessionCountInPortal: Option[Long],
+                           totalPlaySessionCountInDeskTop: Option[Long]
                          ) extends AlgoOutput with Output
 
 object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, ContentMetrics] with Serializable {
@@ -104,15 +104,27 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   def compute(contentData: List[Map[String, AnyRef]]): List[ContentMetrics] = {
     contentData.map(x => {
       if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".app")) {
-        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+        ContentMetrics(
+          x.getOrElse("contentId", "").toString, None, None,
+          Some(x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue()), None, None,
+          Some(x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue()), None, None
+        )
       }
       if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".portal")) {
-        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+        ContentMetrics(
+          x.getOrElse("contentId", "").toString, None, None,
+          None, Some(x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue()), None,
+          None, Some(x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue()), None
+        )
       }
       if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".desktop")) {
-        ContentMetrics(x.getOrElse("contentId", "").toString, 0, 0.0, x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+        ContentMetrics(
+          x.getOrElse("contentId", "").toString, None, None,
+          None, None, Some(x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue()),
+          None, None, Some(x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue())
+        )
       } else {
-        ContentMetrics(x.getOrElse("contentId", "").toString, x.getOrElse("totalRatingsCount", 0L).asInstanceOf[Number].longValue(), x.getOrElse("averageRating", 0.0).asInstanceOf[Number].doubleValue(), x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue(), 0, 0, x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue(), 0, 0)
+        ContentMetrics(x.getOrElse("contentId", "").toString, Some(x.getOrElse("totalRatingsCount", 0L).asInstanceOf[Number].longValue()), Some(x.getOrElse("averageRating", 0.0).asInstanceOf[Number].doubleValue()), None, None, None, None, None, None)
       }
     }
     )
@@ -120,24 +132,40 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def publishMetricsToContentModel(contentMetrics: ContentMetrics, baseURL: String, restUtil: HTTPClient): Response = {
     val systemUpdateURL = baseURL + "/" + contentMetrics.contentId
+//   var request =  ContentModelRequest(CM_Request(Some(CM_Content(
+//      Some(contentMetrics.totalRatingsCount.getOrElse(null)),
+//      Some(contentMetrics.averageRating.getOrElse(null)),
+//      Me_totalTimeSpent(
+//        Some(contentMetrics.totalPlaySessionCountInApp.getOrElse(null)),
+//        Some(contentMetrics.totalTimeSpentInPortal.getOrElse(null)),
+//        Some(contentMetrics.totalTimeSpentInDeskTop.getOrElse(null))),
+//      Me_totalTimeSpent(
+//        Some(contentMetrics.totalPlaySessionCountInApp.getOrElse(null)),
+//        Some(contentMetrics.totalPlaySessionCountInPortal.getOrElse(null)),
+//        Some(contentMetrics.totalPlaySessionCountInDeskTop.getOrElse(null)))))))
     val request =
       s"""
          |{
          |  "request": {
          |    "content": {
-         |      "me_totalRatingsCount": ${contentMetrics.totalRatingsCount},
-         |      "me_averageRating": ${contentMetrics.averageRating},
-         |      "me_total_time_spent_in_app":${contentMetrics.totalPlaySessionCountInApp},
-         |      "me_total_time_spent_in_portal":${contentMetrics.totalTimeSpentInPortal},
-         |      "me_total_time_spent_in_desktop":${contentMetrics.totalTimeSpentInDeskTop},
-         |      "me_total_plays_session_count_in_app":${contentMetrics.totalPlaySessionCountInApp},
-         |      "me_total_play_session_count_in_portal":${contentMetrics.totalPlaySessionCountInDeskTop},
-         |      "me_total_play_session_count_in_desktop":${contentMetrics.totalPlaySessionCountInPortal},
+         |      "me_totalRatingsCount": ${contentMetrics.totalRatingsCount.orNull},
+         |      "me_averageRating": ${contentMetrics.averageRating.orNull},
+         |      "me_totalTimeSpent":{
+         |      "app": ${contentMetrics.totalPlaySessionCountInApp.orNull},
+         |      "portal":${contentMetrics.totalTimeSpentInPortal.orNull},
+         |      "desktop":${contentMetrics.totalTimeSpentInDeskTop.orNull},
+         |      },
+         |      "me_totalPlaySessionCount":{
+         |      "app":${contentMetrics.totalPlaySessionCountInApp.orNull},
+         |      "portal":${contentMetrics.totalPlaySessionCountInPortal.orNull},
+         |      "desktop":${contentMetrics.totalPlaySessionCountInDeskTop.orNull},
+         |      }
          |    }
          |  }
          |}
                """.stripMargin
-    val response = restUtil.patch[String](systemUpdateURL, request)
+    println("request" + JSONUtils.serialize(JSONUtils.deserialize(request)));
+    val response = restUtil.patch[String](systemUpdateURL, JSONUtils.serialize(request))
     JSONUtils.deserialize[Response](response)
   }
 }
