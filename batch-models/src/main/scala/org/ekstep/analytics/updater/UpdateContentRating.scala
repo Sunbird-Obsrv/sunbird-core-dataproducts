@@ -132,17 +132,6 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def publishMetricsToContentModel(contentMetrics: ContentMetrics, baseURL: String, restUtil: HTTPClient): Response = {
     val systemUpdateURL = baseURL + "/" + contentMetrics.contentId
-//   var request =  ContentModelRequest(CM_Request(Some(CM_Content(
-//      Some(contentMetrics.totalRatingsCount.getOrElse(null)),
-//      Some(contentMetrics.averageRating.getOrElse(null)),
-//      Me_totalTimeSpent(
-//        Some(contentMetrics.totalPlaySessionCountInApp.getOrElse(null)),
-//        Some(contentMetrics.totalTimeSpentInPortal.getOrElse(null)),
-//        Some(contentMetrics.totalTimeSpentInDeskTop.getOrElse(null))),
-//      Me_totalTimeSpent(
-//        Some(contentMetrics.totalPlaySessionCountInApp.getOrElse(null)),
-//        Some(contentMetrics.totalPlaySessionCountInPortal.getOrElse(null)),
-//        Some(contentMetrics.totalPlaySessionCountInDeskTop.getOrElse(null)))))))
     val request =
       s"""
          |{
@@ -153,19 +142,19 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
          |      "me_totalTimeSpent":{
          |      "app": ${contentMetrics.totalPlaySessionCountInApp.orNull},
          |      "portal":${contentMetrics.totalTimeSpentInPortal.orNull},
-         |      "desktop":${contentMetrics.totalTimeSpentInDeskTop.orNull},
+         |      "desktop":${contentMetrics.totalTimeSpentInDeskTop.orNull}
          |      },
          |      "me_totalPlaySessionCount":{
          |      "app":${contentMetrics.totalPlaySessionCountInApp.orNull},
          |      "portal":${contentMetrics.totalPlaySessionCountInPortal.orNull},
-         |      "desktop":${contentMetrics.totalPlaySessionCountInDeskTop.orNull},
+         |      "desktop":${contentMetrics.totalPlaySessionCountInDeskTop.orNull}
          |      }
          |    }
          |  }
          |}
                """.stripMargin
-    println("request" + JSONUtils.serialize(JSONUtils.deserialize(request)));
-    val response = restUtil.patch[String](systemUpdateURL, JSONUtils.serialize(request))
+
+    val response = restUtil.patch[String](systemUpdateURL, JSONUtils.serialize(JSONUtils.deserialize[Map[String, AnyRef]](request)))
     JSONUtils.deserialize[Response](response)
   }
 }
