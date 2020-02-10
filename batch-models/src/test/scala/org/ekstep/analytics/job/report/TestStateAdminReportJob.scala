@@ -47,15 +47,12 @@ class TestStateAdminReportJob extends BaseReportSpec with MockFactory {
     val districtName = apslug.select("districtName").collect().map(_ (0)).toList
     assert(districtName(0) === "GULBARGA")
     //checking reports were created under slug folder
-    val apSlugName = apslug.select("slug").collect().map(_ (0)).toList
-    val apslugDirPath = tempDir+"/renamed/"+apSlugName(0)+"/"
-    val tnslugDirPath = tempDir+"/renamed/TnSlug"+"/"
-    val userDetail = new File(apslugDirPath+"user-detail.csv")
-    val stateUserDetail = new File(apslugDirPath+"validated-user-detail-state.csv");
-    val userSummary = new File(apslugDirPath+"user-summary.json")
-    val validateUserDetail = new File(apslugDirPath+"validated-user-detail.csv")
-    val validateUserSummary = new File(apslugDirPath+"validated-user-summary.json")
-    val validateUserDstSummary = new File(apslugDirPath+"validated-user-summary-district.json");
+    val userDetail = new File("src/test/resources/admin-user-reports/user-detail/ApSlug.csv")
+    val stateUserDetail = new File("src/test/resources/admin-user-reports/validated-user-detail-state/ApSlug.csv");
+    val userSummary = new File("src/test/resources/admin-user-reports/user-summary/ApSlug.json")
+    val validateUserDetail = new File("src/test/resources/admin-user-reports/validated-user-detail/ApSlug.csv")
+    val validateUserSummary = new File("src/test/resources/admin-user-reports/validated-user-summary/ApSlug.json")
+    val validateUserDstSummary = new File("src/test/resources/admin-user-reports/validated-user-summary-district/ApSlug.json");
     assert(userDetail.exists() === true)
     assert(userSummary.exists() === true)
     assert(validateUserDetail.exists() === true)

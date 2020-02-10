@@ -53,11 +53,9 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     assert(school_name(1) === "Another school")
     assert(reportDF.select("District id").distinct().count == 5)
     //checking reports were created under slug folder
-    val slugName = apslug.select("slug").collect().map(_ (0)).toList
-    val apslugDirPath = tempDir+"/renamed/"+slugName(0)+"/"
-    val geoDetail = new File(apslugDirPath+"geo-detail.csv")
-    val geoSummary = new File(apslugDirPath+"geo-summary.json")
-    val geoSummaryDistrict = new File(apslugDirPath+"geo-summary-district.json")
+    val geoDetail = new File("src/test/resources/admin-user-reports/geo-detail/ApSlug.csv")
+    val geoSummary = new File("src/test/resources/admin-user-reports/geo-summary/ApSlug.json")
+    val geoSummaryDistrict = new File("src/test/resources/admin-user-reports/geo-summary-district/ApSlug.json")
     assert(geoDetail.exists() === true)
     assert(geoSummary.exists() === true)
     assert(geoSummaryDistrict.exists() === true)
