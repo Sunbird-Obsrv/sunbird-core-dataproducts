@@ -17,7 +17,7 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
     (mockRestUtil.post[List[Map[String, AnyRef]]](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[List[Map[String, AnyRef]]]))
-      .expects("http://localhost:8082/druid/v2/sql/", "{\"query\":\"SELECT DISTINCT \\\"object_id\\\" AS \\\"Id\\\"\\nFROM \\\"druid\\\".\\\"summary-events\\\" WHERE \\\"__time\\\"  BETWEEN TIMESTAMP '%s' AND TIMESTAMP '%s'\"}".format("summary-events", new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
+      .expects("http://localhost:8082/druid/v2/sql/", AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
       .returns(List(Map("ContentId" -> "test-1"), Map("ContentId" -> "test-2")))
 
     val contentIds = UpdateContentRating.getRatedContents(Map("startDate" -> startDate.asInstanceOf[AnyRef], "endDate" -> endDate.asInstanceOf[AnyRef]), mockRestUtil)
@@ -30,7 +30,7 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
     (mockRestUtil.post[List[Map[String, AnyRef]]](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[List[Map[String, AnyRef]]]))
-      .expects("http://localhost:8082/druid/v2/sql/", AppConf.getConfig("druid.unique.content.query").format("summary-events", new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
+      .expects("http://localhost:8082/druid/v2/sql/", AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
       .returns(List(Map("ContentId" -> "test-1"), Map("ContentId" -> "test-2")))
 
     val contentIds = UpdateContentRating.getRatedContents(Map("startDate" -> startDate.asInstanceOf[AnyRef], "endDate" -> startDate.asInstanceOf[AnyRef]), mockRestUtil)
@@ -162,5 +162,6 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
     response.result.getOrElse("node_id", "") should be("org.ekstep.jun16.story.test05")
   }
 }
+
 
 
