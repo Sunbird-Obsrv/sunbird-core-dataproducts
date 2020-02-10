@@ -82,6 +82,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
         val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
         JobLogger.log("System Update API request for " + f.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
       }
+    }else{
+      JobLogger.log("No records to update", None, Level.INFO)
     }
     data
   }
