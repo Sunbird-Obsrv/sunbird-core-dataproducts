@@ -2,6 +2,13 @@ package org.ekstep.analytics.util
 
 import org.ekstep.analytics.framework.conf.AppConf
 
+object BatchStatus extends Enumeration {
+    type BatchStatus = Value
+    val Upcoming = Value(0)
+    val Ongoing = Value(1)
+    val Expired = Value(2)
+}
+
 object Constants {
 
     val env = AppConf.getConfig("cassandra.keyspace_prefix");
@@ -26,7 +33,7 @@ object Constants {
     val LP_URL = AppConf.getConfig("lp.url")
     val SEARCH_SERVICE_URL = AppConf.getConfig("service.search.url")
     val COMPOSITE_SEARCH_URL = s"$SEARCH_SERVICE_URL" + AppConf.getConfig("service.search.path")
-    val ORG_SEARCH_URL: String = AppConf.getConfig("org.search.api.url")
+    val ORG_SEARCH_URL: String = AppConf.getConfig("org.search.api.url") + AppConf.getConfig("org.search.api.path")
     val ORG_SEARCH_API_KEY: String = AppConf.getConfig("org.search.api.key")
     val USER_SEARCH_URL : String = AppConf.getConfig("user.search.api.url")
 
@@ -35,5 +42,6 @@ object Constants {
 
     val ELASTIC_SEARCH_SERVICE_ENDPOINT = AppConf.getConfig("elasticsearch.service.endpoint")
     val ELASTIC_SEARCH_INDEX_COMPOSITESEARCH_NAME = AppConf.getConfig("elasticsearch.index.compositesearch.name")
-
+    val ELASTIC_SEARCH_INDEX_COURSEBATCH_NAME = AppConf.getConfig("elasticsearch.index.coursebatch.name")
+    val SUNBIRD_COURSES_KEY_SPACE = AppConf.getConfig("course.metrics.cassandra.sunbirdCoursesKeyspace")
 }

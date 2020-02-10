@@ -154,8 +154,7 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
     val resDF = assessmentDF
       .withColumn("agg_score", sum("total_score") over assessmentAggDf)
       .withColumn("agg_max_score", sum("total_max_score") over assessmentAggDf)
-      .withColumn("total_sum_score", concat(col("agg_score"), lit("/"), col("agg_max_score")))
-      .withColumn("percentage", round(((col("agg_score")*100) / col("agg_max_score")), 2))
+      .withColumn("total_sum_score", concat(ceil((col("agg_score")*100)/col("agg_max_score")), lit("%")))
     /**
      * Filter only valid enrolled userid for the specific courseid
      */
@@ -200,7 +199,7 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
         col("name").as("content_name"),
         col("total_sum_score"), report.col("userid"), report.col("courseid"), report.col("batchid"),
         col("grand_total"), report.col("maskedemail"), report.col("district_name"), report.col("maskedphone"),
-        report.col("orgname_resolved"), report.col("externalid"), report.col("schoolname_resolved"), report.col("username"), report.col("percentage"))
+        report.col("orgname_resolved"), report.col("externalid"), report.col("schoolname_resolved"), report.col("username"))
   }
 
   /**
@@ -243,7 +242,8 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
    */
   def transposeDF(reportDF: DataFrame): DataFrame = {
     // Re-shape the dataFrame (Convert the content name from the row to column)
-    val reshapedDF = reportDF.groupBy("courseid", "batchid", "userid").pivot("content_name").agg(first("grand_total"))
+
+    val reshapedDF = reportDF.groupBy("courseid", "batchid", "userid").pivot("content_name").agg(concat(ceil((split(first("grand_total"), "\\/").getItem(0) * 100)/(split(first("grand_total"), "\\/").getItem(1))), lit("%")))
     reshapedDF.join(reportDF, Seq("courseid", "batchid", "userid"), "inner").
       select(
         reportDF.col("externalid").as("External ID"),
@@ -255,7 +255,6 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
         reportDF.col("district_name").as("District Name"),
         reportDF.col("schoolname_resolved").as("School Name"),
         reshapedDF.col("*"), // Since we don't know the content name column so we are using col("*")
-        reportDF.col("percentage").as("Percentage"),
         reportDF.col("total_sum_score").as("Total Score")).dropDuplicates("userid", "courseid", "batchid").drop("userid", "courseid", "batchid")
   }
 
