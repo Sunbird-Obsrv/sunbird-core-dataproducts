@@ -37,15 +37,16 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
     val contentList = getRatedContents(config, RestUtil)
     val contentRatingList = getContentMetrics(RestUtil, AppConf.getConfig("druid.content.rating.query"))
-    val contentSummaryList = getContentMetrics(RestUtil, AppConf.getConfig("druid.content.summary.query"))
+    val contentConsumptionList = getContentMetrics(RestUtil, AppConf.getConfig("druid.content.consumption.query"))
+
 
     val finalContentRating = contentRatingList.filter(f => contentList.contains(f.contentId)).map { f =>
       (f.contentId, f)
     }
-    val finalContentSummaryList = contentSummaryList.filter(f => contentList.contains(f.contentId)).map { f =>
+    val finalContentConsumptionList = contentConsumptionList.filter(f => contentList.contains(f.contentId)).map { f =>
       (f.contentId, f)
     }
-    finalContentRating.join(finalContentSummaryList).map { f =>
+    finalContentRating.join(finalContentConsumptionList).map { f =>
       val ratingData = f._2._1
       val consumptionData = f._2._2
       ContentMetrics(f._1,
@@ -64,23 +65,10 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
     if (data.count() > 0) {
-      data.foreach { f =>
-        val response = publishMetricsToContentModel(
-          ContentMetrics(
-            f.contentId,
-            f.totalRatingsCount,
-            f.averageRating,
-            f.totalTimeSpentInApp,
-            f.totalTimeSpentInPortal,
-            f.totalTimeSpentInDeskTop,
-            f.totalPlaySessionCountInApp,
-            f.totalPlaySessionCountInPortal,
-            f.totalPlaySessionCountInDeskTop
-          ),
-          baseURL,
-          RestUtil)
+      data.foreach { contentMetrics: ContentMetrics =>
+        val response = publishMetricsToContentModel(contentMetrics, baseURL, RestUtil)
         val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
-        JobLogger.log("System Update API request for " + f.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
+        JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
       }
     }else{
       JobLogger.log("No records to update", None, Level.INFO)
@@ -160,4 +148,3 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     JSONUtils.deserialize[Response](response)
   }
 }
-
