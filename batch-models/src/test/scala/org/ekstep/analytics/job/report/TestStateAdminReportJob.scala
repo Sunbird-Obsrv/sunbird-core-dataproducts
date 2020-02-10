@@ -9,6 +9,7 @@ import org.ekstep.analytics.job.report.{BaseReportSpec, BaseReportsJob, ShadowUs
 import org.ekstep.analytics.util.EmbeddedCassandra
 import org.scalamock.scalatest.MockFactory
 import org.sunbird.cloud.storage.conf.AppConf
+import org.ekstep.analytics.framework.util.HadoopFileUtil
 
 class TestStateAdminReportJob extends BaseReportSpec with MockFactory {
 
@@ -24,6 +25,11 @@ class TestStateAdminReportJob extends BaseReportSpec with MockFactory {
     super.beforeAll()
     spark = getSparkSession();
     EmbeddedCassandra.loadData("src/test/resources/reports/reports_test_data.cql") // Load test data in embedded cassandra server
+  }
+  
+  override def afterAll() : Unit = {
+    super.afterAll();
+    (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/admin-user-reports")
   }
 
   //Created data : channels ApSlug and OtherSlug contains validated users created against blocks,districts and state

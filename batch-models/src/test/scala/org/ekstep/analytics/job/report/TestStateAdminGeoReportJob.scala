@@ -10,6 +10,7 @@ import org.sunbird.cloud.storage.conf.AppConf
 import java.io.File
 
 import org.ekstep.analytics.framework.FrameworkContext
+import org.ekstep.analytics.framework.util.HadoopFileUtil
 
 class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
 
@@ -24,6 +25,11 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     super.beforeAll()
     spark = getSparkSession()
     EmbeddedCassandra.loadData("src/test/resources/reports/reports_test_data.cql") // Load test data in embedded cassandra server
+  }
+  
+  override def afterAll() : Unit = {
+    super.afterAll();
+    (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/admin-user-reports")
   }
 
   "StateAdminGeoReportJob" should "generate reports" in {
