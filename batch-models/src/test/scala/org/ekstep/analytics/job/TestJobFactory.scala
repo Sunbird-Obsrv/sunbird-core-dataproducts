@@ -10,7 +10,7 @@ class TestJobFactory extends BaseSpec {
 
     "JobFactory" should "return a Model class for a model code" in {
 
-        val jobIds = List("monitor-job-summ", "wfs", "wfus", "wfu", "ds", "dpu", "video-streaming", "portal-metrics", "workflow-usage-metrics", "data-exhaust", "course-dashboard-metrics", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "assessment-dashboard-metrics", "daily-metrics", "admin-user-reports", "district-monthly", "district-weekly", "admin-geo-reports", "desktop-consumption-report")
+        val jobIds = List("monitor-job-summ", "wfs", "wfus", "wfu", "ds", "dpu", "video-streaming", "portal-metrics", "workflow-usage-metrics", "data-exhaust", "course-dashboard-metrics", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "assessment-dashboard-metrics", "daily-metrics", "admin-user-reports", "district-monthly", "district-weekly", "admin-geo-reports", "desktop-consumption-report", "course-consumption-report", "course-enrollment-report")
 
         val jobs = jobIds.map { f => JobFactory.getJob(f) }
 

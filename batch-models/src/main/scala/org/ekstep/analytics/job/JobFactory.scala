@@ -5,11 +5,8 @@ import org.ekstep.analytics.framework._
 import org.ekstep.analytics.job.Metrics.MetricsAuditJob
 import org.ekstep.analytics.job.summarizer._
 import org.ekstep.analytics.job.updater._
-import org.ekstep.analytics.job.report.CourseMetricsJob
-import org.ekstep.analytics.job.report.AssessmentMetricsJob
+import org.ekstep.analytics.job.report.{AssessmentMetricsJob, CourseConsumptionJob, CourseEnrollmentJob, CourseMetricsJob, StateAdminGeoReportJob, StateAdminReportJob}
 import org.ekstep.analytics.job.batch.VideoStreamingJob
-import org.ekstep.analytics.job.report.StateAdminGeoReportJob
-import org.ekstep.analytics.job.report.StateAdminReportJob
 
 /**
  * @author Santhosh
@@ -65,6 +62,10 @@ object JobFactory {
                 MetricsAuditJob
             case "admin-geo-reports" =>
                 StateAdminGeoReportJob
+            case "course-consumption-report" =>
+                CourseConsumptionJob
+            case "course-enrollment-report" =>
+                CourseEnrollmentJob
             case _ =>
                 throw new JobNotFoundException("Unknown job type found") 
         }
