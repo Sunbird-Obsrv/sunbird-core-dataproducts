@@ -1,11 +1,8 @@
 package org.ekstep.analytics.updater
 
 import org.ekstep.analytics.framework.FrameworkContext
-import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
+import org.ekstep.analytics.framework.util.HTTPClient
 import org.ekstep.analytics.model.SparkSpec
-import org.ekstep.media.config.AppConfig
-import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
 class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
@@ -43,10 +40,9 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
       .returns(List(Map("contentId" -> "test-1", "totalRatingsCount" -> 25.asInstanceOf[AnyRef], "Number of Ratings" -> 5.asInstanceOf[AnyRef], "averageRating" -> 5.asInstanceOf[AnyRef]), Map("contentId" -> "test-2", "averageRating" -> 3.asInstanceOf[AnyRef])))
 
 
-
     val contentRatings = UpdateContentRating.getContentMetrics(mockRestUtil, AppConfig.getConfig("druid.content.rating.query"))
     contentRatings.count() should be(2)
-    contentRatings.take(1).map(x=> {
+    contentRatings.take(1).map(x => {
       x.contentId should be("test-1")
       x.totalRatingsCount.get should be(25)
       x.averageRating.get should be(5.0)
@@ -63,21 +59,16 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
     val contentConsumption = UpdateContentRating.getContentMetrics(mockRestUtil, AppConfig.getConfig("druid.content.consumption.query"))
     contentConsumption.count() should be(62)
-    contentConsumption.take(1).map(x=> {
+    contentConsumption.take(1).map(x => {
       x.contentId should be("KP_FT_1576559515069")
       x.totalTimeSpentInDeskTop.get should be(152)
       x.totalPlaySessionCountInDeskTop.get should be(1)
     })
   }
 
-  ignore should "check for system update API call" in {
+  it should "check for system update API call" in {
 
     val mockRestUtil = mock[HTTPClient]
-    val systemUpdateURL = "http://localhost:8080/learning-service/system/v3/content/update/test-1"
-    val request =
-      s"""
-         |{"request":{"content":{"me_totalRatingsCount":100,"me_averageRating":20.0,"me_totalTimeSpent":{"app":33,"portal":432,"desktop":32432},"me_totalPlaySessionCount":{"app":33,"portal":53,"desktop":552}}}}
-       """.stripMargin
     val mockResponse =
       s"""
          |{
@@ -100,31 +91,19 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
            """.stripMargin
 
     (mockRestUtil.patch[String](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[String]))
-      .expects(systemUpdateURL, request, None, manifest[String])
+      .expects("http://localhost:8080/learning-service/system/v3/content/update/test-1/test-1", "{\"request\":{\"content\":{\"me_totalRatingsCount\":100,\"me_averageRating\":20.0,\"me_totalTimeSpent\":{\"app\":33,\"portal\":432,\"desktop\":32432},\"me_totalPlaySessionCount\":{\"app\":33,\"portal\":53,\"desktop\":552}}}}", None, manifest[String])
       .returns(mockResponse)
-    val response = UpdateContentRating.publishMetricsToContentModel(ContentMetrics("test-1",
-      Some(100), Some(20.0), Some(122), Some(432), Some(32432), Some(33), Some(53), Some(552)
-    ), "http://localhost:8080/learning-service/system/v3/content/update/test-1", mockRestUtil)
+    val response = UpdateContentRating.publishMetricsToContentModel(
+      ContentMetrics("test-1",
+        Some(100), Some(20.0), Some(122), Some(432), Some(32432), Some(33), Some(53), Some(552)
+      ), "http://localhost:8080/learning-service/system/v3/content/update/test-1", mockRestUtil)
     response.params.status.getOrElse("") should be("successful")
     response.result.getOrElse("node_id", "") should be("test-1")
 
   }
 
-  ignore should "check for system update API call failure" in {
-
+  it should "check for system update API call failure" in {
     val mockRestUtil = mock[HTTPClient]
-    val systemUpdateURL = "http://localhost:8080/learning-service/system/v3/content/update/test-1"
-    val request =
-      s"""
-         |{
-         |  "request": {
-         |    "content": {
-         |      "me_totalRatingsCount": 5,
-         |      "me_averageRating": 5.0
-         |    }
-         |  }
-         |}
-             """.stripMargin
     val mockResponse =
       s"""
          |{
@@ -152,11 +131,10 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
 
     (mockRestUtil.patch[String](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[String]))
-      .expects(systemUpdateURL, request, None, manifest[String])
+      .expects("http://localhost:8080/learning-service/system/v3/content/update/test-1", "{\"request\":{\"content\":{\"me_totalRatingsCount\":100,\"me_averageRating\":20.0,\"me_totalTimeSpent\":{\"app\":33,\"portal\":432,\"desktop\":32432},\"me_totalPlaySessionCount\":{\"app\":33,\"portal\":53,\"desktop\":552}}}}", None, manifest[String])
       .returns(mockResponse)
 
-    val response = UpdateContentRating.publishMetricsToContentModel(ContentMetrics("test-1", Some(100), Some(20.0), Some(122), Some(432), Some(32432), Some(33), Some(53), Some(552)), "http://localhost:8080/learning-service/system/v3/content/update", mockRestUtil)
-    println(response)
+    val response = UpdateContentRating.publishMetricsToContentModel(ContentMetrics("test-1", Some(100), Some(20), Some(122), Some(432), Some(32432), Some(33), Some(53), Some(552)), "http://localhost:8080/learning-service/system/v3/content/update", mockRestUtil)
     response.params.status.getOrElse("") should be("failed")
     response.result.getOrElse("node_id", "") should be("org.ekstep.jun16.story.test05")
   }
