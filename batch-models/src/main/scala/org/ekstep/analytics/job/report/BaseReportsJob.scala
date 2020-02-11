@@ -1,17 +1,11 @@
 package org.ekstep.analytics.job.report
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types.StructType
-import org.ekstep.analytics.framework.JobConfig
-import org.ekstep.analytics.framework.JobContext
+import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext}
 import org.ekstep.analytics.framework.util.CommonUtil
-import org.sunbird.cloud.storage.BaseStorageService
 import org.sunbird.cloud.storage.conf.AppConf
-import org.sunbird.cloud.storage.factory.StorageConfig
-import org.sunbird.cloud.storage.factory.StorageServiceFactory
-import org.ekstep.analytics.framework.FrameworkContext
 
 trait BaseReportsJob {
 
@@ -70,8 +64,8 @@ trait BaseReportsJob {
   }
 
   def setReportsStorageConfiguration(sc: SparkContext) {
-    val reportsStorageAccountKey = AppConf.getConfig("reports_azure_storage_key")
-    val reportsStorageAccountSecret = AppConf.getConfig("reports_azure_storage_secret")
+    val reportsStorageAccountKey = AppConf.getConfig("reports_storage_key")
+    val reportsStorageAccountSecret = AppConf.getConfig("reports_storage_secret")
     if (reportsStorageAccountKey != null && !reportsStorageAccountSecret.isEmpty) {
       sc.hadoopConfiguration.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
       sc.hadoopConfiguration.set("fs.azure.account.key." + reportsStorageAccountKey + ".blob.core.windows.net", reportsStorageAccountSecret)
