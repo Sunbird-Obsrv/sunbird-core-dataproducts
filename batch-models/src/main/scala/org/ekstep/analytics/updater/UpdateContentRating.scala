@@ -34,19 +34,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   }
 
   override def algorithm(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
-
-    val contentList = getRatedContents(config, RestUtil)
-    val contentRatingList = getContentMetrics(RestUtil, AppConf.getConfig("druid.content.rating.query"))
-    val contentConsumptionList = getContentMetrics(RestUtil, AppConf.getConfig("druid.content.consumption.query"))
-
-
-    val finalContentRating = contentRatingList.filter(f => contentList.contains(f.contentId)).map { f =>
-      (f.contentId, f)
-    }
-    val finalContentConsumptionList = contentConsumptionList.filter(f => contentList.contains(f.contentId)).map { f =>
-      (f.contentId, f)
-    }
-    finalContentRating.join(finalContentConsumptionList).map { f =>
+    getContentConsumptionMetrics(config, RestUtil).map { f =>
       val ratingData = f._2._1
       val consumptionData = f._2._2
       ContentMetrics(f._1,
@@ -70,10 +58,22 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
         val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
         JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
       }
-    }else{
+    } else {
       JobLogger.log("No records to update", None, Level.INFO)
     }
     data
+  }
+  def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (ContentMetrics, ContentMetrics))] = {
+    val contentList = getRatedContents(config, restUtil)
+    val contentRatingList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.rating.query"))
+    val contentConsumptionList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.consumption.query"))
+    val finalContentRating = contentRatingList.filter(f => contentList.contains(f.contentId)).map { f =>
+      (f.contentId, f)
+    }
+    val finalContentConsumptionList = contentConsumptionList.filter(f => contentList.contains(f.contentId)).map { f =>
+      (f.contentId, f)
+    }
+    finalContentRating.join(finalContentConsumptionList)
   }
 
   def getRatedContents(config: Map[String, AnyRef], restUtil: HTTPClient): List[String] = {
