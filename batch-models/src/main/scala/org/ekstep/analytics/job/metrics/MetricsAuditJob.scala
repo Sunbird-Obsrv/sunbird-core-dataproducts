@@ -1,4 +1,4 @@
-package org.ekstep.analytics.job.Metrics
+package org.ekstep.analytics.job.metrics
 
 import org.apache.spark.SparkContext
 import org.ekstep.analytics.framework.{FrameworkContext, IJob, JobDriver}
@@ -15,3 +15,4 @@ object MetricsAuditJob extends optional.Application with IJob {
     JobLogger.log("Job Completed.")
   }
 }
+

@@ -24,7 +24,7 @@ trait BaseReportsJob {
     }
 
   }
-  
+
   def getReportingFrameworkContext()(implicit fc: Option[FrameworkContext]): FrameworkContext = {
     fc match {
       case Some(value) => {
@@ -78,17 +78,16 @@ trait BaseReportsJob {
     }
   }
 
-  def getReportStorageService()(implicit fc: FrameworkContext): BaseStorageService = {
-    val reportsStorageAccountKey = AppConf.getConfig("reports_azure_storage_key")
-    val reportsStorageAccountSecret = AppConf.getConfig("reports_azure_storage_secret")
+  def getStorageConfig(container: String, key: String): org.ekstep.analytics.framework.StorageConfig = {
+    val reportsStorageAccountKey = AppConf.getConfig("reports_storage_key")
+    val reportsStorageAccountSecret = AppConf.getConfig("reports_storage_secret")
     val provider = AppConf.getConfig("cloud_storage_type")
     if (reportsStorageAccountKey != null && !reportsStorageAccountSecret.isEmpty) {
-      fc.getStorageService(provider, AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret"));
-      StorageServiceFactory
-        .getStorageService(StorageConfig(provider, AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret")))
+      org.ekstep.analytics.framework.StorageConfig(provider, container, key, Option("reports_storage_key"), Option("reports_storage_secret"));
     } else {
-      fc.getStorageService(provider, AppConf.getConfig("azure_storage_key"), AppConf.getConfig("azure_storage_secret"));
+      org.ekstep.analytics.framework.StorageConfig(provider, container, key, Option(provider), Option(provider));
     }
+
   }
 
 }
