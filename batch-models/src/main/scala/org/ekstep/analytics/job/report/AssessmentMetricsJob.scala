@@ -273,8 +273,9 @@ object AssessmentMetricsJob extends optional.Application with IJob with BaseRepo
   def saveToAzure(reportDF: DataFrame, url: String, batchId: String): String = {
     val tempDir = AppConf.getConfig("assessment.metrics.temp.dir")
     val renamedDir = s"$tempDir/renamed"
-    val storageConfig = getStorageConfig(AppConf.getConfig("cloud.container.reports"), AppConf.getConfig("assessment.metrics.cloud.objectKey"));
+    val storageConfig = getStorageConfig(AppConf.getConfig("cloud.container.reports"), AppConf.getConfig("assessment.metrics.cloud.objectKey"))
     reportDF.saveToBlobStore(storageConfig, "csv", "report-" + batchId, Option(Map("header" -> "true")), None);
+    s"${AppConf.getConfig("cloud.container.reports")}/${AppConf.getConfig("assessment.metrics.cloud.objectKey")}/report-$batchId.csv"
   }
 
   def saveToElastic(index: String, reportDF: DataFrame): Unit = {
