@@ -35,8 +35,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   override def algorithm(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     getContentConsumptionMetrics(config, RestUtil).map { f =>
-      val ratingData = f._2._1
-      val consumptionData = f._2._2
+      val ratingData:ContentMetrics = f._2._1.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
+      val consumptionData:ContentMetrics = f._2._2.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
       ContentMetrics(f._1,
         ratingData.totalRatingsCount,
         ratingData.averageRating,
@@ -63,8 +63,9 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     }
     data
   }
-  def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (ContentMetrics, ContentMetrics))] = {
+  def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (Option[ContentMetrics], Option[ContentMetrics]))] = {
     val contentList = getRatedContents(config, restUtil)
+    println("contentList" + JSONUtils.serialize(contentList))
     val contentRatingList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.rating.query"))
     val contentConsumptionList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.consumption.query"))
     val finalContentRating = contentRatingList.filter(f => contentList.contains(f.contentId)).map { f =>
@@ -73,7 +74,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     val finalContentConsumptionList = contentConsumptionList.filter(f => contentList.contains(f.contentId)).map { f =>
       (f.contentId, f)
     }
-    finalContentRating.join(finalContentConsumptionList)
+    finalContentRating.fullOuterJoin(finalContentConsumptionList)
   }
 
   def getRatedContents(config: Map[String, AnyRef], restUtil: HTTPClient): List[String] = {
@@ -92,7 +93,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   }
 
   def compute(contentData: List[Map[String, AnyRef]]): List[ContentMetrics] = {
-    contentData.map(x => {
+     contentData.map(x => {
       if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".app")) {
         ContentMetrics(
           x.getOrElse("contentId", "").toString, None, None,
@@ -100,14 +101,14 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
           Some(x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue()), None, None
         )
       }
-      if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".portal")) {
+      else if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".portal")) {
         ContentMetrics(
           x.getOrElse("contentId", "").toString, None, None,
           None, Some(x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue()), None,
           None, Some(x.getOrElse("play_sessions_count", 0).asInstanceOf[Number].longValue()), None
         )
       }
-      if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".desktop")) {
+      else if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".desktop")) {
         ContentMetrics(
           x.getOrElse("contentId", "").toString, None, None,
           None, None, Some(x.getOrElse("total_time_spent", 0).asInstanceOf[Number].longValue()),
