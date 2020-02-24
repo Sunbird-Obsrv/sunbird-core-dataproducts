@@ -146,6 +146,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
                """.stripMargin
 
     val response = restUtil.patch[String](systemUpdateURL, JSONUtils.serialize(JSONUtils.deserialize[Map[String, AnyRef]](request)))
+    JobLogger.log("Response Is" + response, None, Level.INFO)
     JSONUtils.deserialize[Response](response)
   }
 }
