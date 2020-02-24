@@ -67,7 +67,7 @@ trait StateAdminReportHelper extends BaseReportsJob {
       col("orgname").as("orgname"),
       col("locationids").as("locationids"),
       col("externalid").as("externalid"),
-      col("slug").as("slug")).cache();
+      col("slug").as("slug")).filter(col(colName = "slug").isNotNull).cache();
   }
 
 }
