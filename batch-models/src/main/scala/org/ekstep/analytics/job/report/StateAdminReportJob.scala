@@ -163,7 +163,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
               col("orgextid").as("School external id"),
               col("claimstatus").as("Claimed status"),
               col("createdon").as("Created on"),
-              col("updatedon").as("Last updated on"))
+              col("updatedon").as("Last updated on")).filter(col(colName = "slug").isNotNull)
           .saveToBlobStore(storageConfig, "csv", "user-detail", Option(Map("header" -> "true")), Option(Seq("slug")))
           
         JobLogger.log(s"StateAdminReportJob: uploadedSuccess nRecords = ${reportDF.count()}")
