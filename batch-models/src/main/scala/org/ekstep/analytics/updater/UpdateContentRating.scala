@@ -35,8 +35,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   override def algorithm(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     getContentConsumptionMetrics(config, RestUtil).map { f =>
-      val ratingData:ContentMetrics = f._2._1.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
-      val consumptionData:ContentMetrics = f._2._2.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
+      val ratingData: ContentMetrics = f._2._1.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
+      val consumptionData: ContentMetrics = f._2._2.getOrElse(ContentMetrics("", None, None, None, None, None, None, None, None))
       ContentMetrics(f._1,
         ratingData.totalRatingsCount,
         ratingData.averageRating,
@@ -54,15 +54,18 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
     if (data.count() > 0) {
       data.foreach { contentMetrics: ContentMetrics =>
-        val response = publishMetricsToContentModel(contentMetrics, baseURL, RestUtil)
-        val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
-        JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
+        if (!contentMetrics.contentId.isEmpty && contentMetrics.contentId != null) {
+          val response = publishMetricsToContentModel(contentMetrics, baseURL, RestUtil)
+          val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
+          JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
+        }
       }
     } else {
       JobLogger.log("No records to update", None, Level.INFO)
     }
     data
   }
+
   def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (Option[ContentMetrics], Option[ContentMetrics]))] = {
     val contentList = getRatedContents(config, restUtil)
     println("contentList" + JSONUtils.serialize(contentList))
@@ -93,7 +96,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   }
 
   def compute(contentData: List[Map[String, AnyRef]]): List[ContentMetrics] = {
-     contentData.map(x => {
+    contentData.map(x => {
       if (x.getOrElse("dimensions_pdata_id", "").toString.contains(".app")) {
         ContentMetrics(
           x.getOrElse("contentId", "").toString, None, None,
