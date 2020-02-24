@@ -121,7 +121,8 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     }
 
     private def getChannelSlugDF(organisationDF: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
-      organisationDF.filter(col(colName = "slug").isNotNull).select(col("channel"), col("slug")).where(col("isrootorg") && col("status").===(1))
+      organisationDF.filter(col(colName = "slug").isNotNull)
+        .select(col("channel"), col("slug")).where(col("isrootorg") && col("status").===(1))
     }
 
     def generateSummaryData(shadowUserDF: Dataset[ShadowUserData])(implicit spark: SparkSession): DataFrame = {
