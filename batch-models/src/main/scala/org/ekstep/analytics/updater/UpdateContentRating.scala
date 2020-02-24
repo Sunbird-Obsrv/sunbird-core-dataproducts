@@ -70,7 +70,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (Option[ContentMetrics], Option[ContentMetrics]))] = {
     val contentList = getRatedContents(config, restUtil)
-    println("contentList" + JSONUtils.serialize(contentList))
+    JobLogger.log("Rated Content Identifiers are" + JSONUtils.serialize(contentList), None, Level.INFO)
     val contentRatingList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.rating.query"))
     val contentConsumptionList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.consumption.query"))
     val finalContentRating = contentRatingList.filter(f => contentList.contains(f.contentId)).map { f =>
