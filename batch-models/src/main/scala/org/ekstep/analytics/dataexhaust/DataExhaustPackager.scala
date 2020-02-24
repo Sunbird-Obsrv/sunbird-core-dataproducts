@@ -54,7 +54,7 @@ object DataExhaustPackager extends optional.Application {
     
     def name: String = "DataExhaustPackager"
     val storageType = AppConf.getStorageType()
-    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
+    val storageService = fc.getStorageService(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType))
 
     def execute()(implicit sc: SparkContext) = {
 

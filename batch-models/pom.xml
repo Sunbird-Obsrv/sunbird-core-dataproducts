@@ -144,20 +144,7 @@
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.datastax.cassandra/cassandra-driver-core -->
-		<!--
-		<dependency>
-			<groupId>com.datastax.cassandra</groupId>
-			<artifactId>cassandra-driver-core</artifactId>
-			<version>3.1.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.google.guava</groupId>
-					<artifactId>guava</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		-->
+		
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
 			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>
@@ -245,13 +232,7 @@
 			<artifactId>video-streaming</artifactId>
             <version>1.0</version>
         </dependency>
-        <!-- <dependency>
-			<groupId>org.sunbird</groupId>
-			<artifactId>sunbird-cloud-store-sdk</artifactId>
-			<version>1.0</version>
-			<scope>provided</scope>
-		</dependency> -->
-		<dependency>
+        <dependency>
 			<groupId>org.sunbird</groupId>
 			<artifactId>cloud-store-sdk</artifactId>
 			<version>1.2.6</version>
@@ -275,28 +256,19 @@
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch-hadoop -->
-		<!--<dependency>-->
-			<!--<groupId>org.elasticsearch</groupId>-->
-			<!--<artifactId>elasticsearch-hadoop</artifactId>-->
-			<!--<version>6.7.0</version>-->
-			<!--<scope>provided</scope>-->
-		<!--</dependency>-->
-		<!-- https://mvnrepository.com/artifact/ing.wbaa.druid/scruid -->
+		
 		<dependency>
 			<groupId>ing.wbaa.druid</groupId>
 			<artifactId>scruid_2.11</artifactId>
 			<version>2.3.0</version>
 			<scope>provided</scope>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch -->
 		<dependency>
 		    <groupId>pl.allegro.tech</groupId>
 		    <artifactId>embedded-elasticsearch</artifactId>
 		    <version>2.10.0</version>
 		    <scope>test</scope>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/io.zonky.test/embedded-postgres -->
 		<dependency>
 			<groupId>io.zonky.test</groupId>
 			<artifactId>embedded-postgres</artifactId>
