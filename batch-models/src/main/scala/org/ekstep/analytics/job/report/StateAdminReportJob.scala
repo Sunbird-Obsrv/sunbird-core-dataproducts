@@ -1,16 +1,14 @@
 package org.ekstep.analytics.job.report
 
-import java.io.File
-
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{DataFrame, _}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, lit, _}
+import org.apache.spark.sql.{DataFrame, _}
 import org.ekstep.analytics.framework.Level.INFO
-import org.ekstep.analytics.framework.{FrameworkContext, _}
-import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
-import org.sunbird.cloud.storage.conf.AppConf
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
+import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
+import org.ekstep.analytics.framework.{FrameworkContext, _}
+import org.sunbird.cloud.storage.conf.AppConf
 
 case class ValidatedUserDistrictSummary(index: Int, districtName: String, blocks: Long, schools: Long, registered: Long)
 case class UserStatus(id: Long, status: String)
@@ -123,7 +121,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
     }
 
     private def getChannelSlugDF(organisationDF: DataFrame)(implicit sparkSession: SparkSession): DataFrame = {
-      organisationDF.select(col("channel"), col("slug")).where(col("isrootorg") && col("status").===(1))        
+      organisationDF.select(col("channel"), col("slug")).where(col("isrootorg") && col("status").===(1))
     }
 
     def generateSummaryData(shadowUserDF: Dataset[ShadowUserData])(implicit spark: SparkSession): DataFrame = {
@@ -165,7 +163,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
               col("orgextid").as("School external id"),
               col("claimstatus").as("Claimed status"),
               col("createdon").as("Created on"),
-              col("updatedon").as("Last updated on"))
+              col("updatedon").as("Last updated on")).filter(col(colName = "slug").isNotNull)
           .saveToBlobStore(storageConfig, "csv", "user-detail", Option(Map("header" -> "true")), Option(Seq("slug")))
           
         JobLogger.log(s"StateAdminReportJob: uploadedSuccess nRecords = ${reportDF.count()}")
@@ -202,7 +200,7 @@ object StateAdminReportJob extends optional.Application with IJob with StateAdmi
                 when(col(OrgExtIdMismatch.status).isNull, 0).otherwise(col(OrgExtIdMismatch.status)).as(OrgExtIdMismatch.status))
             .withColumn(
                 "accounts_failed",
-                col(FailedStatus.status) + col(MultiMatchStatus.status) + col(OrgExtIdMismatch.status))
+                col(FailedStatus.status) + col(MultiMatchStatus.status) + col(OrgExtIdMismatch.status)).filter(col(colName = "slug").isNotNull)
             .saveToBlobStore(storageConfig, "json", "user-summary", None, Option(Seq("slug")))
         
         JobLogger.log(s"StateAdminReportJob: uploadedSuccess nRecords = ${reportDF.count()}", None, INFO)
