@@ -28,9 +28,9 @@ class TestCourseEnrollmentModel extends SparkSpec with Matchers with MockFactory
     (EsIndex("course-batch",Option("search"), Option(cbMapping),None)))
 
     EmbeddedES.loadData("course-batch", "search", Buffer(
-      """{"courseId":"do_112470675618004992181","participantCount":2,"completedCount":0,"batchId":"0127462617892044804"}""",
-      """{"courseId":"0128448115803914244","participantCount":3,"completedCount":3,"batchId":"0127419590263029761308"}""",
-      """{"courseId":"05ffe180caa164f56ac193964c5816d4","participantCount":4,"completedCount":3,"batchId":"01273776766975180837"}"""))
+      """{"courseId":"do_112470675618004992181","participantCount":2,"completedCount":0,"id":"0127462617892044804"}""",
+      """{"courseId":"0128448115803914244","participantCount":3,"completedCount":3,"id":"0127419590263029761308"}""",
+      """{"courseId":"05ffe180caa164f56ac193964c5816d4","participantCount":4,"completedCount":3,"id":"01273776766975180837"}"""))
 
     EmbeddedCassandra.loadData("src/test/resources/reports/reports_test_data.cql")
   }
