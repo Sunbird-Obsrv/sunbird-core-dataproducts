@@ -63,7 +63,7 @@ object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsO
   }
 
   def getCourseBatchCounts(courseIds: String, batchIds: String)(implicit sc: SparkContext, sqlContext: SQLContext) : DataFrame = {
-
+println("courseIds & batchIds: ", courseIds, batchIds )
     val request = s"""{
                      |  "query": {
                      |    "bool": {
