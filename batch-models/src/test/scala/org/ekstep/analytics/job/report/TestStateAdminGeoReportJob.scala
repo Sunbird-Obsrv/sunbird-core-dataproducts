@@ -9,7 +9,7 @@ import org.ekstep.analytics.util.EmbeddedCassandra
 import org.sunbird.cloud.storage.conf.AppConf
 import java.io.File
 
-import org.ekstep.analytics.framework.FrameworkContext
+import org.ekstep.analytics.framework.{Fetcher, FrameworkContext, JobConfig}
 import org.ekstep.analytics.framework.util.HadoopFileUtil
 
 class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
@@ -59,5 +59,15 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     assert(geoDetail.exists() === true)
     assert(geoSummary.exists() === true)
     assert(geoSummaryDistrict.exists() === true)
+  }
+
+  ignore should "execute dispatcher" in {
+    implicit val fc = new FrameworkContext()
+    val reportDF = StateAdminGeoReportJob.generateGeoReport()(spark, fc)
+
+    val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/Users/kumar/projects/sunbird-data-products/venv",
+      "adhoc_scripts_output_dir" -> "/Users/kumar/projects/sunbird-data-products/reports")
+    val jobConfig = JobConfig(Fetcher("local", None, None), None, None, "StateAdminJob", Some(modelParams), None, Some(4), Some("TestExecuteDispatchder"))
+    StateAdminGeoReportJob.generateDistrictZip(reportDF, jobConfig)
   }
 }

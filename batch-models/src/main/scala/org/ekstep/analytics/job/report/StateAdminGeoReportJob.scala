@@ -8,6 +8,8 @@ import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
 import org.sunbird.cloud.storage.conf.AppConf
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
+import org.ekstep.analytics.framework.dispatcher.ScriptDispatcher
+import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 
 
 case class DistrictSummary(index:Int, districtName: String, blocks: Long, schools: Long)
@@ -36,7 +38,8 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
   }
 
   private def execute(config: JobConfig)(implicit sparkSession: SparkSession, fc: FrameworkContext) = {
-      generateGeoReport()
+      val blockData = generateGeoReport()
+      generateDistrictZip(blockData, config)
       JobLogger.end("StateAdminGeoReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
   }
 
@@ -61,6 +64,26 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
 
     districtSummaryReport(blockData, storageConfig)
     blockData
+  }
+
+  def generateDistrictZip(blockData: DataFrame, jobConfig: JobConfig): Unit = {
+    val params = jobConfig.modelParams.getOrElse(Map())
+    val virtualEnvDirectory = params.getOrElse("adhoc_scripts_virtualenv_dir", "/mount/venv")
+    val scriptOutputDirectory = params.getOrElse("adhoc_scripts_output_dir", "/mount/portal_data")
+
+    val slugs = blockData.select(col("slug")).distinct().collect.map(_.getString(0)).mkString(",")
+    val userDetailReportCommand = Seq("bash", "-c",
+      s"source $virtualEnvDirectory/bin/activate; " +
+      s"dataproducts user_detail --data_store_location='$scriptOutputDirectory' --states='$slugs'")
+    JobLogger.log(s"User detail district zip report command:: $userDetailReportCommand", None, INFO)
+    val userDetailReportExitCode = ScriptDispatcher.dispatch(userDetailReportCommand)
+
+    if (userDetailReportExitCode == 0) {
+      JobLogger.log(s"District level zip generation::Success", None, INFO)
+    } else {
+      JobLogger.log(s"District level zip generation failed with exit code $userDetailReportExitCode", None, ERROR)
+      throw new Exception(s"District level zip generation failed with exit code $userDetailReportExitCode")
+    }
   }
 
   def districtSummaryReport(blockData: DataFrame, storageConfig: StorageConfig)(implicit spark: SparkSession, fc: FrameworkContext): Unit = {
