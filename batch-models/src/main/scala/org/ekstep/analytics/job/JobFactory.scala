@@ -2,7 +2,7 @@ package org.ekstep.analytics.job
 
 import org.ekstep.analytics.framework.exception.JobNotFoundException
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.job.Metrics.MetricsAuditJob
+import org.ekstep.analytics.job.metrics.MetricsAuditJob
 import org.ekstep.analytics.job.summarizer._
 import org.ekstep.analytics.job.updater._
 import org.ekstep.analytics.job.report.{AssessmentMetricsJob, CourseConsumptionJob, CourseEnrollmentJob, CourseMetricsJob, StateAdminGeoReportJob, StateAdminReportJob}
@@ -20,20 +20,12 @@ object JobFactory {
                 MonitorSummarizer
             case "wfs" =>
                 WorkFlowSummarizer
-            case "wfus" =>
-                WorkFlowUsageSummarizer
-            case "wfu" =>
-                WorkFlowUsageUpdater
             case "ds" =>
                 DeviceSummarizer
             case "dpu" =>
                 DeviceProfileUpdater
             case "video-streaming" =>
                 VideoStreamingJob
-            case "portal-metrics" =>
-                PortalMetricsUpdater
-            case "workflow-usage-metrics" =>
-                WorkFlowUsageMetricsUpdater
             case "data-exhaust" =>
                 DataExhaustJob
             case "course-dashboard-metrics" =>

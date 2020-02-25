@@ -53,8 +53,7 @@ object DataExhaustUtils {
 
     val CONSUMPTION_ENV = List("Genie", "ContentPlayer")
     val storageType = AppConf.getStorageType()
-    val storageConfig = StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType))
-    val storageService = StorageServiceFactory.getStorageService(storageConfig)
+    val storageService = fc.getStorageService(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType))
 
     def updateStage(request_id: String, client_key: String, satage: String, stage_status: String, status: String = "PROCESSING", err_message: String = "")(implicit sc: SparkContext) {
         sc.makeRDD(Seq(JobStage(request_id, client_key, satage, stage_status, status, err_message))).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME, Constants.JOB_REQUEST, SomeColumns("request_id", "client_key", "stage", "stage_status", "status", "err_message"))
@@ -150,7 +149,7 @@ object DataExhaustUtils {
                     data.saveAsTextFile(key)
                     DataExhaustUtils.updateStage(requestID, clientKey, "SAVE_DATA_TO_S3_" + eventId, "COMPLETED")
                 case "azure" =>
-                    val key = "wasb://" + bucket+ "@" + storageConfig.storageKey + ".blob.core.windows.net" + "/" + prefix + requestId + "/" + eventId;
+                    val key = "wasb://" + bucket+ "@" + AppConf.getStorageKey(storageType) + ".blob.core.windows.net" + "/" + prefix + requestId + "/" + eventId;
                     data.saveAsTextFile(key)
                     DataExhaustUtils.updateStage(requestID, clientKey, "SAVE_DATA_TO_AZURE_" + eventId, "COMPLETED")
                 case "local" =>

@@ -7,12 +7,11 @@ import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.util.RestUtil
 import org.ekstep.analytics.job.report.{AssessmentMetricsJob, BaseReportSpec, ReportGenerator}
 import org.ekstep.analytics.util.ESUtil.elasticSearchURL
-import org.ekstep.analytics.util.{ESUtil, EmbeddedES, EsResponse, FileUtil}
+import org.ekstep.analytics.util.{ESUtil, EmbeddedES, EsResponse}
 import org.scalamock.scalatest.MockFactory
 import org.sunbird.cloud.storage.BaseStorageService
 import org.sunbird.cloud.storage.conf.AppConf
 
-import scala.collection.Map
 import scala.collection.mutable.Buffer
 
 class TestAssessmentMetricsJob extends BaseReportSpec with MockFactory {
@@ -403,35 +402,5 @@ class TestAssessmentMetricsJob extends BaseReportSpec with MockFactory {
       case ex: Exception => assert(ex === null)
     }
   }
-
-  it should "Should able to create a local directory to rename the reports if exists" in {
-    val tempDir = AppConf.getConfig("course.metrics.temp.dir")
-    val renamedDir = s"$tempDir/renamed"
-    val temp = new File(tempDir)
-    val out = new File(renamedDir)
-    //TODO : Sonar cloud testcase failing need to check
-    try {
-      FileUtil.renameReport(tempDir, renamedDir, "batch-001");
-//      assert(out.exists() === true)
-//      assert(temp.exists() === true)
-    } catch {
-      case ex: Exception => println("Error" + ex)
-    }
-  }
-
-  it should "Not throw any error if the temp folder is already exists" in {
-    val tempDir = AppConf.getConfig("course.metrics.temp.dir")
-    val renamedDir = s"$tempDir/renamed"
-    val temp = new File(tempDir)
-    val out = new File(renamedDir)
-    temp.mkdirs()
-    out.mkdirs()
-    try {
-      FileUtil.renameReport(tempDir, renamedDir, "batch-001");
-    } catch {
-      case ex: Exception => assert(ex === null)
-    }
-  }
-
 
 }

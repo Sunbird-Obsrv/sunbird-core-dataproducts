@@ -6,8 +6,8 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, row_number, _}
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
-import org.ekstep.analytics.util.HDFSFileUtils
 import org.sunbird.cloud.storage.conf.AppConf
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 
 
 case class DistrictSummary(index:Int, districtName: String, blocks: Long, schools: Long)
@@ -19,7 +19,6 @@ case class SubOrgRow(id: String, isrootorg: Boolean, rootorgid: String, channel:
 object StateAdminGeoReportJob extends optional.Application with IJob with StateAdminReportHelper {
 
   implicit val className: String = "org.ekstep.analytics.job.StateAdminGeoReportJob"
-  val fSFileUtils = new HDFSFileUtils(className, JobLogger)
 
   def name(): String = "StateAdminGeoReportJob"
 
@@ -37,85 +36,55 @@ object StateAdminGeoReportJob extends optional.Application with IJob with StateA
   }
 
   private def execute(config: JobConfig)(implicit sparkSession: SparkSession, fc: FrameworkContext) = {
-      try{
-        fSFileUtils.purgeDirectory(renamedDir)
-      } catch {
-        case t: Throwable => null;
-      }
       generateGeoReport()
-      uploadReport(renamedDir)
       JobLogger.end("StateAdminGeoReportJob completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
-
-
   }
 
   def generateGeoReport() (implicit sparkSession: SparkSession, fc: FrameworkContext): DataFrame = {
+    
+    val container = AppConf.getConfig("cloud.container.reports")
+    val objectKey = AppConf.getConfig("admin.metrics.cloud.objectKey")
+    val storageConfig = getStorageConfig(container, objectKey)
+    
     val organisationDF: DataFrame = loadOrganisationDF()
     val subOrgDF: DataFrame = generateSubOrgData(organisationDF)
     val blockData:DataFrame = generateBlockLevelData(subOrgDF)
-    blockData.write
-      .partitionBy("slug")
-      .mode("overwrite")
-      .option("header", "true")
-      .csv(s"$detailDir")
-
+    
+    blockData.saveToBlobStore(storageConfig, "csv", "geo-detail", Option(Map("header" -> "true")), Option(Seq("slug")))
+    
     blockData
           .groupBy(col("slug"))
           .agg(countDistinct("School id").as("schools"),
             countDistinct(col("District id")).as("districts"),
             countDistinct(col("Block id")).as("blocks"))
-          .coalesce(1)
-          .write
-          .partitionBy("slug")
-          .mode("overwrite")
-          .json(s"$summaryDir")
+          .saveToBlobStore(storageConfig, "json", "geo-summary", None, Option(Seq("slug")))
 
-    fSFileUtils.renameReport(summaryDir, renamedDir, ".json", "geo-summary")
-    fSFileUtils.renameReport(detailDir, renamedDir, ".csv", "geo-detail")
-    fSFileUtils.purgeDirectory(detailDir)
-    fSFileUtils.purgeDirectory(summaryDir)
-    districtSummaryReport(blockData)
+    districtSummaryReport(blockData, storageConfig)
     blockData
   }
 
-  def districtSummaryReport(blockData: DataFrame)(implicit sparkSession: SparkSession, fc: FrameworkContext): Unit = {
+  def districtSummaryReport(blockData: DataFrame, storageConfig: StorageConfig)(implicit spark: SparkSession, fc: FrameworkContext): Unit = {
     val window = Window.partitionBy("slug").orderBy(asc("districtName"))
     val blockDataWithSlug = blockData.
       select("*")
       .groupBy(col("slug"),col("District name").as("districtName")).
       agg(countDistinct("Block id").as("blocks"),countDistinct("externalid").as("schools"))
         .withColumn("index", row_number().over(window))
-    dataFrameToJsonFile(blockDataWithSlug)
+    blockDataWithSlug.saveToBlobStore(storageConfig, "json", "geo-summary-district", None, Option(Seq("slug")))
+    dataFrameToJsonFile(blockDataWithSlug, "geo-summary-district", storageConfig)
   }
 
-  def dataFrameToJsonFile(dataFrame: DataFrame)(implicit sparkSession: SparkSession, fc: FrameworkContext): Unit = {
-    implicit val sc = sparkSession.sparkContext;
-    val dfMap = dataFrame.select("slug", "index","districtName", "blocks", "schools")
+  def dataFrameToJsonFile(dataFrame: DataFrame, reportId: String, storageConfig: StorageConfig)(implicit spark: SparkSession, fc: FrameworkContext): Unit = {
+
+    implicit val sc = spark.sparkContext;
+
+    dataFrame.select("slug", "index", "districtName", "blocks", "schools")
       .collect()
-      .groupBy(
-        f => f.getString(0)).map(f => {
-          val summary = f._2.map(f => DistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4)))
-          val arrDistrictSummary = sc.parallelize(Array(JSONUtils.serialize(summary)), 1)
-          val fileName = s"$renamedDir/${f._1}/geo-summary-district.json"
-          OutputDispatcher.dispatch(Dispatcher("file", Map("file" -> fileName)), arrDistrictSummary);
+      .groupBy(f => f.getString(0)).map(f => {
+        val summary = f._2.map(f => DistrictSummary(f.getInt(1), f.getString(2), f.getLong(3), f.getLong(4)))
+        val arrDistrictSummary = sc.parallelize(Array(JSONUtils.serialize(summary)), 1)
+        OutputDispatcher.dispatch(StorageConfig(storageConfig.store, storageConfig.container, storageConfig.fileName + reportId + "/" + f._1 + ".json", storageConfig.accountKey, storageConfig.secretKey), arrDistrictSummary);
       })
-  }
 
-  def uploadReport(sourcePath: String)(implicit fc: FrameworkContext) = {
-    // Container name can be generic - we dont want to create as many container as many reports
-    val container = AppConf.getConfig("cloud.container.reports")
-    val objectKey = AppConf.getConfig("admin.metrics.cloud.objectKey")
-
-    val storageService = getReportStorageService();
-    storageService.upload(container, sourcePath, objectKey, isDirectory = Option(true))
-    storageService.closeContext()
   }
 }
-
-object StateAdminGeoReportJobTest {
-
-  def main(args: Array[String]): Unit = {
-    StateAdminGeoReportJob.main("""{"model":"Test"}""");
-  }
-}
-

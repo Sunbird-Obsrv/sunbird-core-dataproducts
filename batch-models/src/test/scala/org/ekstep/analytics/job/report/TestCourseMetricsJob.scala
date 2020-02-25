@@ -7,6 +7,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.job.report.{BaseReportSpec, CourseMetricsJob, ReportGenerator}
 import org.scalamock.scalatest.MockFactory
+import org.ekstep.analytics.framework.StorageConfig
+import org.ekstep.analytics.framework.util.HadoopFileUtil
 
 
 class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
@@ -132,9 +134,10 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
       .prepareReport(spark, reporterMock.loadData)
       .cache()
 
-    CourseMetricsJob.saveReport(reportDF, AppConf.getConfig("course.metrics.temp.dir"))
+    val storageConfig = StorageConfig("local", "", "src/test/resources/course-metrics")  
+    CourseMetricsJob.saveReport(reportDF, storageConfig)
     CourseMetricsJob.saveReportES(reportDF)
-
+    (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/course-metrics")
 
     assert(reportDF.count == 34)
     assert(reportDF.groupBy(col("batchid")).count().count() == 10)
@@ -493,32 +496,9 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
     val df = spark.createDataFrame(Seq(
       ("", "user010", "Manju", "D R", "****@gmail.com", "*****75643", "org1", "TMK", "NVPHS", "BlockName", "2019-10-11", "100", "2019-11-11", "batch_001")
     )).toDF("externalid", "userid", "firstname", "lastname", "maskedemail", "maskedphone", "orgname_resolved", "district_name", "schoolname_resolved", "block_name", "enrolleddate", "course_completion", "completedon", "batchid")
-    CourseMetricsJob.saveReport(df, tempDir)
-    //TODO : Sonar cloud testcase failing need to check
-    val renamedDir = s"$tempDir/renamed"
-    val temp = new File(tempDir)
-    val out = new File(renamedDir)
-    try {
-      CourseMetricsJob.renameReport(tempDir, renamedDir);
-//      assert(out.exists() === true)
-//      assert(temp.exists() === true)
-    } catch {
-      case ex: Exception => println("Error" + ex)
-    }
+    val storageConfig = StorageConfig("local", "", "src/test/resources/course-metrics2")
+    CourseMetricsJob.saveReport(df, storageConfig)
+    (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/course-metrics2")
   }
-
-  it should "Not throw any error if the temp folder is already exists" in {
-    val tempDir = AppConf.getConfig("course.metrics.temp.dir")
-    val renamedDir = s"$tempDir/renamed"
-    val temp = new File(tempDir)
-    val out = new File(renamedDir)
-    temp.mkdirs()
-    out.mkdirs()
-    try {
-      CourseMetricsJob.renameReport(tempDir, renamedDir);
-    } catch {
-      case ex: Exception => assert(ex === null)
-    }
-
-  }
+  
 }

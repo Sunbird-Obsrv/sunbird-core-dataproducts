@@ -3,7 +3,7 @@ package org.ekstep.analytics.model
 
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.job.Metrics.MetricsAuditJob
+import org.ekstep.analytics.job.metrics.MetricsAuditJob
 import org.scalamock.scalatest.MockFactory
 
   class TestMetricsAuditModel extends SparkSpec(null) with MockFactory{

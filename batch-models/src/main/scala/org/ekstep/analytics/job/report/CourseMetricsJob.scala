@@ -14,9 +14,9 @@ import org.ekstep.analytics.util.ESUtil
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.sunbird.cloud.storage.conf.AppConf
-import scala.collection.{Map, _}
 import org.elasticsearch.spark.sql.sparkDataFrameFunctions
 import scala.reflect.ManifestFactory.classType
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 
 trait ReportGenerator {
   def loadData(spark: SparkSession, settings: Map[String, String]): DataFrame
@@ -25,7 +25,6 @@ trait ReportGenerator {
 
   def saveReportES(reportDF: DataFrame): Unit
 
-  def saveReport(reportDF: DataFrame, url: String): Unit
 }
 
 case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
@@ -56,11 +55,12 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       .set("es.write.operation", "upsert")
       .set("spark.cassandra.input.consistency.level", readConsistencyLevel)
 
+    val container = AppConf.getConfig("cloud.container.reports")
+    val objectKey = AppConf.getConfig("course.metrics.cloud.objectKey")
+    val storageConfig = getStorageConfig(container, objectKey)
     val spark = SparkSession.builder.config(sparkConf).getOrCreate()
     val reportDF = prepareReport(spark, loadData)
-    saveReport(reportDF, tempDir)
-    renameReport(tempDir, renamedDir)
-    uploadReport(renamedDir)
+    saveReport(reportDF, storageConfig);
     saveReportES(reportDF)
     JobLogger.end("CourseMetrics Job completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name)))
 
@@ -302,8 +302,9 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     index + DateTimeFormat.forPattern("dd-MM-yyyy-HH-mm").print(DateTime.now())
   }
 
-  def saveReport(reportDF: DataFrame, url: String): Unit = {
+  def saveReport(reportDF: DataFrame, storageConfig: StorageConfig): Unit = {
     reportDF
+      .withColumn("newbatchid", concat(lit("report-"), col("batchid")) )
       .select(
         col("externalid").as("External ID"),
         col("userid").as("User ID"),
@@ -318,67 +319,13 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         concat(col("course_completion").cast("string"), lit("%"))
           .as("Course Progress"),
         col("completedon").as("Completion Date"),
-        col("batchid")).coalesce(1)
-      .write
-      .partitionBy("batchid")
-      .mode("overwrite")
-      .format("com.databricks.spark.csv")
-      .option("header", "true")
-      .save(url)
+        col("newbatchid"))
+      .saveToBlobStore(storageConfig, "csv", "course-progress-reports", Option(Map("header" -> "true")), Option(Seq("newbatchid")))
 
     val perBatchCount = reportDF.groupBy("batchid").count().collect().map(_.toSeq)
     val noOfRecords = reportDF.count()
     JobLogger.log(s"CourseMetricsJob: records stats before cloud upload: { perBatchCount: ${JSONUtils.serialize(perBatchCount)}, totalNoOfRecords: $noOfRecords } ", None, INFO)
   }
 
-  def uploadReport(sourcePath: String)(implicit fc: FrameworkContext) = {
-    
-    val container = AppConf.getConfig("cloud.container.reports")
-    val objectKey = AppConf.getConfig("course.metrics.cloud.objectKey")
-    val storageService = getReportStorageService();
-    storageService.upload(container, sourcePath, objectKey, isDirectory = Option(true))
-    storageService.closeContext()
-  }
-
-  private def recursiveListFiles(file: File, ext: String): Array[File] = {
-    val fileList = file.listFiles
-    val extOnly = fileList.filter(file => file.getName.endsWith(ext))
-    extOnly ++ fileList.filter(_.isDirectory).flatMap(recursiveListFiles(_, ext))
-  }
-
-  private def purgeDirectory(dir: File): Unit = {
-    for (file <- dir.listFiles) {
-      if (file.isDirectory) purgeDirectory(file)
-      file.delete
-    }
-  }
-
-  def renameReport(tempDir: String, outDir: String) = {
-    val regex = """\=.*/""".r // to get batchid from the path "somepath/batchid=12313144/part-0000.csv"
-    val temp = new File(tempDir)
-    val out = new File(outDir)
-
-    if (!temp.exists()) throw new Exception(s"path $tempDir doesn't exist")
-
-    if (out.exists()) {
-      purgeDirectory(out)
-      JobLogger.log(s"cleaning out the directory ${out.getPath}")
-    } else {
-      out.mkdirs()
-      JobLogger.log(s"creating the directory ${out.getPath}")
-    }
-
-    val fileList = recursiveListFiles(temp, ".csv")
-
-    JobLogger.log(s"moving ${fileList.length} files to ${out.getPath}")
-
-    fileList.foreach(file => {
-      val value = regex.findFirstIn(file.getPath).getOrElse("")
-      if (value.length > 1) {
-        val batchid = value.substring(1, value.length() - 1)
-        Files.copy(file.toPath, new File(s"${out.getPath}/report-$batchid.csv").toPath, StandardCopyOption.REPLACE_EXISTING)
-      }
-    })
-  }
 }
 
