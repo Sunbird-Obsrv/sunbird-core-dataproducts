@@ -12,9 +12,10 @@ import org.ekstep.analytics.job.report.{BaseCourseMetrics, BaseCourseMetricsOutp
 import org.ekstep.analytics.model.ReportConfig
 import org.ekstep.analytics.util.CourseUtils
 import org.sunbird.cloud.storage.conf.AppConf
+import org.apache.spark.sql.functions.col
 
 case class CourseEnrollmentOutput(date: String, courseName: String, batchName: String, status: String, enrollmentCount: BigInt, completionCount: BigInt, slug: String, reportName: String) extends AlgoOutput with Output
-case class ESResponse(participantCount: BigInt, completedCount: BigInt, courseId: String)
+case class ESResponse(participantCount: BigInt, completedCount: BigInt, batchId: String)
 
 object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsOutput, CourseEnrollmentOutput, CourseEnrollmentOutput] with Serializable {
 
@@ -51,12 +52,12 @@ object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsO
     val courseId = events.collect().map(f => f.courseId)
 
     val courseCounts = getCourseBatchCounts(JSONUtils.serialize(courseId),JSONUtils.serialize(batchId))
-    val baseCourseMetricsOutput = events.map(f=> (f.courseId,f))
+    val baseCourseMetricsOutput = events.map(f=> (f.batchId,f))
 
     val encoder = Encoders.product[ESResponse]
     val courseInfo = courseCounts.as[ESResponse](encoder).rdd
 
-    val courses = courseInfo.map(f => (f.courseId, f))
+    val courses = courseInfo.map(f => (f.batchId, f))
     val finalRDD = baseCourseMetricsOutput.leftOuterJoin(courses)
     finalRDD.map(f => f._2)
   }
@@ -69,12 +70,7 @@ object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsO
                      |      "filter": [
                      |        {
                      |          "terms": {
-                     |            "courseId.raw": $courseIds
-                     |          }
-                     |        },
-                     |        {
-                     |          "terms": {
-                     |            "batchId.raw": $batchIds
+                     |            "id.raw": $batchIds
                      |          }
                      |        }
                      |      ]
@@ -89,6 +85,8 @@ object CourseEnrollmentModel extends BaseCourseMetrics[Empty, BaseCourseMetricsO
       .option("es.port", AppConf.getConfig("es.port"))
       .option("es.scroll.size", AppConf.getConfig("es.scroll.size"))
       .option("inferSchema", "true")
-      .load("course-batch").select("participantCount", "completedCount", "courseId")
+      .load("course-batch").select(
+        col("participantCount"), col("completedCount"), col("id").as("batchId")
+      )
   }
 }
