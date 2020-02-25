@@ -128,6 +128,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def publishMetricsToContentModel(contentMetrics: ContentMetrics, baseURL: String, restUtil: HTTPClient): Response = {
     val systemUpdateURL = baseURL + "/" + contentMetrics.contentId
+    val meTotalTimeSpent = Map("app" -> contentMetrics.totalPlaySessionCountInApp.getOrElse(null), "portal" -> contentMetrics.totalTimeSpentInPortal.getOrElse(null), "desktop" -> contentMetrics.totalTimeSpentInDeskTop.getOrElse(null)).filter(_._2 != null)
+    val meTotalPlaySessionCount = Map("app" -> contentMetrics.totalPlaySessionCountInApp.getOrElse(null), "portal" -> contentMetrics.totalPlaySessionCountInPortal.getOrElse(null), "desktop" -> contentMetrics.totalPlaySessionCountInDeskTop.getOrElse(null)).filter(_._2 != null)
     val request =
       s"""
          |{
@@ -135,16 +137,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
          |    "content": {
          |      "me_totalRatingsCount": ${contentMetrics.totalRatingsCount.orNull},
          |      "me_averageRating": ${contentMetrics.averageRating.orNull},
-         |      "me_totalTimeSpent":{
-         |      "app": ${contentMetrics.totalPlaySessionCountInApp.orNull},
-         |      "portal":${contentMetrics.totalTimeSpentInPortal.orNull},
-         |      "desktop":${contentMetrics.totalTimeSpentInDeskTop.orNull}
-         |      },
-         |      "me_totalPlaySessionCount":{
-         |      "app":${contentMetrics.totalPlaySessionCountInApp.orNull},
-         |      "portal":${contentMetrics.totalPlaySessionCountInPortal.orNull},
-         |      "desktop":${contentMetrics.totalPlaySessionCountInDeskTop.orNull}
-         |      }
+         |      "me_totalTimeSpent":${if(meTotalTimeSpent.isEmpty) null else JSONUtils.serialize(meTotalTimeSpent) },
+         |      "me_totalPlaySessionCount":${if(meTotalPlaySessionCount.isEmpty) null else JSONUtils.serialize(meTotalPlaySessionCount)}
          |    }
          |  }
          |}
