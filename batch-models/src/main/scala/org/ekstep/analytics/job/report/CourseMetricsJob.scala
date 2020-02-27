@@ -85,7 +85,9 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       getUserData(loadData)
     });
     Console.println("Time taken to generate user DF", userData._1, "Count", userData._2.count());
-    activeBatches.select("batchId", "startDate", "endDate").collect().foreach(f => {
+    val activeBatchList = activeBatches.select("batchId", "startDate", "endDate").collect();
+    Console.println("Total number of active batches", activeBatchList.size);
+    activeBatchList.foreach(f => {
       val batchId = f.getString(0);
       val time1 = CommonUtil.time({
         createReportPerBatch(batchId, f.getString(2), f.getString(1), userData._2, loadData)
