@@ -18,6 +18,7 @@ import org.elasticsearch.spark.sql.sparkDataFrameFunctions
 import scala.reflect.ManifestFactory.classType
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.joda.time.DateTimeZone
+import org.ekstep.analytics.framework.util.CommonUtil
 
 case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
 case class BatchDetails(batchid: String, courseCompletionCountPerBatch: Long, participantsCountPerBatch: Long)
@@ -80,56 +81,37 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     val activeBatches = courseBatchDF
       .filter(col("endDate").isNull || unix_timestamp(to_date(col("endDate"), "yyyy-MM-dd")).geq(timestamp.getMillis/1000))
     val newIndex = createESIndex();
+    val userData = CommonUtil.time({
+      getUserData(loadData)
+    });
+    Console.println("Time taken to generate user DF", userData._1, "Count", userData._2.count());
     activeBatches.select("batchId", "startDate", "endDate").collect().foreach(f => {
-      createReportPerBatch(f.getString(0), f.getString(2), f.getString(1), newIndex, storageConfig, loadData)
+      val batchId = f.getString(0);
+      val time1 = CommonUtil.time({
+        createReportPerBatch(batchId, f.getString(2), f.getString(1), userData._2, loadData)
+      });
+      Console.println("Time taken to generate DF", time1._1);
+      val reportDF = time1._2;
+      val time2 = CommonUtil.time({
+        saveReportToBlobStore(batchId, reportDF, storageConfig)
+      })
+      Console.println("Time taken to save report to blobstore", time2._1);
+      val time3 = CommonUtil.time({
+        saveReportToES(batchId, reportDF, newIndex)
+      })
+      Console.println("Time taken to save report to ES", time3._1);
     })
 
   }
-
-  def createReportPerBatch(batchId: String, endDate: String, startDate: String, newIndex: String, storageConfig: StorageConfig, loadData: (SparkSession, Map[String, String]) => DataFrame)(implicit spark: SparkSession): Unit = {
-
-    JobLogger.log("Creating report for batch " + batchId, None, INFO)
-    val userCoursesDF = loadData(spark, Map("table" -> "user_courses", "keyspace" -> sunbirdCoursesKeyspace))
+  
+  def getUserData(loadData: (SparkSession, Map[String, String]) => DataFrame)(implicit spark: SparkSession) : DataFrame = {
+    
     val userDF = loadData(spark, Map("table" -> "user", "keyspace" -> sunbirdKeyspace))
     val userOrgDF = loadData(spark, Map("table" -> "user_org", "keyspace" -> sunbirdKeyspace)).filter(lower(col("isdeleted")) === "false")
     val organisationDF = loadData(spark, Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace))
     val locationDF = loadData(spark, Map("table" -> "location", "keyspace" -> sunbirdKeyspace))
     val externalIdentityDF = loadData(spark, Map("table" -> "usr_external_identity", "keyspace" -> sunbirdKeyspace))
-
-    /*
-    * courseBatchDF has details about the course and batch details for which we have to prepare the report
-    * courseBatchDF is the primary source for the report
-    * userCourseDF has details about the user details enrolled for a particular course/batch
-    * */
-    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batchId && lower(userCoursesDF.col("active")).equalTo("true"))
-      .withColumn("enddate", lit(endDate))
-      .withColumn("startdate", lit(startDate))
-      .select(
-        col("batchid"),
-        col("userid"),
-        col("completionpercentage"),
-        col("enddate"),
-        col("startdate"),
-        col("enrolleddate"),
-        col("completedon"),
-        col("active"),
-        col("courseid"))
-
-    /*
-    *userCourseDenormDF lacks some of the user information that need to be part of the report
-    *here, it will add some more user details
-    * */
-    val userDenormDF = userCourseDenormDF
-      .join(userDF, Seq("userid"), "inner")
-      .select(
-        userCourseDenormDF.col("*"),
-        col("firstname"),
-        col("lastname"),
-        col("maskedemail"),
-        col("maskedphone"),
-        col("rootorgid"),
-        col("userid"),
-        col("locationids"))
+    
     /**
      * externalIdMapDF - Filter out the external id by idType and provider and Mapping userId and externalId
      */
@@ -139,13 +121,13 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     /*
     * userDenormDF lacks organisation details, here we are mapping each users to get the organisationids
     * */
-    val userRootOrgDF = userDenormDF
-      .join(userOrgDF, userOrgDF.col("userid") === userDenormDF.col("userid") && userOrgDF.col("organisationid") === userDenormDF.col("rootorgid"))
-      .select(userDenormDF.col("*"), col("organisationid"))
+    val userRootOrgDF = userDF
+      .join(userOrgDF, userOrgDF.col("userid") === userDF.col("userid") && userOrgDF.col("organisationid") === userDF.col("rootorgid"))
+      .select(userDF.col("*"), col("organisationid"))
 
-    val userSubOrgDF = userDenormDF
-      .join(userOrgDF, userOrgDF.col("userid") === userDenormDF.col("userid") && userOrgDF.col("organisationid") =!= userDenormDF.col("rootorgid"))
-      .select(userDenormDF.col("*"), col("organisationid"))
+    val userSubOrgDF = userDF
+      .join(userOrgDF, userOrgDF.col("userid") === userDF.col("userid") && userOrgDF.col("organisationid") =!= userDF.col("rootorgid"))
+      .select(userDF.col("*"), col("organisationid"))
 
     val rootOnlyOrgDF = userRootOrgDF
       .join(userSubOrgDF, Seq("userid"), "leftanti")
@@ -188,7 +170,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     * */
     val schoolNameDF = resolvedExternalIdDF
       .join(organisationDF, organisationDF.col("id") === resolvedExternalIdDF.col("organisationid"), "left_outer")
-      .select(resolvedExternalIdDF.col("userid"), resolvedExternalIdDF.col("organisationid"), col("orgname").as("schoolname_resolved"), resolvedExternalIdDF.col("batchid"))
+      .select(resolvedExternalIdDF.col("userid"), resolvedExternalIdDF.col("organisationid"), col("orgname").as("schoolname_resolved"))
 
     /**
      *  If the user present in the multiple organisation, then zip all the org names.
@@ -212,26 +194,86 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
      *
      *
      */
-    val schoolNameIndexDF = schoolNameDF.withColumn("index", count("userid").over(Window.partitionBy("userid", "batchid").orderBy("userid")).cast("int"))
+    val schoolNameIndexDF = schoolNameDF.withColumn("index", count("userid").over(Window.partitionBy("userid").orderBy("userid")).cast("int"))
 
     val resolvedSchoolNameDF = schoolNameIndexDF.selectExpr("*").filter(col("index") === 1).drop("organisationid", "index", "batchid")
       .union(schoolNameIndexDF.filter(col("index") =!= 1).groupBy("userid").agg(collect_list("schoolname_resolved").cast("string").as("schoolname_resolved")))
-
-    /*
-    * merge orgName and schoolName based on `userid` and calculate the course progress percentage from `progress` column which is no of content visited/read
-    * */
-    val reportDF = resolvedExternalIdDF
+      
+      resolvedExternalIdDF
       .join(resolvedSchoolNameDF, Seq("userid"), "left_outer")
       .join(resolvedOrgNameDF, Seq("userid", "rootorgid"), "left_outer")
+      .dropDuplicates("userid")
+      .cache();
+  }
+
+  def createReportPerBatch(batchId: String, endDate: String, startDate: String, userDF: DataFrame, loadData: (SparkSession, Map[String, String]) => DataFrame)(implicit spark: SparkSession): DataFrame = {
+
+    JobLogger.log("Creating report for batch " + batchId, None, INFO)
+    val userCoursesDF = loadData(spark, Map("table" -> "user_courses", "keyspace" -> sunbirdCoursesKeyspace))
+    
+
+    /*
+    * courseBatchDF has details about the course and batch details for which we have to prepare the report
+    * courseBatchDF is the primary source for the report
+    * userCourseDF has details about the user details enrolled for a particular course/batch
+    * */
+    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batchId && lower(userCoursesDF.col("active")).equalTo("true"))
+      .withColumn("enddate", lit(endDate))
+      .withColumn("startdate", lit(startDate))
       .withColumn(
         "course_completion",
         when(col("completionpercentage").isNull, 0)
           .when(col("completionpercentage") > 100, 100)
           .otherwise(col("completionpercentage")).cast("int"))
       .withColumn("generatedOn", date_format(from_utc_timestamp(current_timestamp.cast(DataTypes.TimestampType), "Asia/Kolkata"), "yyyy-MM-dd'T'HH:mm:ss'Z'"))
-      .dropDuplicates("userid", "batchid")
-    saveReportToBlobStore(batchId, reportDF, storageConfig)
-    saveReportToES(batchId, reportDF, newIndex)
+      .select(
+        col("batchid"),
+        col("userid"),
+        col("completionpercentage"),
+        col("enddate"),
+        col("startdate"),
+        col("enrolleddate"),
+        col("completedon"),
+        col("active"),
+        col("courseid"),
+        col("course_completion"),
+        col("generatedOn")
+      )
+    
+    /*
+    *userCourseDenormDF lacks some of the user information that need to be part of the report
+    *here, it will add some more user details
+    * */
+    val userDenormDF = userCourseDenormDF
+      .join(userDF, Seq("userid"), "inner")
+      .select(
+        userCourseDenormDF.col("*"),
+        col("firstname"),
+        col("channel"),
+        col("lastname"),
+        col("maskedemail"),
+        col("maskedphone"),
+        col("rootorgid"),
+        col("userid"),
+        col("locationids"),
+        col("externalid"),
+        col("orgname_resolved"),
+        col("schoolname_resolved"),
+        col("district_name"),
+        col("block_name"))
+        
+    /*
+    * merge orgName and schoolName based on `userid` and calculate the course progress percentage from `progress` column which is no of content visited/read
+    * */
+//    val reportDF = resolvedExternalIdDF
+//      .join(resolvedSchoolNameDF, Seq("userid"), "left_outer")
+//      .join(resolvedOrgNameDF, Seq("userid", "rootorgid"), "left_outer")
+//      .dropDuplicates("userid", "batchid").cache()
+        
+    val reportDF = userDenormDF.cache();
+    reportDF.count();
+    reportDF;
+    
   }
 
   def createESIndex(): String = {
