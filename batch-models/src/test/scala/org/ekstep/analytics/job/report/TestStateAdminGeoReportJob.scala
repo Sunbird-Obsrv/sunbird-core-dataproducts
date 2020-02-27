@@ -65,8 +65,8 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
     implicit val fc = new FrameworkContext()
     val reportDF = StateAdminGeoReportJob.generateGeoReport()(spark, fc)
 
-    val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/Users/kumar/projects/sunbird-data-products/venv",
-      "adhoc_scripts_output_dir" -> "/Users/kumar/projects/sunbird-data-products/reports")
+    val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/mount/venv",
+      "adhoc_scripts_output_dir" -> "/mount/portal_data")
     val jobConfig = JobConfig(Fetcher("local", None, None), None, None, "StateAdminJob", Some(modelParams), None, Some(4), Some("TestExecuteDispatchder"))
     StateAdminGeoReportJob.generateDistrictZip(reportDF, jobConfig)
   }
