@@ -67,6 +67,7 @@ class TestStateAdminGeoReportJob extends SparkSpec(null) with MockFactory {
 
     val modelParams = Map[String, AnyRef]("adhoc_scripts_virtualenv_dir" -> "/mount/venv",
       "adhoc_scripts_output_dir" -> "/mount/portal_data")
+
     val jobConfig = JobConfig(Fetcher("local", None, None), None, None, "StateAdminJob", Some(modelParams), None, Some(4), Some("TestExecuteDispatchder"))
     StateAdminGeoReportJob.generateDistrictZip(reportDF, jobConfig)
   }
