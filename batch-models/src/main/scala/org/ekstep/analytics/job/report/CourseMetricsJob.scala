@@ -90,16 +90,17 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       val time1 = CommonUtil.time({
         createReportPerBatch(batchId, f.getString(2), f.getString(1), userData._2, loadData)
       });
-      Console.println("Time taken to generate DF", time1._1);
+      Console.println(s"Time taken to generate $batchId DF", time1._1);
       val reportDF = time1._2;
       val time2 = CommonUtil.time({
         saveReportToBlobStore(batchId, reportDF, storageConfig)
       })
-      Console.println("Time taken to save report to blobstore", time2._1);
+      Console.println(s"Time taken to save report to blobstore for $batchId", time2._1);
       val time3 = CommonUtil.time({
         saveReportToES(batchId, reportDF, newIndex)
       })
-      Console.println("Time taken to save report to ES", time3._1);
+      reportDF.unpersist(true);
+      Console.println(s"Time taken to save report to ES for $batchId", time3._1);
     })
 
   }
