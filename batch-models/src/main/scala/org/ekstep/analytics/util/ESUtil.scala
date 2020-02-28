@@ -3,7 +3,6 @@ package org.ekstep.analytics.util
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger, RestUtil}
-import org.ekstep.analytics.job.report.ESIndexResponse
 import org.elasticsearch.spark.sql._
 import org.sunbird.cloud.storage.conf.AppConf
 
@@ -23,6 +22,7 @@ trait ESService {
   def deleteIndex(index: List[String]): EsResponse
 }
 
+case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
 case class EsResponse(acknowledged: Boolean, shards_acknowledged: Boolean, index: String, error: Any, status: Any)
 
 object ESUtil extends ESService {
