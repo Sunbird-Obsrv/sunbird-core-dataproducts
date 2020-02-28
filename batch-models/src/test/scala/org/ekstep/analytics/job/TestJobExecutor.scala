@@ -10,8 +10,9 @@ class TestJobExecutor extends BaseSpec {
     "JobExecutor" should "execute job when model code is passed" in {
       
         implicit val fc = new FrameworkContext();
+        
         a[JsonMappingException] should be thrownBy {
-            JobExecutor.main("wfs", "");
+            JobExecutor.main("org.ekstep.analytics.job.summarizer.WorkFlowSummarizer", "");
         }
 
         the[JobNotFoundException] thrownBy {
