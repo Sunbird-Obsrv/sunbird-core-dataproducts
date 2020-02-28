@@ -237,7 +237,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
      * courseBatchDF is the primary source for the report
      * userCourseDF has details about the user details enrolled for a particular course/batch
      */
-    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batch.batchid && lower(userCoursesDF.col("active")).equalTo("true"))
+    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batch.batchid)
       .withColumn("enddate", lit(batch.endDate))
       .withColumn("startdate", lit(batch.startDate))
       .withColumn(
