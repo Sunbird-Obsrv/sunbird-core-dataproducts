@@ -73,14 +73,16 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
     if (queryDims.length > 1) throw new DruidConfigException("Query dimensions are not matching")
 
-    val interval = strConfig("dateRange").asInstanceOf[Map[String, AnyRef]]
-    val granularity = interval.get("granularity")
-    val queryInterval = if (interval.get("staticInterval").nonEmpty) {
-      interval("staticInterval").asInstanceOf[String]
-    } else if (interval.get("interval").nonEmpty) {
-      val dateRange = interval("interval").asInstanceOf[Map[String, String]]
-      dateRange("startDate") + "/" + dateRange("endDate")
-    } else throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
+    val interval = reportConfig.dateRange
+    val granularity = interval.granularity
+    val queryInterval = if (interval.staticInterval.nonEmpty) {
+      interval.staticInterval.get
+    } else if (interval.interval.nonEmpty) {
+      val dateRange = interval.interval.get
+      dateRange.startDate + "/" + dateRange.endDate
+    } else {
+      throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
+    }
 
     val metrics = reportConfig.metrics.flatMap { f =>
       val queryConfig = if (granularity.nonEmpty)
