@@ -1,26 +1,18 @@
 package org.ekstep.analytics.job.report
 
-import java.io.File
-import java.nio.file.{Files, StandardCopyOption}
-
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, unix_timestamp, _}
 import org.apache.spark.sql.types.DataTypes
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
+import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger}
 import org.ekstep.analytics.util.ESUtil
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.DateTimeFormat
 import org.sunbird.cloud.storage.conf.AppConf
-import org.elasticsearch.spark.sql.sparkDataFrameFunctions
-
-import scala.reflect.ManifestFactory.classType
-import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.joda.time.DateTimeZone
-import org.ekstep.analytics.framework.util.CommonUtil
 
 case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
 case class BatchDetails(batchid: String, courseCompletionCountPerBatch: Long, participantsCountPerBatch: Long)
