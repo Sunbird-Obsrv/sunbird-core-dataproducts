@@ -137,7 +137,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
          |    "content": {
          |      "me_totalRatingsCount": ${contentMetrics.totalRatingsCount.orNull},
          |      "me_averageRating": ${contentMetrics.averageRating.orNull},
-         |      "me_totalTimeSpent":${if(meTotalTimeSpent.isEmpty) null else JSONUtils.serialize(meTotalTimeSpent) },
+         |      "me_totalTimeSpentInSec":${if(meTotalTimeSpent.isEmpty) null else JSONUtils.serialize(meTotalTimeSpent) },
          |      "me_totalPlaySessionCount":${if(meTotalPlaySessionCount.isEmpty) null else JSONUtils.serialize(meTotalPlaySessionCount)}
          |    }
          |  }
