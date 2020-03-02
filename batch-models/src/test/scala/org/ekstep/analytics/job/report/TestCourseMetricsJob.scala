@@ -2,14 +2,17 @@ package org.ekstep.analytics.job
 
 import java.io.File
 
+import org.apache.spark.SparkContext
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{ DataFrame, SparkSession }
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.job.report.{ BaseReportSpec, CourseMetricsJob, ReportGenerator }
+import org.ekstep.analytics.job.report.{BaseReportSpec, CourseMetricsJob, ReportGenerator}
 import org.scalamock.scalatest.MockFactory
 import org.ekstep.analytics.framework.StorageConfig
 import org.ekstep.analytics.framework.util.HadoopFileUtil
 import org.ekstep.analytics.util.EmbeddedES
+
+import scala.collection.mutable
 
 class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
   var spark: SparkSession = _
@@ -136,13 +139,21 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
       .returning(externalIdentityDF)
 
     val storageConfig = StorageConfig("local", "", "src/test/resources/course-metrics")
+    EmbeddedES.index("cbatch","_doc","""{"courseId":"do_112726725832507392141","description":"Test Index", "id":"1008"}""", "1008")
+    EmbeddedES.index("cbatch","_doc","""{"courseId":"0128448115803914244","participantCount":3,"completedCount":3,"id":"1004"}""", "1004")
+
+    EmbeddedES.getAllDocuments("cbatch").foreach(f => {
+      //Console.println(f)
+    })
+
     CourseMetricsJob.prepareReport(spark, storageConfig, reporterMock.loadData)
+
     // TODO: Add assertions here
     EmbeddedES.getAllDocuments("cbatchstats-08-07-2018-16-30").foreach(f => {
       //Console.println(f)
     })
     EmbeddedES.getAllDocuments("cbatch").foreach(f => {
-      //Console.println(f)
+     // Console.println(f)
     })
     
     (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/course-metrics")
