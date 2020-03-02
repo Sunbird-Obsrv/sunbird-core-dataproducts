@@ -1,25 +1,26 @@
 package org.ekstep.analytics.job.report
 
 import java.io.File
-import java.nio.file.{ Files, StandardCopyOption }
+import java.nio.file.{Files, StandardCopyOption}
+
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ col, unix_timestamp, _ }
+import org.apache.spark.sql.functions.{col, unix_timestamp, _}
 import org.apache.spark.sql.types.DataTypes
-import org.apache.spark.sql.{ DataFrame, SparkSession }
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.util.{ JSONUtils, JobLogger }
+import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
 import org.ekstep.analytics.util.ESUtil
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.sunbird.cloud.storage.conf.AppConf
 import org.elasticsearch.spark.sql.sparkDataFrameFunctions
+
 import scala.reflect.ManifestFactory.classType
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.joda.time.DateTimeZone
 import org.ekstep.analytics.framework.util.CommonUtil
-import org.apache.spark.sql.Row
 
 case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
 case class BatchDetails(batchid: String, courseCompletionCountPerBatch: Long, participantsCountPerBatch: Long)
@@ -67,6 +68,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     val time = CommonUtil.time({
       prepareReport(spark, storageConfig, loadData)
     });
+
     metrics.put("totalExecutionTime", time._1);
     JobLogger.end("CourseMetrics Job completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name, "metrics" -> metrics)))
 
@@ -108,7 +110,6 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     metrics.put("userDFLoadTime", userData._1)
     metrics.put("userDFRecordsCount", userData._2.count())
     metrics.put("activeBatchesCount", activeBatchesCount)
-
     for (index <- activeBatches.indices) {
       val row = activeBatches(index);
       val batch = CourseBatch(row.getString(0), row.getString(1), row.getString(2));
@@ -237,7 +238,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
      * courseBatchDF is the primary source for the report
      * userCourseDF has details about the user details enrolled for a particular course/batch
      */
-    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batch.batchid)
+    val userCourseDenormDF = userCoursesDF.where(col("batchid") === batch.batchid && lower(userCoursesDF.col("active")).equalTo("true"))
       .withColumn("enddate", lit(batch.endDate))
       .withColumn("startdate", lit(batch.startDate))
       .withColumn(
@@ -346,10 +347,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     try {
       batchStatsDF.saveToEs(s"$newIndex/_doc", Map("es.mapping.id" -> "id"))
       JobLogger.log("Indexing batchStatsDF is success for: " + batch.batchid, None, INFO)
-
       // upsert batch details to cbatch index
-      batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id"))
-
+      batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id", "es.write.operation"-> "upsert"))
       JobLogger.log(s"CourseMetricsJob: Elasticsearch index stats { $newIndex : { batchId: ${batch.batchid}, totalNoOfRecords: ${batchStatsDF.count()} }}", None, INFO)
 
     } catch {
