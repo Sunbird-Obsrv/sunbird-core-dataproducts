@@ -93,7 +93,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     
     implicit val sparkSession = spark;
     val activeBatches = getActiveBatches(loadData);
-    val newIndex = createESIndex();
+    val newIndexPrefix = AppConf.getConfig("course.metrics.es.index.cbatchstats.prefix")
+    val newIndex = suffixDate(newIndexPrefix)
     val userData = CommonUtil.time({
       getUserData(loadData)
     });
@@ -113,7 +114,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       });
       JobLogger.log(s"Time taken to generate report for batch ${batch.batchid} is ${result._1}. Remaining batches - ${activeBatchesCount - index + 1}", None, INFO)
     }
-    
+    createESIndex(newIndex)
     userData._2.unpersist(true);
 
   }
@@ -278,11 +279,9 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     
   }
 
-  def createESIndex(): String = {
+  def createESIndex(newIndex: String): String = {
     val cBatchIndex = AppConf.getConfig("course.metrics.es.index.cbatch")
     val aliasName = AppConf.getConfig("course.metrics.es.alias")
-    val newIndexPrefix = AppConf.getConfig("course.metrics.es.index.cbatchstats.prefix")
-    val newIndex = suffixDate(newIndexPrefix)
     try {
       val indexList = ESUtil.getIndexName(aliasName)
       val oldIndex = indexList.mkString("")
@@ -336,6 +335,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         when(col("participantsCountPerBatch").isNull, 0).otherwise(col("participantsCountPerBatch")).as("participantCount"))
 
     val cBatchIndex = AppConf.getConfig("course.metrics.es.index.cbatch")
+
     try {
       batchStatsDF.saveToEs(s"$newIndex/_doc", Map("es.mapping.id" -> "id"))
       JobLogger.log("Indexing batchStatsDF is success for: " + batch.batchid, None, INFO)
