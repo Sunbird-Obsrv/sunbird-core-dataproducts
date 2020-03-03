@@ -149,12 +149,16 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
     CourseMetricsJob.prepareReport(spark, storageConfig, reporterMock.loadData)
 
     // TODO: Add assertions here
-    EmbeddedES.getAllDocuments("cbatchstats-08-07-2018-16-30").foreach(f => {
-      //Console.println(f)
-    })
-    EmbeddedES.getAllDocuments("cbatch").foreach(f => {
-     // Console.println(f)
-    })
+//    EmbeddedES.getAllDocuments(AppConf.getConfig("course.metrics.es.index.cbatch")+"/_doc").foreach(f => {
+//
+//      // Console.println(f)
+//    })
+//
+//    EmbeddedES.getAllDocuments(AppConf.getConfig("course.metrics.es.alias")).foreach(f => {
+//      //Console.println(f)
+//    })
+
+
     
     (new HadoopFileUtil()).delete(spark.sparkContext.hadoopConfiguration, "src/test/resources/course-metrics")
   }
