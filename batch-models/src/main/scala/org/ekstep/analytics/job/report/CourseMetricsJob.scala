@@ -339,11 +339,9 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     val cBatchIndex = AppConf.getConfig("course.metrics.es.index.cbatch")
 
     try {
-      println("newIndex" + newIndex)
       batchStatsDF.saveToEs(s"$newIndex/_doc", Map("es.mapping.id" -> "id"))
       JobLogger.log("Indexing batchStatsDF is success for: " + batch.batchid, None, INFO)
       // upsert batch details to cbatch index
-      println("cbatch" + cBatchIndex)
       batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id", "es.write.operation"-> "upsert"))
       JobLogger.log(s"CourseMetricsJob: Elasticsearch index stats { $newIndex : { batchId: ${batch.batchid}, totalNoOfRecords: ${batchStatsDF.count()} }}", None, INFO)
 
