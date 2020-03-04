@@ -61,6 +61,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       prepareReport(spark, storageConfig, loadData)
     });
 
+
     metrics.put("totalExecutionTime", time._1);
     JobLogger.end("CourseMetrics Job completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name, "metrics" -> metrics)))
 
@@ -112,9 +113,10 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         recordTime(saveReportToES(batch, reportDF, newIndex), s"Time taken to save report in ES for batch ${batch.batchid} - ");
         reportDF.unpersist(true);
       });
+
       JobLogger.log(s"Time taken to generate report for batch ${batch.batchid} is ${result._1}. Remaining batches - ${activeBatchesCount - index + 1}", None, INFO)
+      createESIndex(newIndex)
     }
-    createESIndex(newIndex)
     userData._2.unpersist(true);
 
   }
@@ -337,9 +339,11 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     val cBatchIndex = AppConf.getConfig("course.metrics.es.index.cbatch")
 
     try {
+      println("newIndex" + newIndex)
       batchStatsDF.saveToEs(s"$newIndex/_doc", Map("es.mapping.id" -> "id"))
       JobLogger.log("Indexing batchStatsDF is success for: " + batch.batchid, None, INFO)
       // upsert batch details to cbatch index
+      println("cbatch" + cBatchIndex)
       batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id", "es.write.operation"-> "upsert"))
       JobLogger.log(s"CourseMetricsJob: Elasticsearch index stats { $newIndex : { batchId: ${batch.batchid}, totalNoOfRecords: ${batchStatsDF.count()} }}", None, INFO)
 

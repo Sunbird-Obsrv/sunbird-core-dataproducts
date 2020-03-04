@@ -143,20 +143,19 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
     EmbeddedES.index("cbatch","_doc","""{"courseId":"0128448115803914244","participantCount":3,"completedCount":3,"id":"1004"}""", "1004")
 
     EmbeddedES.getAllDocuments("cbatch").foreach(f => {
-      //Console.println(f)
+      Console.println(f)
     })
 
     CourseMetricsJob.prepareReport(spark, storageConfig, reporterMock.loadData)
 
     // TODO: Add assertions here
-//    EmbeddedES.getAllDocuments(AppConf.getConfig("course.metrics.es.index.cbatch")+"/_doc").foreach(f => {
+    EmbeddedES.getAllDocuments("cbatchstats").foreach(f => {
+      //Console.println(f)
+    })
 //
-//      // Console.println(f)
-//    })
-//
-//    EmbeddedES.getAllDocuments(AppConf.getConfig("course.metrics.es.alias")).foreach(f => {
-//      //Console.println(f)
-//    })
+    EmbeddedES.getAllDocuments("cbatch").foreach(f => {
+      //Console.println(f)
+    })
 
 
     
