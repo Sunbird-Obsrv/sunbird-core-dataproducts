@@ -15,12 +15,15 @@ import org.joda.time.format.DateTimeFormat
 import org.sunbird.cloud.storage.conf.AppConf
 
 case class ESIndexResponse(isOldIndexDeleted: Boolean, isIndexLinkedToAlias: Boolean)
+
 case class BatchDetails(batchid: String, courseCompletionCountPerBatch: Long, participantsCountPerBatch: Long)
+
 case class CourseBatch(batchid: String, startDate: String, endDate: String);
 
 trait ReportGenerator {
-  
+
   def loadData(spark: SparkSession, settings: Map[String, String]): DataFrame
+
   def prepareReport(spark: SparkSession, storageConfig: StorageConfig, fetchTable: (SparkSession, Map[String, String]) => DataFrame): Unit
 }
 
@@ -75,13 +78,13 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
     val courseBatchDF = loadData(spark, Map("table" -> "course_batch", "keyspace" -> sunbirdCoursesKeyspace))
     val timestamp = DateTime.now().minusDays(1).withTimeAtStartOfDay()
     JobLogger.log("Filtering out inactive batches where date is >= " + timestamp, None, INFO)
-    
+
     val activeBatches = courseBatchDF.filter(col("endDate").isNull || unix_timestamp(to_date(col("endDate"), "yyyy-MM-dd")).geq(timestamp.getMillis / 1000))
     val activeBatchList = activeBatches.select("batchId", "startDate", "endDate").collect();
     JobLogger.log("Total number of active batches:" + activeBatchList.size, None, INFO)
     activeBatchList;
   }
-  
+
   def recordTime[R](block: => R, msg: String): (R) = {
     val t0 = System.currentTimeMillis()
     val result = block
@@ -91,7 +94,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
   }
 
   def prepareReport(spark: SparkSession, storageConfig: StorageConfig, loadData: (SparkSession, Map[String, String]) => DataFrame): Unit = {
-    
+
     implicit val sparkSession = spark;
     val activeBatches = getActiveBatches(loadData);
     val newIndexPrefix = AppConf.getConfig("course.metrics.es.index.cbatchstats.prefix")
@@ -100,7 +103,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       getUserData(loadData)
     });
     val activeBatchesCount = activeBatches.size;
-    
+
     metrics.put("userDFLoadTime", userData._1)
     metrics.put("userDFRecordsCount", userData._2.count())
     metrics.put("activeBatchesCount", activeBatchesCount)
@@ -113,22 +116,21 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         recordTime(saveReportToES(batch, reportDF, newIndex), s"Time taken to save report in ES for batch ${batch.batchid} - ");
         reportDF.unpersist(true);
       });
-
       JobLogger.log(s"Time taken to generate report for batch ${batch.batchid} is ${result._1}. Remaining batches - ${activeBatchesCount - index + 1}", None, INFO)
-      createESIndex(newIndex)
     }
+    createESIndex(newIndex)
     userData._2.unpersist(true);
 
   }
-  
-  def getUserData(loadData: (SparkSession, Map[String, String]) => DataFrame)(implicit spark: SparkSession) : DataFrame = {
-    
+
+  def getUserData(loadData: (SparkSession, Map[String, String]) => DataFrame)(implicit spark: SparkSession): DataFrame = {
+
     val userDF = loadData(spark, Map("table" -> "user", "keyspace" -> sunbirdKeyspace))
     val userOrgDF = loadData(spark, Map("table" -> "user_org", "keyspace" -> sunbirdKeyspace)).filter(lower(col("isdeleted")) === "false")
     val organisationDF = loadData(spark, Map("table" -> "organisation", "keyspace" -> sunbirdKeyspace))
     val locationDF = loadData(spark, Map("table" -> "location", "keyspace" -> sunbirdKeyspace))
     val externalIdentityDF = loadData(spark, Map("table" -> "usr_external_identity", "keyspace" -> sunbirdKeyspace))
-    
+
     /**
      * externalIdMapDF - Filter out the external id by idType and provider and Mapping userId and externalId
      */
@@ -190,8 +192,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       .select(resolvedExternalIdDF.col("userid"), resolvedExternalIdDF.col("organisationid"), col("orgname").as("schoolname_resolved"))
 
     /**
-     *  If the user present in the multiple organisation, then zip all the org names.
-     *  Example:
+     * If the user present in the multiple organisation, then zip all the org names.
+     * Example:
      * FROM:
      * +-------+------------------------------------+
      * |userid |orgname                             |
@@ -215,8 +217,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
 
     val resolvedSchoolNameDF = schoolNameIndexDF.selectExpr("*").filter(col("index") === 1).drop("organisationid", "index", "batchid")
       .union(schoolNameIndexDF.filter(col("index") =!= 1).groupBy("userid").agg(collect_list("schoolname_resolved").cast("string").as("schoolname_resolved")))
-      
-      resolvedExternalIdDF
+
+    resolvedExternalIdDF
       .join(resolvedSchoolNameDF, Seq("userid"), "left_outer")
       .join(resolvedOrgNameDF, Seq("userid", "rootorgid"), "left_outer")
       .dropDuplicates("userid")
@@ -227,7 +229,7 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
 
     JobLogger.log("Creating report for batch " + batch.batchid, None, INFO)
     val userCoursesDF = loadData(spark, Map("table" -> "user_courses", "keyspace" -> sunbirdCoursesKeyspace))
-    
+
     /*
      * courseBatchDF has details about the course and batch details for which we have to prepare the report
      * courseBatchDF is the primary source for the report
@@ -275,10 +277,10 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         col("district_name"),
         col("block_name"))
       .cache()
-        
+
     reportDF.count();
     reportDF;
-    
+
   }
 
   def createESIndex(newIndex: String): String = {
@@ -342,8 +344,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
       batchStatsDF.saveToEs(s"$newIndex/_doc", Map("es.mapping.id" -> "id"))
       JobLogger.log("Indexing batchStatsDF is success for: " + batch.batchid, None, INFO)
       // upsert batch details to cbatch index
-      batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id", "es.write.operation"-> "upsert"))
-      JobLogger.log(s"CourseMetricsJob: Elasticsearch index stats { $newIndex : { batchId: ${batch.batchid}, totalNoOfRecords: ${batchStatsDF.count()} }}", None, INFO)
+      batchDetailsDF.saveToEs(s"$cBatchIndex/_doc", Map("es.mapping.id" -> "id", "es.write.operation" -> "upsert"))
+      JobLogger.log(s"CourseMetricsJob: Elasticsearch index stats { $cBatchIndex : { batchId: ${batch.batchid}, totalNoOfRecords: ${batchStatsDF.count()} }}", None, INFO)
 
     } catch {
       case ex: Exception => {
