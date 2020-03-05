@@ -150,11 +150,11 @@ class TestCourseMetricsJob extends BaseReportSpec with MockFactory {
 
     // TODO: Add assertions here
     EmbeddedES.getAllDocuments("cbatchstats").foreach(f => {
-      //Console.println(f)
+      Console.println(f)
     })
 //
     EmbeddedES.getAllDocuments("cbatch").foreach(f => {
-      //Console.println(f)
+      Console.println(f)
     })
 
 
