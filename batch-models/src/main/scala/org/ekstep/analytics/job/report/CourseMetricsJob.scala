@@ -284,7 +284,6 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
   }
 
   def createESIndex(newIndex: String): String = {
-    println("Yes")
     val cBatchIndex = AppConf.getConfig("course.metrics.es.index.cbatch")
     val aliasName = AppConf.getConfig("course.metrics.es.alias")
     try {
