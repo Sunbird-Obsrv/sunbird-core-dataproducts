@@ -78,14 +78,13 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
                 filterType match {
                     case "user" | "user_mod" =>
                         val userResponse = util.getUserDetails(JSONUtils.serialize(criteria.filters))
-
                         if (null != userResponse && !userResponse.responseCode.isEmpty && userResponse.responseCode.equalsIgnoreCase("OK")) {
                             userResponse.result.get("response").map { userResult =>
                                 metadata ++= Seq(populateExperimentMetadata(exp, userResult.content.size, filterType,
                                     "ACTIVE", "Experiment Mapped Sucessfully"))
                                 sc.parallelize(userResult.content.map(user =>
                                     populateExperimentMapping(user.get("id").asInstanceOf[Option[String]], exp, filterType)))
-                            }.getOrElse(sc.emptyRDD[ExperimentDefinitionOutput])
+                            }.get
                         } else {
                             metadata ++= Seq(populateExperimentMetadata(exp, 0, filterType, "FAILED",
                                 "Experiment Failed, Please Check the criteria"))

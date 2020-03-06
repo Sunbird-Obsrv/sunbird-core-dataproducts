@@ -275,6 +275,12 @@
 			<version>1.2.6</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>net.manub</groupId>
+			<artifactId>scalatest-embedded-kafka_${scala.maj.version}</artifactId>
+			<version>1.1.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 	<build>
 		<sourceDirectory>src/main/scala</sourceDirectory>

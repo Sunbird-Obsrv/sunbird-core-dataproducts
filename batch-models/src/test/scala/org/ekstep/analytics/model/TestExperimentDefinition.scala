@@ -8,6 +8,7 @@ import org.scalamock.scalatest.MockFactory
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import org.ekstep.analytics.framework.FrameworkContext
+import org.ekstep.analytics.util.{EmbeddedCassandra, EmbeddedPostgresql}
 
 
 class TestExperimentDefinition  extends SparkSpec(null) with MockFactory {
@@ -16,6 +17,18 @@ class TestExperimentDefinition  extends SparkSpec(null) with MockFactory {
 
   implicit var util = mock[ExperimentDataUtils]
   implicit val fc = new FrameworkContext();
+
+  override def beforeAll(){
+    super.beforeAll()
+    EmbeddedPostgresql.start()
+    EmbeddedPostgresql.createDeviceProfileTable()
+    EmbeddedCassandra.loadData("src/test/resources/experiment/experiment-data.cql")
+  }
+
+  override def afterAll(): Unit ={
+    super.afterAll()
+    EmbeddedPostgresql.close
+  }
 
   it should " map userid to experiement id  with criteria" in {
 
@@ -44,6 +57,80 @@ class TestExperimentDefinition  extends SparkSpec(null) with MockFactory {
 
   }
 
+  it should "execute for null user response" in {
+
+
+    val experiments = loadFile[ExperimentDefinition]("src/test/resources/experiment/experiments.json")
+    val criteria = JSONUtils.deserialize[CriteriaModel](experiments.collect().apply(0).criteria)
+
+
+    (util.getUserDetails[UserResponse](_: String)(_: Manifest[UserResponse])).
+      expects(JSONUtils.serialize(criteria.filters), *).returns(null)
+    (util.getDeviceProfile(_: String)(_: SparkContext)).expects("local_device_profile", *).
+      returns(loadFile[DeviceProfileModel]("src/test/resources/experiment/device_profile.txt"))
+
+
+    val out = ExperimentDefinitionModel.algorithmProcess(experiments, schema)
+    val result = out.fold(sc.emptyRDD[ExperimentDefinitionOutput])(_ ++ _)
+
+    result.count() should be(0)
+
+    val userMappedCount = result.filter { x => x.id.equals("U1234") }
+
+    userMappedCount.count() should be(0)
+
+  }
+
+  it should " return empty user response" in {
+
+
+    val experiments = loadFile[ExperimentDefinition]("src/test/resources/experiment/experiments.json")
+    val criteria = JSONUtils.deserialize[CriteriaModel](experiments.collect().apply(0).criteria)
+    val userdata = JSONUtils.deserialize[UserResponse](Source.fromInputStream
+    (getClass.getResourceAsStream("/experiment/userEmptyResponse.json")).getLines().mkString)
+
+
+    (util.getUserDetails[UserResponse](_: String)(_: Manifest[UserResponse])).
+      expects(JSONUtils.serialize(criteria.filters), *).returns(userdata)
+    (util.getDeviceProfile(_: String)(_: SparkContext)).expects("local_device_profile", *).
+      returns(loadFile[DeviceProfileModel]("src/test/resources/experiment/device_profile.txt"))
+
+
+    val out = ExperimentDefinitionModel.algorithmProcess(experiments, schema)
+    val result = out.fold(sc.emptyRDD[ExperimentDefinitionOutput])(_ ++ _)
+
+    result.count() should be(0)
+
+    val userMappedCount = result.filter { x => x.id.equals("U1234") }
+
+    userMappedCount.count() should be(0)
+
+  }
+
+  it should " throws exception and returns empty user response " in {
+
+
+    val experiments = loadFile[ExperimentDefinition]("src/test/resources/experiment/experiments.json")
+    val criteria = JSONUtils.deserialize[CriteriaModel](experiments.collect().apply(0).criteria)
+    val userdata = JSONUtils.deserialize[UserResponse](Source.fromInputStream
+    (getClass.getResourceAsStream("/experiment/userErrorResponse.json")).getLines().mkString)
+
+    (util.getUserDetails[UserResponse](_: String)(_: Manifest[UserResponse])).
+      expects(JSONUtils.serialize(criteria.filters), *).returns(userdata)
+    (util.getDeviceProfile(_: String)(_: SparkContext)).expects("local_device_profile", *).
+      returns(loadFile[DeviceProfileModel]("src/test/resources/experiment/device_profile.txt"))
+
+
+    val out = ExperimentDefinitionModel.algorithmProcess(experiments, schema)
+    val result = out.fold(sc.emptyRDD[ExperimentDefinitionOutput])(_ ++ _)
+
+    result.count() should be(0)
+
+    val userMappedCount = result.filter { x => x.id.equals("U1234") }
+
+    userMappedCount.count() should be(0)
+
+  }
 
   it should " map deviceid to experiement with experiment id B1534 with criteria firstacccess and state" in {
 
@@ -66,15 +153,11 @@ class TestExperimentDefinition  extends SparkSpec(null) with MockFactory {
   }
 
 
-  ignore should "save mapped deviceid and userid for experiment to es" in {
+  it should "save mapped deviceid and userid for experiment to es" in {
 
     val config = "{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.model.ExperimentDefinitionModel\",\"modelParams\":{\"sparkCassandraConnectionHost\":\"localhost\",\"sparkElasticsearchConnectionHost\":\"localhost\"},\"output\":[{\"to\":\"elasticsearch\",\"params\":{\"index\":\"experiment\"}}],\"parallelization\":8,\"appName\":\"Experiment-Definition\",\"deviceMapping\":false}"
     val jobconfig = JSONUtils.deserialize[JobConfig](config)
-    val experiments = loadFile[ExperimentDefinition]("src/test/resources/experiment/experiments.json")
     val out = ExperimentDefinitionModel.execute(sc.emptyRDD, jobconfig.modelParams)
-
-    OutputDispatcher.dispatch(jobconfig.output, out)
   }
-
 
 }

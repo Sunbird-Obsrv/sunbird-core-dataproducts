@@ -83,9 +83,9 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
                 val jobName = f.get("model").get.asInstanceOf[String]
                 val jobId = f.get("model_id").get.asInstanceOf[String]
                 val success = if("SUCCESS".equals(f.get("status").get.asInstanceOf[String])) 1 else 0
-                val inputCount = f.getOrElse("input_count", 0).asInstanceOf[Long]
-                val outputCount = f.getOrElse("output_count", 0).asInstanceOf[Long]
-                val timeSpent = f.getOrElse("time_taken", 0.0).asInstanceOf[Float]
+                val inputCount = f.get("input_count").get.asInstanceOf[Long]
+                val outputCount = f.get("output_count").get.asInstanceOf[Long]
+                val timeSpent = f.get("time_taken").get.asInstanceOf[Float]
                 val tag = f.get("tag").get.asInstanceOf[String]
                 MonitorMessage(jobName, jobId, success, inputCount, outputCount, timeSpent, "", tag)
             }.map(f => JSONUtils.serialize(f))
@@ -101,7 +101,8 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
                 try {
                     RestUtil.post[String](AppConf.getConfig("monitor.notification.webhook_url"), JSONUtils.serialize(slackMessage));
                 } catch {
-                    case e: Exception => println("exception caught:", e.getMessage);
+
+                    case e: Exception => println("exception caught:", e.getMessage)
                 }
             }
         } else {
@@ -136,13 +137,11 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
 
         val modelMapping = config.get("model").get.asInstanceOf[List[AnyRef]].map { x => JSONUtils.deserialize[ModelMapping](JSONUtils.serialize(x)) }.toSet
         val consumptionJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Consumption")
-        val creationJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Creation")
-        val recommendationJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Recommendation")
         val date: String = DateTimeFormat.forPattern("yyyy-MM-dd").print(DateTime.now())
         val title = s"""*Jobs | Monitoring Report | $date*"""
         //total statistics regarding jobs
         val totalStats = s"""Number of Jobs Started: `$jobsStarted`\nNumber of Completed Jobs: `$jobsCompleted` \nNumber of Failed Jobs: `$jobsFailed` \nTotal time taken: `$totalTs`\nTotal events generated: `$totalEventsGenerated`"""
-        return title + "\n\n" + totalStats + "\n\n" + consumptionJobSummary + "\n\n" + creationJobSummary + "\n\n" + recommendationJobSummary
+        return title + "\n\n" + totalStats + "\n\n" + consumptionJobSummary
     }
 
     private def warningMessages(modelMapping: Map[String, String], models: Array[JobSummary]): String = {

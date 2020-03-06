@@ -20,7 +20,7 @@ import scala.concurrent.Future
 
 class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with BeforeAndAfterAll with MockFactory {
 
-    implicit val fc = mock[FrameworkContext];//new FrameworkContext();
+    implicit val fc = mock[FrameworkContext];
 
     it should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
 //        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
@@ -91,7 +91,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future.apply[DruidResponse](DruidResponse.apply(List(), QueryType.GroupBy))).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
 
-        val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", Option("day"), Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_city", Option("city")), DruidDimension("context_pdata_id", None))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
+        val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", Option("day"), Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_city", None), DruidDimension("context_pdata_id", None))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", Option("all"), Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), None, Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
         val reportConfig = ReportConfig("usage_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("all")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("json", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"))))
         val strConfig = JSONUtils.serialize(reportConfig)
@@ -119,13 +119,27 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
+
+        val json: String = """
+          {
+              "total_scans" : 9007,
+              "total_sessions" : 100,
+              "producer_id" : "dev.sunbird.learning.platform",
+              "device_loc_state" : "Karnataka"
+          }
+        """
+        val doc: Json = parse(json).getOrElse(Json.Null);
+        val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
+        val druidResponse = DruidResponse.apply(results, QueryType.GroupBy)
+
+
         val mockDruidClient = mock[DruidClient]
-        (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future.apply[DruidResponse](DruidResponse.apply(List(), QueryType.GroupBy))).anyNumberOfTimes();
+        (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
 
-        val scansQuery1 = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
-        val contentPlaysQuery1 = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
-        val reportConfig1 = ReportConfig("data_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("day")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery1), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery1)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", Option("scans"), List("total_scans"), List("state", "producer_id"), List("id", "dims", "date")), OutputConfig("csv", Option("sessions"), List("total_sessions", "total_ts"), List("state", "producer_id"), List("id", "dims", "date"))))
+        val scansQuery1 = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", None), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
+        val contentPlaysQuery1 = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", None), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
+        val reportConfig1 = ReportConfig("data_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("day")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery1), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery1)), Map("device_loc_state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", Option("scans"), List("total_scans"), List("device_loc_state", "producer_id"), List("id", "dims", "date")), OutputConfig("csv", Option("sessions"), List("total_sessions", "total_ts"), List("device_loc_state", "producer_id"), List("id", "dims", "date"))))
         val strConfig1 = JSONUtils.serialize(reportConfig1)
 
         val modelParams = Map("reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig1), "bucket" -> "test-container", "key" -> "druid-reports/", "filePath" -> "src/test/resources/")
@@ -294,15 +308,33 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
+
+        val json: String = """
+          {
+              "total_scans" : 9007,
+              "total_sessions" : 100,
+              "total_ts" : 120.0
+          }
+        """
+        val doc: Json = parse(json).getOrElse(Json.Null);
+        val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
+        val druidResponse = DruidResponse.apply(results, QueryType.Timeseries)
+
+        println(druidResponse)
         val mockDruidClient = mock[DruidClient]
-        (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future.apply[DruidResponse](DruidResponse.apply(List(), QueryType.GroupBy))).anyNumberOfTimes();
+        (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
 
         val scansQuery2 = DruidQueryModel("timeSeries", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), None, Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery2 = DruidQueryModel("timeSeries", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), None, Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
-        val reportConfig2 = ReportConfig(null, "timeSeries", QueryDateRange(None, Option("LastWeek"), None), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery2), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery2)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig(null, None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"))))
+        val reportConfig2 = ReportConfig("", "timeSeries", QueryDateRange(None, Option("LastWeek"), None), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery2), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery2)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans", "total_sessions", "total_ts"))))
         val strConfig2 = JSONUtils.serialize(reportConfig2)
         val modelParams = Map("reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig2), "bucket" -> "test-container", "key" -> "druid-reports/")
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
+    }
+
+    it should "test for setStorageConf method" in {
+        DruidQueryProcessingModel.setStorageConf("s3", None, None)
+        DruidQueryProcessingModel.setStorageConf("azure", None, None)
     }
 }
