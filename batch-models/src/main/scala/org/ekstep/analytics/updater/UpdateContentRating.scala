@@ -89,12 +89,18 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     if (startDate.equals(endDate)) endDate = new DateTime(endDate).plusDays(1).toString("yyyy-MM-dd")
     val contentRequest = AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"))
     val contentResponse = restUtil.post[List[Map[String, AnyRef]]](apiURL, contentRequest)
-    contentResponse.map(x => x.getOrElse("Id", "").toString)
+    if (contentResponse != null)
+      contentResponse.map(x => x.getOrElse("Id", "").toString)
+    else List()
   }
 
   def getContentMetrics(restUtil: HTTPClient, query: String)(implicit sc: SparkContext): RDD[ContentMetrics] = {
     val apiURL = AppConf.getConfig("druid.sql.host")
-    sc.parallelize(compute(restUtil.post[List[Map[String, AnyRef]]](apiURL, query)))
+    val metricsData = restUtil.post[List[Map[String, AnyRef]]](apiURL, query)
+    if (null != metricsData)
+      sc.parallelize(compute(metricsData))
+    else
+      sc.emptyRDD[ContentMetrics]
   }
 
   def compute(contentData: List[Map[String, AnyRef]]): List[ContentMetrics] = {
@@ -147,6 +153,9 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     JobLogger.log("Request Is" + request, None, Level.INFO)
     val response = restUtil.patch[String](systemUpdateURL, JSONUtils.serialize(JSONUtils.deserialize[Map[String, AnyRef]](request)))
     JobLogger.log("Response Is" + response, None, Level.INFO)
-    JSONUtils.deserialize[Response](response)
+    if (null != response)
+      JSONUtils.deserialize[Response](response)
+    else
+      org.ekstep.analytics.updater.Response("", "", "", Params(Option(""), Option(""), Option("INTERNAL SERVER ERROR"), Option("500"), Option("System Update Request failed")), "", Map())
   }
 }

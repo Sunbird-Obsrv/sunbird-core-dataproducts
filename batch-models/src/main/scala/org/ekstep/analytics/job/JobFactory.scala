@@ -32,8 +32,6 @@ object JobFactory {
         DeviceProfileUpdater
       case "video-streaming" =>
         VideoStreamingJob
-      case "data-exhaust" =>
-        DataExhaustJob
       case "telemetry-replay" =>
         EventsReplayJob
       case "summary-replay" =>

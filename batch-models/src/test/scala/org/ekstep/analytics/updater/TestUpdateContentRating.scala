@@ -21,6 +21,10 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
     val contentIds = UpdateContentRating.getRatedContents(Map("startDate" -> startDate.asInstanceOf[AnyRef], "endDate" -> endDate.asInstanceOf[AnyRef]), mockRestUtil)
     contentIds.size should be(2)
+
+    UpdateContentRating.execute(sc.emptyRDD, None);
+    val metrics = sc.parallelize(List(ContentMetrics("test-1",Some(100), Some(20.0), None, None, Some(32432), None, Some(53), Some(552))))
+    UpdateContentRating.postProcess(metrics, Map())
   }
 
   it should "alter end date for replay scenario" in {
