@@ -117,8 +117,8 @@ object CourseMetricsJob extends optional.Application with IJob with ReportGenera
         reportDF.unpersist(true);
       });
       JobLogger.log(s"Time taken to generate report for batch ${batch.batchid} is ${result._1}. Remaining batches - ${activeBatchesCount - index + 1}", None, INFO)
+      createESIndex(newIndex)
     }
-    createESIndex(newIndex)
     userData._2.unpersist(true);
 
   }
