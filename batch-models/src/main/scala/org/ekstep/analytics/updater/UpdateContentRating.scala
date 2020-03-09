@@ -35,7 +35,6 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   }
 
   override def algorithm(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
-    val defaultContentMetrics = ContentMetrics("", None, None, None, None, None, None, None, None)
     getContentConsumptionMetrics(config, RestUtil)
   }
 
