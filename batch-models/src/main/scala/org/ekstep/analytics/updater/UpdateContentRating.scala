@@ -56,7 +56,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
     if (data.count() > 0) {
       data.foreach { contentMetrics: ContentMetrics =>
-        if (!contentMetrics.contentId.isEmpty && contentMetrics.contentId != null) {
+        if (contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty) {
           val response = publishMetricsToContentModel(contentMetrics, baseURL, RestUtil)
           val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
           JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
