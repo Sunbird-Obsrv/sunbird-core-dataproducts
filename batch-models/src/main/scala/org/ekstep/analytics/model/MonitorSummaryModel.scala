@@ -10,9 +10,7 @@ import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.ekstep.analytics.framework.MeasuredEvent
 import org.ekstep.analytics.framework.Period._
 import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.framework.util.CommonUtil
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.framework.util.RestUtil
+import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -95,15 +93,11 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
 
         val messages = messageFormatToSlack(data.first(), config)
 
-        if ("true".equalsIgnoreCase(AppConf.getConfig("monitor.notification.slack"))) {
+        if ("true".equalsIgnoreCase(config.getOrElse("monitor.notification.slack", AppConf.getConfig("monitor.notification.slack")).asInstanceOf[String])) {
             for (message <- messages.split("\n\n")) {
                 val slackMessage = SlackMessage(AppConf.getConfig("monitor.notification.channel"), AppConf.getConfig("monitor.notification.name"), message);
-                try {
-                    RestUtil.post[String](AppConf.getConfig("monitor.notification.webhook_url"), JSONUtils.serialize(slackMessage));
-                } catch {
-
-                    case e: Exception => println("exception caught:", e.getMessage)
-                }
+                val response = RestUtil.post[String](AppConf.getConfig("monitor.notification.webhook_url"), JSONUtils.serialize(slackMessage));
+                JobLogger.log("Notification sent to slack with repsonse: " + response, None, Level.INFO)
             }
         } else {
             println(messages)

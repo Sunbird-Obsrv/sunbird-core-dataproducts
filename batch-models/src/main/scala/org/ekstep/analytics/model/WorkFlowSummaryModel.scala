@@ -59,7 +59,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                         summEvents ++= clonedRootSummary.summaryEvents
                         clonedRootSummary.clearAll()
                         rootSummary = clonedRootSummary
-                        currSummary.clearSummary()//clonedRootSummary.getLeafSummary
+                        currSummary.clearSummary()
                     }
                 }
                 prevEvent = x

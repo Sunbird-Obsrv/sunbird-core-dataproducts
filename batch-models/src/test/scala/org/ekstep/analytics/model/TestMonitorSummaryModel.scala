@@ -2,15 +2,12 @@ package org.ekstep.analytics.model
 /**
  * @author Yuva
  */
-import org.apache.spark.rdd.RDD
-import org.ekstep.analytics.framework.DerivedEvent
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.framework.V3Event
-import org.ekstep.analytics.framework.FrameworkContext
+import org.ekstep.analytics.framework.{FrameworkContext, V3Event}
 import net.manub.embeddedkafka.EmbeddedKafka
 import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.kafka.common.serialization.StringDeserializer
 import net.manub.embeddedkafka.EmbeddedKafkaConfig
+import org.ekstep.analytics.framework.conf.AppConf
 
 class TestMonitorSummaryModel extends SparkSpec(null) with EmbeddedKafka  {
 
@@ -27,7 +24,7 @@ class TestMonitorSummaryModel extends SparkSpec(null) with EmbeddedKafka  {
             implicit val fc = new FrameworkContext();
             val modelMapping = loadFile[ModelMapping]("src/test/resources/monitor-summary/model-mapping.log").collect().toList;
             val rdd1 = loadFile[V3Event]("src/test/resources/monitor-summary/joblog.log");
-            val rdd2 = MonitorSummaryModel.execute(rdd1, Option(Map("model" -> modelMapping, "pushMetrics" -> true.asInstanceOf[AnyRef], "topic" -> "test", "brokerList" -> "localhost:9092")));
+            val rdd2 = MonitorSummaryModel.execute(rdd1, Option(Map("model" -> modelMapping, "pushMetrics" -> true.asInstanceOf[AnyRef], "monitor.notification.slack" -> "true", "topic" -> "test", "brokerList" -> "localhost:9092")));
             val eks_map = rdd2.first().edata.eks.asInstanceOf[Map[String, AnyRef]]
             eks_map.get("jobs_completed_count").get.asInstanceOf[Number].longValue() should be(2)
             eks_map.get("total_events_generated").get.asInstanceOf[Number].longValue() should be(475)

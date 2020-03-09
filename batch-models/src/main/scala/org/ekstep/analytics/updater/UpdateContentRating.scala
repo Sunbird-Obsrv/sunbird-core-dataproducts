@@ -36,20 +36,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   override def algorithm(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     val defaultContentMetrics = ContentMetrics("", None, None, None, None, None, None, None, None)
-    getContentConsumptionMetrics(config, RestUtil).map { f =>
-      val ratingData: ContentMetrics = f._2._1.getOrElse(defaultContentMetrics)
-      val consumptionData: ContentMetrics = f._2._2.getOrElse(defaultContentMetrics)
-      ContentMetrics(f._1,
-        ratingData.totalRatingsCount,
-        ratingData.averageRating,
-        consumptionData.totalTimeSpentInApp,
-        consumptionData.totalTimeSpentInPortal,
-        consumptionData.totalTimeSpentInDeskTop,
-        consumptionData.totalPlaySessionCountInApp,
-        consumptionData.totalPlaySessionCountInPortal,
-        consumptionData.totalPlaySessionCountInDeskTop
-      )
-    }
+    getContentConsumptionMetrics(config, RestUtil)
   }
 
   override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
@@ -61,6 +48,9 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
           val msg = response.result.getOrElse("messages", List()).asInstanceOf[List[String]].mkString(",")
           JobLogger.log("System Update API request for " + contentMetrics.contentId + " is " + response.params.status.getOrElse(""), Option(Map("error" -> response.params.errmsg.getOrElse(""), "error_msg" -> msg)), Level.INFO)
         }
+        else {
+          JobLogger.log("Skipping system Update API request as content id is empty or null", None, Level.INFO)
+        }
       }
     } else {
       JobLogger.log("No records to update", None, Level.INFO)
@@ -68,7 +58,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     data
   }
 
-  def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[(String, (Option[ContentMetrics], Option[ContentMetrics]))] = {
+  def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     val contentList = getRatedContents(config, restUtil)
     JobLogger.log("Rated Content Identifiers are" + JSONUtils.serialize(contentList), None, Level.INFO)
     val contentRatingList = getContentMetrics(restUtil, AppConf.getConfig("druid.content.rating.query"))
@@ -79,7 +69,22 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     val finalContentConsumptionList = contentConsumptionList.filter(f => contentList.contains(f.contentId)).map { f =>
       (f.contentId, f)
     }
-    finalContentRating.fullOuterJoin(finalContentConsumptionList)
+    val defaultContentMetrics = ContentMetrics("", None, None, None, None, None, None, None, None)
+    val finalData = finalContentRating.fullOuterJoin(finalContentConsumptionList)
+    finalData.map { f =>
+        val ratingData: ContentMetrics = f._2._1.getOrElse(defaultContentMetrics)
+        val consumptionData: ContentMetrics = f._2._2.getOrElse(defaultContentMetrics)
+        ContentMetrics(f._1,
+          ratingData.totalRatingsCount,
+          ratingData.averageRating,
+          consumptionData.totalTimeSpentInApp,
+          consumptionData.totalTimeSpentInPortal,
+          consumptionData.totalTimeSpentInDeskTop,
+          consumptionData.totalPlaySessionCountInApp,
+          consumptionData.totalPlaySessionCountInPortal,
+          consumptionData.totalPlaySessionCountInDeskTop
+        )
+      }
   }
 
   def getRatedContents(config: Map[String, AnyRef], restUtil: HTTPClient): List[String] = {
@@ -134,7 +139,7 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
 
   def publishMetricsToContentModel(contentMetrics: ContentMetrics, baseURL: String, restUtil: HTTPClient): Response = {
     val systemUpdateURL = baseURL + "/" + contentMetrics.contentId
-    val meTotalTimeSpent = Map("app" -> contentMetrics.totalPlaySessionCountInApp.getOrElse(null), "portal" -> contentMetrics.totalTimeSpentInPortal.getOrElse(null), "desktop" -> contentMetrics.totalTimeSpentInDeskTop.getOrElse(null)).filter(_._2 != null)
+    val meTotalTimeSpent = Map("app" -> contentMetrics.totalTimeSpentInApp.getOrElse(null), "portal" -> contentMetrics.totalTimeSpentInPortal.getOrElse(null), "desktop" -> contentMetrics.totalTimeSpentInDeskTop.getOrElse(null)).filter(_._2 != null)
     val meTotalPlaySessionCount = Map("app" -> contentMetrics.totalPlaySessionCountInApp.getOrElse(null), "portal" -> contentMetrics.totalPlaySessionCountInPortal.getOrElse(null), "desktop" -> contentMetrics.totalPlaySessionCountInDeskTop.getOrElse(null)).filter(_._2 != null)
     val request =
       s"""
