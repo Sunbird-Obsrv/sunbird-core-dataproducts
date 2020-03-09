@@ -134,7 +134,7 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
 
     (mockRestUtil.patch[String](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[String]))
-      .expects("http://localhost:8080/learning-service/system/v3/content/update/test-1", "{\"request\":{\"content\":{\"me_totalRatingsCount\":100,\"me_averageRating\":20.0,\"me_totalTimeSpentInSec\":{\"app\":33,\"portal\":432,\"desktop\":32432},\"me_totalPlaySessionCount\":{\"app\":33,\"portal\":53,\"desktop\":552}}}}", None, manifest[String])
+      .expects("http://localhost:8080/learning-service/system/v3/content/update/test-1", "{\"request\":{\"content\":{\"me_totalRatingsCount\":100,\"me_averageRating\":20.0,\"me_totalTimeSpentInSec\":{\"app\":122,\"portal\":432,\"desktop\":32432},\"me_totalPlaySessionCount\":{\"app\":33,\"portal\":53,\"desktop\":552}}}}", None, manifest[String])
       .returns(mockResponse)
 
     val response = UpdateContentRating.publishMetricsToContentModel(ContentMetrics("test-1", Some(100), Some(20), Some(122), Some(432), Some(32432), Some(33), Some(53), Some(552)), "http://localhost:8080/learning-service/system/v3/content/update", mockRestUtil)
