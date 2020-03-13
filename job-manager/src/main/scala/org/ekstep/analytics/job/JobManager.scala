@@ -4,8 +4,6 @@ import org.ekstep.analytics.framework.util.JSONUtils
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.ArrayBlockingQueue
 
-import org.ekstep.analytics.kafka.consumer.JobConsumer
-import org.ekstep.analytics.kafka.consumer.JobConsumerConfig
 import java.util.concurrent.Executors
 
 import org.ekstep.analytics.framework.util.CommonUtil
@@ -101,14 +99,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
         val configStr = JSONUtils.serialize(jobConfig.get("config").get)
         val config = JSONUtils.deserialize[JobConfig](configStr)
         try {
-            if (StringUtils.equals("data-exhaust", modelName)) {
-                val modelParams = config.modelParams.get
-                val delayFlag = modelParams.get("shouldDelay").get.asInstanceOf[Boolean]
-                val delayTime = modelParams.get("delayInMilis").get.asInstanceOf[Number].longValue()
-                if (delayFlag) {
-                    Thread.sleep(delayTime)
-                }
-            }
             JobLogger.log("Executing " + modelName, None, INFO);
             JobExecutorV2.main(modelName, configStr)
             JobLogger.log("Finished executing " + modelName, None, INFO);
@@ -116,12 +106,5 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
             case ex: Exception =>
                 ex.printStackTrace()
         }
-    }
-}
-
-object TestJobManager {
-    def main(args: Array[String]): Unit = {
-        val config = """{"jobsCount":2,"topic":"local.analytics.job_queue","bootStrapServer":"localhost:9092","consumerGroup":"jobmanager","slackChannel":"#test_channel","slackUserName":"JobManager","tempBucket":"ekstep-dev-data-store","tempFolder":"transient-data"}""";
-        JobManager.main(config);
     }
 }
