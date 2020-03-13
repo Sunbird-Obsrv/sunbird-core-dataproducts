@@ -3,10 +3,12 @@ package org.ekstep.analytics.model
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+
 import scala.collection.mutable.Buffer
 import org.apache.spark.HashPartitioner
 import org.ekstep.analytics.framework.JobContext
 import org.apache.commons.lang3.StringUtils
+import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework.util.CommonUtil
 import org.ekstep.analytics.util.Constants
@@ -61,6 +63,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                         rootSummary = clonedRootSummary
                         currSummary.clearSummary()
                     }
+                    else {}
                 }
                 prevEvent = x
                 (x.eid) match {
@@ -76,18 +79,20 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                                 currSummary.addParent(rootSummary, idleTime)
                             }
                             else {
-                                if(currSummary != null && !currSummary.isClosed){
-                                    currSummary.close(summEvents, config);
-                                    summEvents ++= currSummary.summaryEvents;
-                                }
+//                                if(currSummary != null && !currSummary.isClosed){
+//                                    println("Inside first missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                                    currSummary.close(summEvents, config);
+//                                    summEvents ++= currSummary.summaryEvents;
+//                                }
                                 rootSummary = new org.ekstep.analytics.util.Summary(x)
                                 currSummary = rootSummary
                             } 
                         }
-                        else if (currSummary == null || currSummary.isClosed) {
-                            currSummary = new org.ekstep.analytics.util.Summary(x)
-                            if (!currSummary.checkSimilarity(rootSummary)) rootSummary.addChild(currSummary)
-                        }
+//                        else if (currSummary == null || currSummary.isClosed) {
+//                            println("Inside second missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                            currSummary = new org.ekstep.analytics.util.Summary(x)
+//                            if (!currSummary.checkSimilarity(rootSummary)) rootSummary.addChild(currSummary)
+//                        }
                         else {
                             val tempSummary = currSummary.checkStart(x.edata.`type`, Option(x.edata.mode), currSummary.summaryEvents, config)
                             if (tempSummary == null) {
@@ -102,12 +107,13 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                                 if(tempSummary.PARENT != null && tempSummary.isClosed) {
                                      summEvents ++= tempSummary.summaryEvents
                                      val newSumm = new org.ekstep.analytics.util.Summary(x)
-                                     if (!currSummary.isClosed) {
-                                        currSummary.addChild(newSumm)
-                                        newSumm.addParent(currSummary, idleTime)
-                                     }
+//                                     if (!currSummary.isClosed) {
+//                                         println("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                                        JobLogger.log("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode, None, INFO)
+//                                        currSummary.addChild(newSumm)
+//                                        newSumm.addParent(currSummary, idleTime)
+//                                     }
                                      currSummary = newSumm
-                                     //currSummary = new org.ekstep.analytics.util.Summary(x)
                                      tempSummary.PARENT.addChild(currSummary)
                                      currSummary.addParent(tempSummary.PARENT, idleTime)
                                 }
@@ -164,6 +170,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                               currSummary = parentSummary
                             }
                         }
+                        else {}
                     case _ =>
                         if (currSummary != null && !currSummary.isClosed) {
                             currSummary.add(x, idleTime)
@@ -171,7 +178,8 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                         else{
                             currSummary = new org.ekstep.analytics.util.Summary(x)
                             currSummary.updateType("app")
-                            if(rootSummary == null || rootSummary.isClosed) rootSummary = currSummary
+                            if(rootSummary == null || rootSummary.isClosed)
+                                rootSummary = currSummary
                         }
                 }
             }
@@ -183,6 +191,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                     summEvents ++= rootSummary.summaryEvents
                 }
             }
+            else {}
             summEvents;
         }).flatMap(f => f.map(f => f));
         

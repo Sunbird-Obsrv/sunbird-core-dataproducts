@@ -91,7 +91,9 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                 executeJob(record.get);
                 doneSignal.countDown();
             } else {
+                // $COVERAGE-OFF$ Code is unreachable
                 Thread.sleep(10 * 1000); // Sleep for 10 seconds
+                // $COVERAGE-ON$
             }
         }
         // Jobs are done. Close the framework context.
