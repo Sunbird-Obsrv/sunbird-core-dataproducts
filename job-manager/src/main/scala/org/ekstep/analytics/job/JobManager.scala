@@ -42,7 +42,13 @@ object JobManager extends optional.Application {
     }
 
     def init(config: JobManagerConfig) = {
-        storageService.deleteObject(config.tempBucket, config.tempFolder, Option(true));
+        try {
+            storageService.deleteObject(config.tempBucket, config.tempFolder, Option(true));
+        }
+        catch {
+            case ex: Exception =>
+                ex.printStackTrace()
+        }
         val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
         val consumer = initializeConsumer(config, jobQueue);
         JobLogger.log("Initialized the job consumer", None, INFO);
