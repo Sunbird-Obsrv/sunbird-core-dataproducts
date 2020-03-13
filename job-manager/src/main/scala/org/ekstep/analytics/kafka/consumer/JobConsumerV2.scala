@@ -36,8 +36,8 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
         try
             iterator.hasNext()
         catch {
-            case timeOutEx: ConsumerTimeoutException =>
-                false
+//            case timeOutEx: ConsumerTimeoutException =>
+//                false
             case ex: Exception =>
                 JobLogger.log("Getting error when reading message", Option(Map("err" -> ex.getMessage)), ERROR);
                 false
