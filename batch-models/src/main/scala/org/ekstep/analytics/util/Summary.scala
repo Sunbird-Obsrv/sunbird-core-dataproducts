@@ -54,15 +54,6 @@ class Summary(val firstEvent: V3Event) {
         this.mode = Option("");
     }
 
-    def getLeafSummary(): Summary = {
-        if(this.CHILDREN.size > 0) {
-            this.CHILDREN.map { summ =>
-                summ.getLeafSummary()
-            }.last
-        }
-        else this
-    }
-
     def ckeckTypeMode(`type`: String, mode: String): Boolean = {
         (StringUtils.equalsIgnoreCase(this.`type`, `type`) && StringUtils.equalsIgnoreCase(this.mode.get, mode))
     }
@@ -145,7 +136,7 @@ class Summary(val firstEvent: V3Event) {
         this.envSummary = getEnvSummaries();
 
         if (StringUtils.equals(event.eid, "ASSESS")) {
-            val resValues = if (null == event.edata.resvalues) Option(Array[Map[String, AnyRef]]().map(f => f.asInstanceOf[AnyRef])) else Option(event.edata.resvalues.map(f => f.asInstanceOf[AnyRef]))
+            val resValues = if (null == event.edata.resvalues) Option(Array[AnyRef]()) else Option(event.edata.resvalues.map(f => f.asInstanceOf[AnyRef]))
             val res = if (null == event.edata.resvalues) Option(Array[String]()); else Option(event.edata.resvalues.flatten.map { x => (x._1 + ":" + x._2.toString) });
             val item = event.edata.item
             this.itemResponses += org.ekstep.analytics.util.Item(item.id, Option(event.edata.duration), res, resValues, Option(item.mc), Option(item.mmc), event.edata.score, event.ets, Option(item.maxscore.asInstanceOf[AnyRef]), event.edata.pass, Option(item.title), Option(item.desc));
@@ -162,10 +153,6 @@ class Summary(val firstEvent: V3Event) {
         this.PARENT = parent;
         // Add first event of child to parent
         this.PARENT.add(this.firstEvent, idleTime)
-    }
-
-    def getParent(): Summary = {
-        return this.PARENT;
     }
 
     def checkStart(`type`: String, mode: Option[String], summEvents: Buffer[MeasuredEvent], config: Map[String, AnyRef]): Summary = {
@@ -191,9 +178,9 @@ class Summary(val firstEvent: V3Event) {
             return this;
         }
         val summ = PARENT.checkEnd(event, idleTime, config)
-        if (summ == null) {
-            return this;
-        }
+//        if (summ == null) {
+//            return this;
+//        }
         return summ;
     }
     

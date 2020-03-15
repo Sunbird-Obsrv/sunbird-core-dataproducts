@@ -29,7 +29,7 @@ case class DruidOutput(date: Option[String], state: Option[String], district: Op
                        total_time_spent_in_hours_on_portal: Option[Double] = Option(0), total_time_spent_in_hours_on_desktop: Option[Double] = Option(0),
                        total_percent_failed_scans: Option[Double] = Option(0), total_content_download_on_app: Option[Integer] = Option(0),
                        total_content_download_on_portal: Option[Integer] = Option(0), total_content_download_on_desktop: Option[Integer] = Option(0),
-                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
+                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0), device_loc_state: Option[String]) extends Input with AlgoInput with AlgoOutput with Output
 
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig])
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String])
@@ -48,7 +48,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     data
   }
   
-  private def setStorageConf(store: String, accountKey: Option[String], accountSecret: Option[String])(implicit sc: SparkContext) {
+  def setStorageConf(store: String, accountKey: Option[String], accountSecret: Option[String])(implicit sc: SparkContext) {
     
     store.toLowerCase() match {
       case "s3" =>
@@ -73,14 +73,16 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
     if (queryDims.length > 1) throw new DruidConfigException("Query dimensions are not matching")
 
-    val interval = strConfig("dateRange").asInstanceOf[Map[String, AnyRef]]
-    val granularity = interval.get("granularity")
-    val queryInterval = if (interval.get("staticInterval").nonEmpty) {
-      interval("staticInterval").asInstanceOf[String]
-    } else if (interval.get("interval").nonEmpty) {
-      val dateRange = interval("interval").asInstanceOf[Map[String, String]]
-      dateRange("startDate") + "/" + dateRange("endDate")
-    } else throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
+    val interval = reportConfig.dateRange
+    val granularity = interval.granularity
+    val queryInterval = if (interval.staticInterval.nonEmpty) {
+      interval.staticInterval.get
+    } else if (interval.interval.nonEmpty) {
+      val dateRange = interval.interval.get
+      dateRange.startDate + "/" + dateRange.endDate
+    } else {
+      throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
+    }
 
     val metrics = reportConfig.metrics.flatMap { f =>
       val queryConfig = if (granularity.nonEmpty)
@@ -138,12 +140,12 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
     
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), getStringProperty(config, "container", "test-container"), getStringProperty(config, "filePath", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
-    val format = config.getOrElse("format", "csv").asInstanceOf[String]
+    val format = config.get("format").get.asInstanceOf[String]
     val filePath = config.getOrElse("filePath", AppConf.getConfig("spark_output_temp_dir")).asInstanceOf[String]
     val key = config.getOrElse("key", null).asInstanceOf[String]
-    val reportId = config.getOrElse("reportId", "").asInstanceOf[String]
-    val fileParameters = config.getOrElse("fileParameters", List("")).asInstanceOf[List[String]]
-    val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.getOrElse("dims", List()).asInstanceOf[List[String]] else config.getOrElse("dims", List()).asInstanceOf[List[String]] ++ List("Date")
+    val reportId = config.get("reportId").get.asInstanceOf[String]
+    val fileParameters = config.get("fileParameters").get.asInstanceOf[List[String]]
+    val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
     if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
       var duplicateDimsDf = data

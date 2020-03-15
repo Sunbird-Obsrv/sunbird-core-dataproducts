@@ -2,13 +2,6 @@ package org.ekstep.analytics.util
 
 import org.ekstep.analytics.framework.conf.AppConf
 
-object BatchStatus extends Enumeration {
-    type BatchStatus = Value
-    val Upcoming = Value(0)
-    val Ongoing = Value(1)
-    val Expired = Value(2)
-}
-
 object Constants {
 
     val env = AppConf.getConfig("cassandra.keyspace_prefix");

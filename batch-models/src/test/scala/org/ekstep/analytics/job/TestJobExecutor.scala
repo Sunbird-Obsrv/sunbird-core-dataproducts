@@ -20,4 +20,17 @@ class TestJobExecutor extends BaseSpec {
         } should have message "Unknown job type found"
     }
 
+    "JobExecutorV2" should "execute job when model code is passed using JobExecutorV2" in {
+
+        implicit val fc = new FrameworkContext();
+
+        a[JsonMappingException] should be thrownBy {
+            JobExecutorV2.main("org.ekstep.analytics.job.summarizer.WorkFlowSummarizer", "");
+        }
+
+        the[JobNotFoundException] thrownBy {
+            JobExecutorV2.main("abc", null);
+        } should have message "Unknown job type found"
+    }
+
 }

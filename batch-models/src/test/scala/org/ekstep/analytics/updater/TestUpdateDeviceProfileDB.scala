@@ -119,6 +119,12 @@ try {
         }
     }
 
+    it should "execute successfully" in {
+        EmbeddedPostgresql.execute(s"TRUNCATE $deviceTable")
+        val rdd = loadFile[DerivedEvent]("src/test/resources/device-profile/test-data3.log")
+        UpdateDeviceProfileDB.execute(rdd, None)
+    }
+
     override def afterAll(): Unit ={
         super.afterAll()
         EmbeddedPostgresql.close()
