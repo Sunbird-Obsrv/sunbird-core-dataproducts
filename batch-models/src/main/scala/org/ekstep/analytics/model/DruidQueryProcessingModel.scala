@@ -1,17 +1,18 @@
 package org.ekstep.analytics.model
 
-import org.apache.hadoop.fs.{ FileSystem, Path }
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{ DataFrame, SQLContext }
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.dispatcher.AzureDispatcher
+import org.ekstep.analytics.framework.dispatcher.{AzureDispatcher, ScriptDispatcher}
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
-import org.ekstep.analytics.framework.util.{ JSONUtils, JobLogger }
+import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
 import org.sunbird.cloud.storage.conf.AppConf
-import org.ekstep.analytics.framework.util.DatasetUtil.extensions;
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
+import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import java.nio.file.Paths
 
 case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], total_scans: Option[Integer] = Option(0),
@@ -31,11 +32,16 @@ case class DruidOutput(date: Option[String], state: Option[String], district: Op
                        total_content_download_on_portal: Option[Integer] = Option(0), total_content_download_on_desktop: Option[Integer] = Option(0),
                        total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0), device_loc_state: Option[String]) extends Input with AlgoInput with AlgoOutput with Output
 
-case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig])
+case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None)
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String])
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
 case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"))
+case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: String, rollupCol: String, rollupRange: Integer,
+                       reportPath: String)
+case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: String, rollupCol: String, rollupRange: Integer,
+                             merge: MergeFiles)
+case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
 
@@ -145,8 +151,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val key = config.getOrElse("key", null).asInstanceOf[String]
     val reportId = config.get("reportId").get.asInstanceOf[String]
     val fileParameters = config.get("fileParameters").get.asInstanceOf[List[String]]
+    val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
+    val reportMergeConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
-    if (dims.nonEmpty) {
+    val deltaFiles = if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
       var duplicateDimsDf = data
       dims.foreach { f =>
@@ -155,6 +163,36 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
+    }
+    if(reportMergeConfig.nonEmpty){
+      val mergeConf = reportMergeConfig.get
+      val reportPath = mergeConf.reportPath
+      val filesList = deltaFiles.map{f =>
+        val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
+        Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
+      }
+      val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
+        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")))
+      mergeReport(mergeScriptConfig)
+    }
+    else {
+      JobLogger.log(s"Merge report is not configured, hence skipping that step", None, INFO)
+    }
+  }
+
+  def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
+
+    val mergeReportCommand = Seq("bash", "-c",
+      s"source ${virtualEnvDir.get}/bin/activate; " +
+        s"dataproducts report_merger --report_config='$mergeConfig'")
+    JobLogger.log(s"Merge report script command:: $mergeReportCommand", None, INFO)
+    val mergeReportExitCode = ScriptDispatcher.dispatch(mergeReportCommand)
+
+    if (mergeReportExitCode == 0) {
+      JobLogger.log(s"Merge report script::Success", None, INFO)
+    } else {
+      JobLogger.log(s"Merge report script failed with exit code $mergeReportExitCode", None, ERROR)
+      throw new Exception(s"Merge report script failed with exit code $mergeReportExitCode")
     }
   }
 
