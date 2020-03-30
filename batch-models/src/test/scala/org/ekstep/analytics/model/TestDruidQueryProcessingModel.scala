@@ -322,7 +322,6 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
         val druidResponse = DruidResponse.apply(results, QueryType.Timeseries)
 
-        println(druidResponse)
         val mockDruidClient = mock[DruidClient]
         (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();

@@ -162,16 +162,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       }
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
-      println("inside else of dims nonEmpty ")
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
     }
     if(reportMergeConfig.nonEmpty){
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
-        println("files from datasetUtil: " + f)
         val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
-        println("File names: " + reportPrefix)
         Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
