@@ -169,6 +169,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
+        println("deltaFile: " + f)
         val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
         Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
       }
