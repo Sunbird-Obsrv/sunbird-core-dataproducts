@@ -183,13 +183,12 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   }
 
   def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
-
+    val mergeConfigStr = JSONUtils.serialize(mergeConfig)
     val mergeReportCommand = Seq("bash", "-c",
       s"source ${virtualEnvDir.get}/bin/activate; " +
-        s"dataproducts report_merger --report_config='$mergeConfig'")
+        s"dataproducts report_merger --report_config='$mergeConfigStr'")
     JobLogger.log(s"Merge report script command:: $mergeReportCommand", None, INFO)
     val mergeReportExitCode = ScriptDispatcher.dispatch(mergeReportCommand)
-
     if (mergeReportExitCode == 0) {
       JobLogger.log(s"Merge report script::Success", None, INFO)
     } else {
