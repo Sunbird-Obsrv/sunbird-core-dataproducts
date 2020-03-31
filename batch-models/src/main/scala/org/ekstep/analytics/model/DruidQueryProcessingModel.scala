@@ -1,19 +1,17 @@
 package org.ekstep.analytics.model
 
-import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.dispatcher.{AzureDispatcher, ScriptDispatcher}
+import org.ekstep.analytics.framework.dispatcher.ScriptDispatcher
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
+import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
 import org.sunbird.cloud.storage.conf.AppConf
-import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.ekstep.analytics.framework.Level.{ERROR, INFO}
-import java.nio.file.Paths
 
 case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], total_scans: Option[Integer] = Option(0),
                        total_scans_on_portal: Option[Integer] = Option(0), total_scans_on_app: Option[Integer] = Option(0),
@@ -156,10 +154,12 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
     val deltaFiles = if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
+      println("duplicateDims: " + duplicateDims)
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
       }
+      duplicateDimsDf.show()
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
