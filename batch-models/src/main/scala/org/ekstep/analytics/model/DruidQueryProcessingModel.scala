@@ -152,15 +152,12 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportMergeConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
-    dims.map(f => println("dims: " + f))
     val deltaFiles = if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
-      println("duplicateDims: " + duplicateDims)
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
       }
-      duplicateDimsDf.show()
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
@@ -169,7 +166,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
-        println("deltaFile: " + f)
         val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
         Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
       }
