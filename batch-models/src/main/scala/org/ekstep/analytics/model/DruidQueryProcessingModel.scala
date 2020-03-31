@@ -152,6 +152,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportMergeConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
+    dims.map(f => println("dims: " + f))
     val deltaFiles = if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
       println("duplicateDims: " + duplicateDims)
