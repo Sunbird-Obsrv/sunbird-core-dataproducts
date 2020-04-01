@@ -143,7 +143,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
     
-    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), getStringProperty(config, "container", "test-container"), getStringProperty(config, "filePath", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
+    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), getStringProperty(config, "container", "test-container"), getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
     val format = config.get("format").get.asInstanceOf[String]
     val filePath = config.getOrElse("filePath", AppConf.getConfig("spark_output_temp_dir")).asInstanceOf[String]
     val key = config.getOrElse("key", null).asInstanceOf[String]
@@ -167,7 +167,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
         val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
-        Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
+        Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")))
@@ -180,6 +180,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
     val mergeConfigStr = JSONUtils.serialize(mergeConfig)
+    println("merge config: " + mergeConfigStr)
     val mergeReportCommand = Seq("bash", "-c",
       s"source ${virtualEnvDir.get}/bin/activate; " +
         s"dataproducts report_merger --report_config='$mergeConfigStr'")
