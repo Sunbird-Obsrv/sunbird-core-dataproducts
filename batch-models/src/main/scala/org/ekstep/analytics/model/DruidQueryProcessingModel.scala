@@ -166,7 +166,9 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
+        println("delta path: " + f)
         val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
+        println("report path: " + reportPrefix + "/" + reportPath)
         Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f)
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
@@ -180,6 +182,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
     val mergeConfigStr = JSONUtils.serialize(mergeConfig)
+    println("merge config: " + mergeConfigStr)
     val mergeReportCommand = Seq("bash", "-c",
       s"source ${virtualEnvDir.get}/bin/activate; " +
         s"dataproducts report_merger --report_config='$mergeConfigStr'")
