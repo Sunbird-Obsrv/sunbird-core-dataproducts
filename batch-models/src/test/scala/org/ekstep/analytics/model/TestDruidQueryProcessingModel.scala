@@ -23,7 +23,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     implicit val fc = mock[FrameworkContext];
 
     it should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
-//        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
+        //        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -45,10 +45,12 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
-        val reportConfig = ReportConfig("consumption_usage_metrics", "groupBy", QueryDateRange(Option(QueryInterval("2020-01-01", "2020-01-07")), None, Option("day")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("json", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"), List("id", "dims", "date"))))
+        val reportConfig = ReportConfig("consumption_usage_metrics", "groupBy", QueryDateRange(Option(QueryInterval("2020-01-01", "2020-01-07")), None, Option("day")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), Map("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"), List("id", "dims", "date"))), Option(MergeConfig("DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
         val strConfig = JSONUtils.serialize(reportConfig)
         val modelParams = Map("reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/")
-        DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
+        the[Exception] thrownBy {
+            DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
+        } should have message "Merge report script failed with exit code 127"
     }
 
     it should "execute multiple queries and generate csv reports on single dimension" in {
@@ -183,10 +185,10 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val reportConfig2 = ReportConfig("data_metrics", "timeseries",
             QueryDateRange(None, Option("LastDay"), Option("day")),
             List(
-//                Metrics("totalQRScans", "Total Scans", totalQRscansQuery),
+                //                Metrics("totalQRScans", "Total Scans", totalQRscansQuery),
                 Metrics("totalSuccessfulScans", "Total Successful QR Scans", totalSuccessfulQRScansQuery),
                 Metrics("totalFailedScans", "Total Failed QR Scans", totalFailedQRScansQuery),
-//                Metrics("totalPercentFailedScans", "Total Percent Failed QR Scans", totalPercentFailedQRScansQuery),
+                //                Metrics("totalPercentFailedScans", "Total Percent Failed QR Scans", totalPercentFailedQRScansQuery),
                 Metrics("totalContentDownload", "Total Content Download", totalcontentDownloadQuery),
                 Metrics("totalContentPlayed","Total Content Played", contentPlayedQuery),
                 Metrics("totalUniqueDevices","Total Unique Devices", uniqueDevicesQuery),
@@ -320,7 +322,6 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
         val druidResponse = DruidResponse.apply(results, QueryType.Timeseries)
 
-        println(druidResponse)
         val mockDruidClient = mock[DruidClient]
         (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
