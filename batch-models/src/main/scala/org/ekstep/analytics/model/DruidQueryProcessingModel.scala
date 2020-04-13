@@ -119,7 +119,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       implicit val sqlContext = new SQLContext(sc)
       import sqlContext.implicits._
 
-      // Using foreach as parallel execution might conflict with local file path
+      //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
         val df = data.toDF().na.fill(0L)
