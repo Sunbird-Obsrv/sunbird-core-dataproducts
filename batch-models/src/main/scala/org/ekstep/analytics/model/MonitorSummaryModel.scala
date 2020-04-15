@@ -166,25 +166,22 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
     private def jobSummaryMessage(modelName: String, jobsFailed: Int, jobsCompleted: Int, warnings: String, models: String): String = {
         val header = "Model, " + "Input Events, " + "Output Events, " + "Total time(secs), " + "Status, " + "Day"
         if (jobsFailed > 0 && warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nError: ```Job Failed``` """
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nError: ```Job Failed``` """
         } else if (jobsFailed == 0 && warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\n Status: ```Job Run Completed Successfully```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\n Status: ```Job Run Completed Successfully```"""
         } else if (jobsFailed == 0 && !warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nWarnings: ```$warnings```\nStatus: ```Job Run Completed Successfully```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nWarnings: ```$warnings```\nStatus: ```Job Run Completed Successfully```"""
         } else {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nWarnings: ```$warnings```\n Error: ```Job Failed```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nWarnings: ```$warnings```\n Error: ```Job Failed```"""
         }
     }
 
     private def modelStats(jobSummary: Array[JobSummary], modelMapping: Set[ModelMapping], category: String): String = {
-        val modelsCategoryFilter = modelMapping.filter { x => (x.category.equalsIgnoreCase(s"$category")) }
-        val modelsSet = modelsCategoryFilter.map { x => x.model }
-        val modelMappingWithInputDependency = modelsCategoryFilter.filter { x => !x.input_dependency.equals("None") }.map { x => (x.model, x.input_dependency) }.toMap
-        val filterModelsFromJobSummary = jobSummary.filter(item => modelsSet(item.model.trim()))
-        val modelsCompleted = filterModelsFromJobSummary.filter { x => x.status.equals("SUCCESS") }.size
-        val modelsFailed = filterModelsFromJobSummary.filter { x => x.status.equals("FAILED") }.size
-        val modelsWarnings = warningMessages(modelMappingWithInputDependency, filterModelsFromJobSummary)
-        val modelsString = filterModelsFromJobSummary.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
+        val modelMappingWithInputDependency = modelMapping.filter { x => !x.input_dependency.equals("None") }.map { x => (x.model, x.input_dependency) }.toMap
+        val modelsCompleted = jobSummary.filter { x => x.status.equals("SUCCESS") }.size
+        val modelsFailed = jobSummary.filter { x => x.status.equals("FAILED") }.size
+        val modelsWarnings = warningMessages(modelMappingWithInputDependency, jobSummary)
+        val modelsString = jobSummary.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
         jobSummaryMessage(s"$category", modelsFailed, modelsCompleted, modelsWarnings, modelsString)
     }
 }

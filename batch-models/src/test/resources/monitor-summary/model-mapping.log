@@ -9,6 +9,7 @@
 {"model":"CourseMetricsJob","category":"consumption","input_dependency":"None"}
 {"model":"UpdateContentRating","category":"consumption","input_dependency":"None"}
 {"model":"DruidQueryProcessingModel","category":"consumption","input_dependency":"None"}
+{"model":"UsageMetrics","category":"consumption","input_dependency":"None"}
 {"model":"MetricsAuditJob","category":"consumption","input_dependency":"None"}
 {"model":"AssessmentMetricsJob","category":"consumption","input_dependency":"None"}
 {"model":"StateAdminReportJob","category":"consumption","input_dependency":"None"}
