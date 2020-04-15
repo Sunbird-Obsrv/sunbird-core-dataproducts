@@ -1,3 +1,4 @@
+@Library('deploy-conf') _
 node('build-slave') {
     try {
         String ANSI_GREEN = "\u001B[32m"
@@ -20,17 +21,17 @@ node('build-slave') {
                 echo "artifact_version: "+ artifact_version
             }
         }
-        stage('Pre-Build') {
+  //      stage Pre-Build
             sh '''
                 #sed -i "s/'replication_factor': '2'/'replication_factor': '1'/g" scripts/database/data.cql
                 '''
-        }
-        stage('Build') {
+        
+ //       stage Build
             sh '''
                 mvn clean install -DskipTests
                 '''
-        }
-        stage('Archive artifacts'){
+        
+//        stage Archive artifacts
             sh """
                         mkdir lpa_core_dp_artifacts
                         cp batch-models/target/batch-models-2.0.jar lpa_core_dp_artifacts
@@ -41,7 +42,7 @@ node('build-slave') {
             sh """echo {\\"artifact_name\\" : \\"lpa_core_dp_artifacts.zip\\", \\"artifact_version\\" : \\"${artifact_version}\\", \\"node_name\\" : \\"${env.NODE_NAME}\\"} > metadata.json"""
             archiveArtifacts artifacts: 'metadata.json', onlyIfSuccessful: true
             currentBuild.description = artifact_version
-        }
+        
         currentBuild.result = "SUCCESS"    
         slack_notify(currentBuild.result, tag_name)
         email_notify()  
