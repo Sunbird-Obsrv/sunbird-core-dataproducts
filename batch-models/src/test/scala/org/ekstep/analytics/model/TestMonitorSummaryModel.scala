@@ -72,8 +72,8 @@ class TestMonitorSummaryModel extends SparkSpec(null) with EmbeddedKafka  {
         val eks_map = rdd2.first().edata.eks.asInstanceOf[Map[String, AnyRef]]
         eks_map.get("jobs_completed_count").get.asInstanceOf[Number].longValue() should be(2)
         eks_map.get("total_events_generated").get.asInstanceOf[Number].longValue() should be(411)
-        eks_map.get("jobs_failed_count").get.asInstanceOf[Number].longValue() should be(1)
+        eks_map.get("jobs_failed_count").get.asInstanceOf[Number].longValue() should be(2)
         eks_map.get("total_ts").get.asInstanceOf[Number].doubleValue() should be(31.0)
-        eks_map.get("jobs_start_count").get.asInstanceOf[Number].longValue() should be(3)
+        eks_map.get("jobs_start_count").get.asInstanceOf[Number].longValue() should be(4)
     }
 }
