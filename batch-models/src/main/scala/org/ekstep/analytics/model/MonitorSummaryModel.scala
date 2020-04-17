@@ -176,12 +176,29 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
         }
     }
 
+    private def jobVideoStreamingSummaryMessage(jobSummary: Array[JobSummary]): String = {
+        val header = "Model, " + "No of times started, " + "No of times completed, " + "No of times failed, " +  "Day"
+        val totalCount = jobSummary.length
+        val successCount = jobSummary.filter { x => x.status.equals("SUCCESS") }.size
+        val failedCount = jobSummary.filter { x => x.status.equals("FAILED") }.size
+        val models = ( jobSummary.head.model.trim + ", " + totalCount + ", " + successCount + ", " + failedCount + ", " + jobSummary.head.day + "\n" ).mkString("")
+        s"""* ${jobSummary.head.model} Detailed Report: *\nModels:```$header\n$models```"""
+    }
+
+
     private def modelStats(jobSummary: Array[JobSummary], modelMapping: Set[ModelMapping], category: String): String = {
         val modelMappingWithInputDependency = modelMapping.filter { x => !x.input_dependency.equals("None") }.map { x => (x.model, x.input_dependency) }.toMap
-        val modelsCompleted = jobSummary.filter { x => x.status.equals("SUCCESS") }.size
-        val modelsFailed = jobSummary.filter { x => x.status.equals("FAILED") }.size
-        val modelsWarnings = warningMessages(modelMappingWithInputDependency, jobSummary)
-        val modelsString = jobSummary.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
-        jobSummaryMessage(s"$category", modelsFailed, modelsCompleted, modelsWarnings, modelsString)
+        val videoStreamingJobs = jobSummary.filter{ f => f.model.equalsIgnoreCase("VideoStreamingJob")}
+        val otherJobs = jobSummary.filter{ f => !f.model.equalsIgnoreCase("VideoStreamingJob")}
+        val modelsCompleted = otherJobs.filter { x => x.status.equals("SUCCESS") }.size
+        val modelsFailed = otherJobs.filter { x => x.status.equals("FAILED") }.size
+        val modelsWarnings = warningMessages(modelMappingWithInputDependency, otherJobs)
+        val modelsString = otherJobs.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
+        val summaryMessage = jobSummaryMessage(s"$category", modelsFailed, modelsCompleted, modelsWarnings, modelsString)
+        if (videoStreamingJobs.length > 0) {
+            val videoStreamingMsg = jobVideoStreamingSummaryMessage(videoStreamingJobs)
+            s"""$summaryMessage\n\n$videoStreamingMsg"""
+        }
+        else summaryMessage
     }
 }
