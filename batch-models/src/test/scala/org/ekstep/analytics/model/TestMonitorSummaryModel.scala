@@ -76,4 +76,18 @@ class TestMonitorSummaryModel extends SparkSpec(null) with EmbeddedKafka  {
         eks_map.get("total_ts").get.asInstanceOf[Number].doubleValue() should be(31.0)
         eks_map.get("jobs_start_count").get.asInstanceOf[Number].longValue() should be(4)
     }
+
+    it should "monitor the data products logs for video streaming jobs" in {
+
+        implicit val fc = new FrameworkContext();
+        val modelMapping = loadFile[ModelMapping]("src/test/resources/monitor-summary/model-mapping.log").collect().toList;
+        val rdd1 = loadFile[V3Event]("src/test/resources/monitor-summary/joblog4.log");
+        val rdd2 = MonitorSummaryModel.execute(rdd1, Option(Map("model" -> modelMapping)));
+        val eks_map = rdd2.first().edata.eks.asInstanceOf[Map[String, AnyRef]]
+        eks_map.get("jobs_completed_count").get.asInstanceOf[Number].longValue() should be(6)
+        eks_map.get("total_events_generated").get.asInstanceOf[Number].longValue() should be(475)
+        eks_map.get("jobs_failed_count").get.asInstanceOf[Number].longValue() should be(0)
+        eks_map.get("total_ts").get.asInstanceOf[Number].doubleValue() should be(23.0)
+        eks_map.get("jobs_start_count").get.asInstanceOf[Number].longValue() should be(6)
+    }
 }
