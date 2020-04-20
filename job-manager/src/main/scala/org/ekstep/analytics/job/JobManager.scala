@@ -1,16 +1,11 @@
 package org.ekstep.analytics.job
 
 import org.ekstep.analytics.framework.util.JSONUtils
-import java.util.concurrent.BlockingQueue
-import java.util.concurrent.ArrayBlockingQueue
-
-import java.util.concurrent.Executors
+import java.util.concurrent._
 
 import org.ekstep.analytics.framework.util.CommonUtil
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
-import java.util.concurrent.CountDownLatch
-
 import org.ekstep.analytics.framework.util.EventBusUtil
 import com.google.common.eventbus.Subscribe
 import org.ekstep.analytics.framework.MeasuredEvent
@@ -19,7 +14,7 @@ import org.ekstep.analytics.framework.Dispatcher
 import org.apache.commons.lang3.StringUtils
 import org.ekstep.analytics.framework.JobConfig
 import org.sunbird.cloud.storage.conf.AppConf
-import org.sunbird.cloud.storage.factory.{ StorageConfig, StorageServiceFactory }
+import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2
 import org.ekstep.analytics.framework.FrameworkContext
@@ -31,6 +26,8 @@ object JobManager extends optional.Application {
     implicit val className = "org.ekstep.analytics.job.JobManager";
     val storageType = AppConf.getStorageType()
     val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
+    var consumer: JobConsumerV2 = null
+    var executor: ExecutorService = null
 
     var jobsCompletedCount = 0;
 
@@ -50,21 +47,16 @@ object JobManager extends optional.Application {
                 ex.printStackTrace()
         }
         val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
-        val consumer = initializeConsumer(config, jobQueue);
+        consumer = initializeConsumer(config, jobQueue);
         JobLogger.log("Initialized the job consumer", None, INFO);
-        val executor = Executors.newFixedThreadPool(1);
+        executor = Executors.newFixedThreadPool(1);
         JobLogger.log("Total job count: " + config.jobsCount, None, INFO);
-        val doneSignal = new CountDownLatch(config.jobsCount);
+//        val doneSignal = new CountDownLatch(config.jobsCount);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-        executor.submit(new JobRunner(config, consumer, doneSignal));
+        executor.submit(new JobRunner(config, consumer));
+        close();
 
-        doneSignal.await();
-        JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
-        executor.shutdown();
-        JobLogger.log("Job manager executor shutdown completed", None, INFO);
-        consumer.close();
-        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
     }
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
@@ -72,30 +64,61 @@ object JobManager extends optional.Application {
         val consumer = new JobConsumerV2(config.topic, props);
         consumer;
     }
+
+    def close() = {
+        JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
+        executor.shutdown();
+        JobLogger.log("Job manager executor shutdown completed", None, INFO);
+        consumer.close();
+        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
+    }
 }
 
-class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: CountDownLatch) extends Runnable {
+class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runnable {
 
     implicit val className: String = "JobRunner";
 
+    import java.util.concurrent.atomic.AtomicBoolean
+    private val running = new AtomicBoolean(false)
+
+    def stop(): Unit = {
+        running.set(false)
+    }
     override def run {
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"));
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret"));
-        while (doneSignal.getCount() != 0) {
+//        while (doneSignal.getCount() != 0) {
+//            val record = consumer.read;
+//            if (record.isDefined) {
+//                JobLogger.log("Starting execution of " + record, None, INFO);
+//                executeJob(record.get);
+//                doneSignal.countDown();
+//            } else {
+//                // $COVERAGE-OFF$ Code is unreachable
+//                Thread.sleep(10 * 1000); // Sleep for 10 seconds
+//                // $COVERAGE-ON$
+//            }
+//        }
+        running.set(true)
+        while(running.get()) {
+            println("inside while")
             val record = consumer.read;
             if (record.isDefined) {
                 JobLogger.log("Starting execution of " + record, None, INFO);
                 executeJob(record.get);
-                doneSignal.countDown();
+                println("Check for monitor job: " + record.get.contains("monitor-job-summ"))
+                if (record.get.contains("monitor-job-summ"))
+                    stop();
             } else {
                 // $COVERAGE-OFF$ Code is unreachable
                 Thread.sleep(10 * 1000); // Sleep for 10 seconds
                 // $COVERAGE-ON$
             }
         }
+
         // Jobs are done. Close the framework context.
         fc.closeContext();
     }
