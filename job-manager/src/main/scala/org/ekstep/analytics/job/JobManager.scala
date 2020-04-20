@@ -26,10 +26,6 @@ object JobManager extends optional.Application {
     implicit val className = "org.ekstep.analytics.job.JobManager";
     val storageType = AppConf.getStorageType()
     val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
-    var consumer: JobConsumerV2 = null
-    var executor: ExecutorService = null
-
-    var jobsCompletedCount = 0;
 
     def main(config: String) {
         JobLogger.init("JobManager");
@@ -47,9 +43,9 @@ object JobManager extends optional.Application {
                 ex.printStackTrace()
         }
         val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
-        consumer = initializeConsumer(config, jobQueue);
+        val consumer = initializeConsumer(config, jobQueue);
         JobLogger.log("Initialized the job consumer", None, INFO);
-        executor = Executors.newFixedThreadPool(1);
+        val executor = Executors.newFixedThreadPool(1);
         JobLogger.log("Total job count: " + config.jobsCount, None, INFO);
         val doneSignal = new CountDownLatch(1);
         JobMonitor.init(config);
@@ -57,7 +53,12 @@ object JobManager extends optional.Application {
         val runner = new JobRunner(config, consumer, doneSignal)
         executor.submit(runner);
         doneSignal.await()
-        shutdown();
+
+        JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
+        executor.shutdown();
+        JobLogger.log("Job manager executor shutdown completed", None, INFO);
+        consumer.close();
+        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
 
     }
 
@@ -67,13 +68,6 @@ object JobManager extends optional.Application {
         consumer;
     }
 
-    def shutdown() = {
-        JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
-        executor.shutdown();
-        JobLogger.log("Job manager executor shutdown completed", None, INFO);
-        consumer.close();
-        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
-    }
 }
 
 class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: CountDownLatch) extends Runnable {
