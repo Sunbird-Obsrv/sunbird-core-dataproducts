@@ -2,22 +2,15 @@ package org.ekstep.analytics.job
 
 import org.ekstep.analytics.framework.util.JSONUtils
 import java.util.concurrent._
-
-import org.ekstep.analytics.framework.util.CommonUtil
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
-import org.ekstep.analytics.framework.util.EventBusUtil
-import com.google.common.eventbus.Subscribe
-import org.ekstep.analytics.framework.MeasuredEvent
-import org.ekstep.analytics.framework.OutputDispatcher
-import org.ekstep.analytics.framework.Dispatcher
-import org.apache.commons.lang3.StringUtils
 import org.ekstep.analytics.framework.JobConfig
 import org.sunbird.cloud.storage.conf.AppConf
-import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
+import org.sunbird.cloud.storage.factory.{ StorageConfig, StorageServiceFactory }
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2
 import org.ekstep.analytics.framework.FrameworkContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
 
@@ -50,8 +43,7 @@ object JobManager extends optional.Application {
         val doneSignal = new CountDownLatch(1);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-        val runner = new JobRunner(config, consumer, doneSignal)
-        executor.submit(runner);
+        executor.submit(new JobRunner(config, consumer, doneSignal));
         doneSignal.await()
 
         JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
@@ -59,7 +51,6 @@ object JobManager extends optional.Application {
         JobLogger.log("Job manager executor shutdown completed", None, INFO);
         consumer.close();
         JobLogger.log("Job manager consumer shutdown completed", None, INFO);
-
     }
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
@@ -67,14 +58,12 @@ object JobManager extends optional.Application {
         val consumer = new JobConsumerV2(config.topic, props);
         consumer;
     }
-
 }
 
 class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: CountDownLatch) extends Runnable {
 
     implicit val className: String = "JobRunner";
 
-    import java.util.concurrent.atomic.AtomicBoolean
     private val running = new AtomicBoolean(false)
     running.set(true)
 
@@ -103,7 +92,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                 // $COVERAGE-ON$
             }
         }
-
         // Jobs are done. Close the framework context.
         fc.closeContext();
     }
