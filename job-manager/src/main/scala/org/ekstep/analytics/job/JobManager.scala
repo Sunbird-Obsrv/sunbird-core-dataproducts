@@ -54,8 +54,9 @@ object JobManager extends optional.Application {
 //        val doneSignal = new CountDownLatch(config.jobsCount);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-        executor.submit(new JobRunner(config, consumer));
-        close();
+        val runner = new JobRunner(config, consumer)
+        executor.submit(runner);
+        if (runner.done()) close();
 
     }
 
@@ -83,6 +84,10 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runna
 
     def stop(): Unit = {
         running.set(false)
+    }
+
+    def done(): Boolean = {
+        !running.get()
     }
     override def run {
         implicit val fc = new FrameworkContext();
