@@ -51,12 +51,13 @@ object JobManager extends optional.Application {
         JobLogger.log("Initialized the job consumer", None, INFO);
         executor = Executors.newFixedThreadPool(1);
         JobLogger.log("Total job count: " + config.jobsCount, None, INFO);
-//        val doneSignal = new CountDownLatch(config.jobsCount);
+        val doneSignal = new CountDownLatch(1);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-        val runner = new JobRunner(config, consumer)
+        val runner = new JobRunner(config, consumer, doneSignal)
         executor.submit(runner);
-        if (runner.done()) close();
+        doneSignal.await()
+        close();
 
     }
 
@@ -75,7 +76,7 @@ object JobManager extends optional.Application {
     }
 }
 
-class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runnable {
+class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: CountDownLatch) extends Runnable {
 
     implicit val className: String = "JobRunner";
 
@@ -85,12 +86,9 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runna
 
     def stop(): Unit = {
         running.set(false)
+        doneSignal.countDown();
     }
 
-    def done(): Boolean = {
-        println("inside runner done?: " + running.get())
-        !running.get()
-    }
     override def run {
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
@@ -110,7 +108,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runna
 //            }
 //        }
         while(running.get()) {
-            println("inside while")
             val record = consumer.read;
             if (record.isDefined) {
                 JobLogger.log("Starting execution of " + record, None, INFO);
