@@ -81,12 +81,14 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runna
 
     import java.util.concurrent.atomic.AtomicBoolean
     private val running = new AtomicBoolean(false)
+    running.set(true)
 
     def stop(): Unit = {
         running.set(false)
     }
 
     def done(): Boolean = {
+        println("inside runner done?: " + running.get())
         !running.get()
     }
     override def run {
@@ -107,7 +109,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2) extends Runna
 //                // $COVERAGE-ON$
 //            }
 //        }
-        running.set(true)
         while(running.get()) {
             println("inside while")
             val record = consumer.read;
