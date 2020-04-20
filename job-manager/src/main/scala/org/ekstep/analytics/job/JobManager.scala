@@ -57,7 +57,7 @@ object JobManager extends optional.Application {
         val runner = new JobRunner(config, consumer, doneSignal)
         executor.submit(runner);
         doneSignal.await()
-        close();
+        shutdown();
 
     }
 
@@ -67,7 +67,7 @@ object JobManager extends optional.Application {
         consumer;
     }
 
-    def close() = {
+    def shutdown() = {
         JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
         executor.shutdown();
         JobLogger.log("Job manager executor shutdown completed", None, INFO);
@@ -95,24 +95,12 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"));
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret"));
-//        while (doneSignal.getCount() != 0) {
-//            val record = consumer.read;
-//            if (record.isDefined) {
-//                JobLogger.log("Starting execution of " + record, None, INFO);
-//                executeJob(record.get);
-//                doneSignal.countDown();
-//            } else {
-//                // $COVERAGE-OFF$ Code is unreachable
-//                Thread.sleep(10 * 1000); // Sleep for 10 seconds
-//                // $COVERAGE-ON$
-//            }
-//        }
+
         while(running.get()) {
             val record = consumer.read;
             if (record.isDefined) {
                 JobLogger.log("Starting execution of " + record, None, INFO);
                 executeJob(record.get);
-                println("Check for monitor job: " + record.get.contains("monitor-job-summ"))
                 if (record.get.contains("monitor-job-summ"))
                     stop();
             } else {

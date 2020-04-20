@@ -29,7 +29,7 @@ class TestJobManager extends FlatSpec with Matchers with BeforeAndAfterAll with 
             JobManager.main(config);
 
             // shutdown explicitly
-            JobManager.close();
+            JobManager.shutdown();
 
         }
     }
