@@ -167,9 +167,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
-        val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
-        Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
-      }
+        if(dims.size == 1 && dims.contains("Date")) {
+          Map("reportPath" -> (reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+        } else {
+          val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
+          Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+        }
+ }
 
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container)
