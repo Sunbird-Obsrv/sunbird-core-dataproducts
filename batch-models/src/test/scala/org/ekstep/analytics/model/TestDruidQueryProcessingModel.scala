@@ -332,6 +332,37 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
+    it should "execute the report with single dims" in {
+        implicit val sqlContext = new SQLContext(sc)
+        import scala.concurrent.ExecutionContext.Implicits.global
+
+        val json = """{"district":"do_312998713531351040138","state":"The Constitution Quiz - English","total_sessions":99.0,"date":"2020-04-14"}"""
+
+        val doc: Json = parse(json).getOrElse(Json.Null);
+        val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
+        val druidResponse = DruidResponse.apply(results, QueryType.GroupBy)
+
+        implicit val mockDruidConfig = DruidConfig.DefaultConfig
+        val mockDruidClient = mock[DruidClient]
+        (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
+        (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+
+        val DQEPlayByLanguage = DruidQueryModel("groupBy", "summary-rollup-syncts","2020-04-14/2020-05-13",Option("day"),Option(List(Aggregation(Option("total_sessions"),"longSum", "total_count"))), Option(List(DruidDimension("content_name", Option("state")), DruidDimension("object_id", Option("district")))), Option(List(DruidFilter("equals","dimensions_mode", Option("play")), DruidFilter("equals", "dimensions_type", Option("content")), DruidFilter("in", "object_id", Option("do_312998713531351040138")))))
+        val reportConfig = ReportConfig("daily_quiz_play_by_lang","groupBy",QueryDateRange(Option(QueryInterval("2020-04-14", "2020-05-13")), None, Option("day")),
+            List(Metrics("DailyEnglishQuizPlayByLang", "Daily English Quiz Play By Languagte", DQEPlayByLanguage)),
+            Map("total_sessions" -> "Total Count English", "state" -> "Content Name", "district" -> "Object ID", "date" -> "Date", "total_content_plays" -> "Total Count Hindi"),
+            List(OutputConfig("csv",None,List("total_sessions"),List("date"))),
+            Option(MergeConfig("DAY", "/Users/utkarshakapoor/Documents/workspace-stackroutelabs/Data-Analytics/reports",1,Option("MONTH"),Option("Date"),Option(1),"daily_quiz_play_by_lang.csv"))
+        )
+
+        val reportStr = JSONUtils.serialize(reportConfig)
+        val modelParams = Map("reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](reportStr), "store" -> "local", "container" -> "test-container", "filePath" -> "druid-reports/")
+
+        the[Exception] thrownBy {
+            DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
+        } should have message "Merge report script failed with exit code 127"
+    }
+
     it should "test for setStorageConf method" in {
         DruidQueryProcessingModel.setStorageConf("s3", None, None)
         DruidQueryProcessingModel.setStorageConf("azure", None, None)
