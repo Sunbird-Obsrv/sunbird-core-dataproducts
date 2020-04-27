@@ -1,5 +1,7 @@
 package org.ekstep.media.service
 
+import java.io.File
+
 import org.apache.commons.lang3.StringUtils
 import org.ekstep.media.common.{AzureRequestBody, MediaResponse}
 import org.ekstep.media.config.AppConfig
@@ -7,7 +9,6 @@ import org.ekstep.media.exception.MediaServiceException
 import org.ekstep.media.util.HttpRestUtil
 
 import scala.collection.immutable.HashMap
-import scala.reflect.io.File
 
 /**
   *

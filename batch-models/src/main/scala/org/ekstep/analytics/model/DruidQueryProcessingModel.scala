@@ -38,7 +38,7 @@ case class OutputConfig(`type`: String, label: Option[String], metrics: List[Str
 case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
                        reportPath: String)
 case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                             merge: MergeFiles)
+                             merge: MergeFiles, container: String)
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
@@ -47,13 +47,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   override def name: String = "DruidQueryProcessingModel"
 
   override def preProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
-    
+
     setStorageConf(getStringProperty(config, "store", "local"), config.get("accountKey").asInstanceOf[Option[String]], config.get("accountSecret").asInstanceOf[Option[String]])
     data
   }
-  
+
   def setStorageConf(store: String, accountKey: Option[String], accountSecret: Option[String])(implicit sc: SparkContext) {
-    
+
     store.toLowerCase() match {
       case "s3" =>
         sc.hadoopConfiguration.set("fs.s3n.awsAccessKeyId", AppConf.getConfig(accountKey.getOrElse("aws_storage_key")));
@@ -62,7 +62,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         sc.hadoopConfiguration.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
         sc.hadoopConfiguration.set("fs.azure.account.key." + AppConf.getConfig(accountKey.getOrElse("azure_storage_key")) + ".blob.core.windows.net", AppConf.getConfig(accountSecret.getOrElse("azure_storage_secret")))
       case _ =>
-        // Do nothing
+      // Do nothing
     }
 
   }
@@ -119,7 +119,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       implicit val sqlContext = new SQLContext(sc)
       import sqlContext.implicits._
 
-      // Using foreach as parallel execution might conflict with local file path
+      //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
         val df = data.toDF().na.fill(0L)
@@ -136,14 +136,15 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     }
     data
   }
-  
+
   private def getStringProperty(config: Map[String, AnyRef], key: String, defaultValue: String) : String = {
     config.getOrElse(key, defaultValue).asInstanceOf[String]
   }
 
   def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
-    
-    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), getStringProperty(config, "container", "test-container"), getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
+
+    val container =  getStringProperty(config, "container", "test-container")
+    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
     val format = config.get("format").get.asInstanceOf[String]
     val filePath = config.getOrElse("filePath", AppConf.getConfig("spark_output_temp_dir")).asInstanceOf[String]
     val key = config.getOrElse("key", null).asInstanceOf[String]
@@ -170,7 +171,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
-        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")))
+        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container)
       mergeReport(mergeScriptConfig)
     }
     else {
@@ -180,7 +181,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
     val mergeConfigStr = JSONUtils.serialize(mergeConfig)
-    println("merge config: " + mergeConfigStr)
     val mergeReportCommand = Seq("bash", "-c",
       s"source ${virtualEnvDir.get}/bin/activate; " +
         s"dataproducts report_merger --report_config='$mergeConfigStr'")
