@@ -20,7 +20,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
     implicit val fc = mock[FrameworkContext];
 
-    ignore should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
+    it should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
         //        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
@@ -51,7 +51,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         } should have message "Merge report script failed with exit code 127"
     }
 
-    ignore should "execute multiple queries and generate csv reports on single dimension" in {
+    it should "execute multiple queries and generate csv reports on single dimension" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -67,7 +67,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "execute multiple queries and generate single json report" in {
+    it should "execute multiple queries and generate single json report" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -83,7 +83,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "throw exception if query has different dimensions" in {
+    it should "throw exception if query has different dimensions" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -102,7 +102,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         }
     }
 
-    ignore should "throw exception if query does not have intervals" in {
+    it should "throw exception if query does not have intervals" in {
 
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", Option("day"), Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", Option("all"), Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -115,7 +115,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         }
     }
 
-    ignore should "execute report and generate multiple csv reports" in {
+    it should "execute report and generate multiple csv reports" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -146,7 +146,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "execute weekly report and generate csv reports" in {
+    it should "execute weekly report and generate csv reports" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -162,7 +162,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "execute weekly report for successful QR Scans and generate csv reports" in {
+    it should "execute weekly report for successful QR Scans and generate csv reports" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -212,7 +212,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "execute desktop metrics" in {
+    it should "execute desktop metrics" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -304,7 +304,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    ignore should "execute weekly report without dimension and generate csv reports" in {
+    it should "execute weekly report without dimension and generate csv reports" in {
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
@@ -332,9 +332,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
     }
 
-    
-
-    ignore should "test for setStorageConf method" in {
+    it should "test for setStorageConf method" in {
         DruidQueryProcessingModel.setStorageConf("s3", None, None)
         DruidQueryProcessingModel.setStorageConf("azure", None, None)
     }
