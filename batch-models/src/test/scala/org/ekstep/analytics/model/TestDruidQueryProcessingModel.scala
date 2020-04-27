@@ -23,7 +23,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     implicit val fc = mock[FrameworkContext];
 
     it should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
-//        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
+        //        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -185,10 +185,10 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val reportConfig2 = ReportConfig("data_metrics", "timeseries",
             QueryDateRange(None, Option("LastDay"), Option("day")),
             List(
-//                Metrics("totalQRScans", "Total Scans", totalQRscansQuery),
+                //                Metrics("totalQRScans", "Total Scans", totalQRscansQuery),
                 Metrics("totalSuccessfulScans", "Total Successful QR Scans", totalSuccessfulQRScansQuery),
                 Metrics("totalFailedScans", "Total Failed QR Scans", totalFailedQRScansQuery),
-//                Metrics("totalPercentFailedScans", "Total Percent Failed QR Scans", totalPercentFailedQRScansQuery),
+                //                Metrics("totalPercentFailedScans", "Total Percent Failed QR Scans", totalPercentFailedQRScansQuery),
                 Metrics("totalContentDownload", "Total Content Download", totalcontentDownloadQuery),
                 Metrics("totalContentPlayed","Total Content Played", contentPlayedQuery),
                 Metrics("totalUniqueDevices","Total Unique Devices", uniqueDevicesQuery),

@@ -50,6 +50,8 @@ object JobFactory {
         DruidQueryProcessor
       case "audit-metrics-report" =>
         MetricsAuditJob
+      case "druid_reports" =>
+        DruidQueryProcessor
       case _ =>
         reflectModule(jobType);
     }
