@@ -30,7 +30,13 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
 
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val partitionedData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+        val inputEventsCount = fc.inputEventsCount;
+        
+        val partitionedData = data.filter(f => {
+            inputEventsCount.add(1);
+            !serverEvents.contains(f.eid);
+          }).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+            .reduceByKey((a, b) => a ++ b)
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
         
@@ -43,7 +49,9 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
         
         val idleTime = config.getOrElse("idleTime", 600).asInstanceOf[Int];
         val sessionBreakTime = config.getOrElse("sessionBreakTime", 30).asInstanceOf[Int];
-
+        
+        val outputEventsCount = fc.outputEventsCount;
+        
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
             val sortedEvents = f.events.sortBy { x => x.ets }
@@ -192,11 +200,13 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                 }
             }
             else {}
-            summEvents;
+            val out = summEvents.distinct;
+            outputEventsCount.add(out.size);
+            out;
         }).flatMap(f => f.map(f => f));
         
     }
     override def postProcess(data: RDD[MeasuredEvent], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
-        data.distinct()
+        data
     }
 }
