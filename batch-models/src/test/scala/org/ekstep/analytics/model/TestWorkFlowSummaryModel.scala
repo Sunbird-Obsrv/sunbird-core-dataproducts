@@ -4,21 +4,25 @@ import org.ekstep.analytics.framework.{V3Event, _}
 import org.ekstep.analytics.framework.util.JSONUtils
 
 import scala.collection.mutable.Buffer
+import org.scalatest.Matchers
 
 case class WorkflowDataRead(did: Option[String], sid: String, uid: String, pdata: PData, channel: String, content_id: Option[String], session_type: String, syncts: Long, dt_range: DtRange, mode: Option[String], item_responses: Option[Buffer[ItemResponse]],
                             start_time: Long, end_time: Long, time_spent: Double, time_diff: Double, interact_events_count: Long, interact_events_per_min: Double, telemetry_version: String,
                             env_summary: Option[Iterable[EnvSummary]], events_summary: Option[Iterable[EventSummary]],
                             page_summary: Option[Iterable[PageSummary]], etags: Option[ETags])
 
-class TestWorkFlowSummaryModel extends SparkSpec {
+class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
 
     implicit val fc = new FrameworkContext();
 
     it should "generate 6 workflow summary with 1 default app summary" in {
 
+        fc.outputEventsCount = sc.longAccumulator("OutputEventsCount");
+        fc.inputEventsCount = sc.longAccumulator("InputEventsCount");
         val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data2.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(8)
+        fc.outputEventsCount.value should be(8)
 
         val me = out.collect();
         val appSummaryEvent1 = me.filter { x => x.dimensions.`type`.get.equals("app") }
@@ -37,9 +41,12 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         event1.`object`.get.ver.get should be("1.0")
         event1.`object`.get.`type` should be("Content")
         event1.`object`.get.rollup.get.l1 should be("do_3124020553502310402803")
+        fc.inputEventsCount.reset()
+        fc.outputEventsCount.reset();
     }
 
     it should "generate 3 workflow summary" in {
+      
         val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data3.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(3)

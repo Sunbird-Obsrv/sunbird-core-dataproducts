@@ -24,7 +24,7 @@ class TestEventsReplayJob extends FlatSpec with Matchers {
     input.count() should be(37)
 
     val output = EventsReplayJob.dispatchData(jobConfig, input)
-    output should be(37)
+    output should be(0)
 
     EventsReplayJob.main(config)(Option(sc))
 
