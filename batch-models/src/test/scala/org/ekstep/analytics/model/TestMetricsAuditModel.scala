@@ -19,6 +19,11 @@ import scala.concurrent.Future
   class TestMetricsAuditModel extends SparkSpec(null) with MockFactory{
 
     implicit val fc = mock[FrameworkContext];
+    
+    override def beforeAll() {
+    	    super.beforeAll();
+        fc.inputEventsCount = sc.longAccumulator("TestCount");
+    }
 
     "TestMetricsAuditJob" should "get the metrics for monitoring the data pipeline" in {
       val auditConfig = "{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.model.MetricsAuditJob\",\"modelParams\":{\"auditConfig\":[{\"name\":\"denorm\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/denorm/2019-12-03-1575312964601.json\"}]},\"filters\":[{\"name\":\"flags.user_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.content_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.device_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.dialcode_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.collection_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.derived_location_retrieved\",\"operator\":\"EQ\",\"value\":true}]},{\"name\":\"raw\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/raw/raw.json\"}]}},{\"name\":\"failed\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/failed/2019-12-04-1575420457646.json\"}]}},{\"name\":\"channel-raw\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/channel-raw/2019-12-04-1575399627832.json\"}]}},{\"name\":\"channel-summary\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/channel-summary/2019-12-04-1575510009570.json\"}]}}]},\"output\":[{\"to\":\"file\",\"params\":{\"path\":\"src/test/resources/\"}}],\"parallelization\":8,\"appName\":\"Metrics Audit\"}"

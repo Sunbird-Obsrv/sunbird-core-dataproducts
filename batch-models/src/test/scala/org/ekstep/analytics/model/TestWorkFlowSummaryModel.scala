@@ -22,7 +22,6 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
         val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data2.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(8)
-        fc.inputEventsCount.value should be(44)
         fc.outputEventsCount.value should be(8)
 
         val me = out.collect();
