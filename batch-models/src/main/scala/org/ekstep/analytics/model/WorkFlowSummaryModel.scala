@@ -30,13 +30,10 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
 
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val inputEventsCount = fc.inputEventsCount;
         
         val partitionedData = data.filter(f => {
-            inputEventsCount.add(1);
             !serverEvents.contains(f.eid);
           }).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
-            .reduceByKey((a, b) => a ++ b)
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
         
