@@ -13,8 +13,9 @@ import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
 import org.sunbird.cloud.storage.conf.AppConf
 
-case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], total_scans: Option[Integer] = Option(0),
-                       total_scans_on_portal: Option[Integer] = Option(0), total_scans_on_app: Option[Integer] = Option(0),
+case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], content_name: Option[String], content_id: Option[String], default_dimension: Option[String], device_loc_state: Option[String],
+                       default_metric_long: Option[Integer] = Option(0), default_metric_double: Option[Double] = Option(0), total_scans: Option[Integer] = Option(0),
+                       total_count: Option[Integer] = Option(0), total_scans_on_portal: Option[Integer] = Option(0), total_scans_on_app: Option[Integer] = Option(0),
                        total_sessions: Option[Integer] = Option(0), total_ts: Option[Double] = Option(0.0),
                        total_successful_scans: Option[Integer] = Option(0), total_failed_scans: Option[Integer] = Option(0),
                        total_content_download: Option[Integer] = Option(0), total_content_plays: Option[Integer] = Option(0),
@@ -28,7 +29,7 @@ case class DruidOutput(date: Option[String], state: Option[String], district: Op
                        total_time_spent_in_hours_on_portal: Option[Double] = Option(0), total_time_spent_in_hours_on_desktop: Option[Double] = Option(0),
                        total_percent_failed_scans: Option[Double] = Option(0), total_content_download_on_app: Option[Integer] = Option(0),
                        total_content_download_on_portal: Option[Integer] = Option(0), total_content_download_on_desktop: Option[Integer] = Option(0),
-                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0), device_loc_state: Option[String]) extends Input with AlgoInput with AlgoOutput with Output
+                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
 
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None)
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String])
@@ -167,8 +168,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val mergeConf = reportMergeConfig.get
       val reportPath = mergeConf.reportPath
       val filesList = deltaFiles.map{f =>
-        val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
-        Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+        if(dims.size == 1 && dims.contains("Date")) {
+          val finalReportPath = if (key != null) key + reportPath else reportPath
+          Map("reportPath" -> finalReportPath, "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+        } else {
+          val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
+          Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+        }
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container)
