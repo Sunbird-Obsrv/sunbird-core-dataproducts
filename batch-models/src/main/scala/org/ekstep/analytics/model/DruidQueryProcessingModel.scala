@@ -82,7 +82,8 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val granularity = interval.granularity
     val queryInterval = if (interval.staticInterval.nonEmpty) {
       interval.staticInterval.get
-    } else if (interval.interval.nonEmpty) {
+    } else if (interval.interval.nonEmpty)
+    {
       val dateRange = interval.interval.get
       val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
       val startDate = DateTime.parse(dateRange.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
