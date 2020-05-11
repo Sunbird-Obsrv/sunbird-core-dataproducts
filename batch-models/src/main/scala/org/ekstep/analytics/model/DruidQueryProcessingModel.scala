@@ -11,6 +11,7 @@ import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
+import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 
 case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], total_scans: Option[Integer] = Option(0),
@@ -83,7 +84,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       interval.staticInterval.get
     } else if (interval.interval.nonEmpty) {
       val dateRange = interval.interval.get
-      dateRange.startDate + "T05:30:00+00:00" + "/" + dateRange.endDate + "T05:30:00+00:00"
+      val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
+      val startDate = DateTime.parse(dateRange.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+      val endDate = DateTime.parse(dateRange.endDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+      startDate + "/" + endDate
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
