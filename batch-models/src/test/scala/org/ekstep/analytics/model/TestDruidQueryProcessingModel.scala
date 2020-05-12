@@ -2,20 +2,18 @@ package org.ekstep.analytics.model
 
 import java.time.{ZoneOffset, ZonedDateTime}
 
+import cats.syntax.either._
 import ing.wbaa.druid._
 import ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
-import cats.syntax.either._
 import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.util.JSONUtils
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
-import org.scalatest.BeforeAndAfterAll
-import org.ekstep.analytics.framework.util.CommonUtil
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.{BeforeAndAfterAll, Matchers}
+
 import scala.concurrent.Future
 
 class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with BeforeAndAfterAll with MockFactory {
@@ -332,6 +330,12 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val strConfig2 = JSONUtils.serialize(reportConfig2)
         val modelParams = Map("reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig2), "bucket" -> "test-container", "key" -> "druid-reports/")
         DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams));
+    }
+
+    it should "test for dateRange" in {
+        val interval = QueryInterval("2020-05-02", "2020-05-06")
+        val result = DruidQueryProcessingModel.getDateRange(interval)
+        result should be ("2020-05-02T05:30:00/2020-05-06T05:30:00")
     }
 
     it should "test for setStorageConf method" in {

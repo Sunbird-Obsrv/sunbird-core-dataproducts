@@ -11,6 +11,7 @@ import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger}
+import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 
 case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], content_name: Option[String], content_id: Option[String], default_dimension: Option[String], device_loc_state: Option[String],
@@ -82,9 +83,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val granularity = interval.granularity
     val queryInterval = if (interval.staticInterval.nonEmpty) {
       interval.staticInterval.get
-    } else if (interval.interval.nonEmpty) {
+    } else if (interval.interval.nonEmpty)
+    {
       val dateRange = interval.interval.get
-      dateRange.startDate + "/" + dateRange.endDate
+      getDateRange(dateRange)
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
@@ -136,6 +138,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       JobLogger.log("No data found from druid", None, Level.INFO)
     }
     data
+  }
+
+  def getDateRange(interval: QueryInterval): String = {
+    val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
+    val startDate = DateTime.parse(interval.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    val endDate = DateTime.parse(interval.endDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    startDate + "/" + endDate
   }
 
   private def getStringProperty(config: Map[String, AnyRef], key: String, defaultValue: String) : String = {

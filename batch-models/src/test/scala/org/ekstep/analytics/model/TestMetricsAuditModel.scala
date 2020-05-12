@@ -3,16 +3,15 @@ package org.ekstep.analytics.model
 
 import java.time.{ZoneOffset, ZonedDateTime}
 
-import ing.wbaa.druid.client.DruidClient
+import cats.syntax.either._
 import ing.wbaa.druid._
+import ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser.parse
 import org.apache.spark.sql.SQLContext
-import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.job.metrics.MetricsAuditJob
+import org.ekstep.analytics.framework.util.JSONUtils
 import org.scalamock.scalatest.MockFactory
-import cats.syntax.either._
 
 import scala.concurrent.Future
 
