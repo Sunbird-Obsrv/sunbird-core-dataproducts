@@ -19,12 +19,11 @@ class TestEventsReplayJob extends FlatSpec with Matchers {
 
     implicit val sc = CommonUtil.getSparkContext(10, "TestReplay")
     val jobConfig = JSONUtils.deserialize[JobConfig](config)
-
     val input = EventsReplayJob.getInputData(jobConfig)
     input.count() should be(37)
 
     val output = EventsReplayJob.dispatchData(jobConfig, input)
-    output should be(37)
+    output should be(0)
 
     EventsReplayJob.main(config)(Option(sc))
 

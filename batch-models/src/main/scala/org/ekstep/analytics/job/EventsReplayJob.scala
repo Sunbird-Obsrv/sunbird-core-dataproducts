@@ -27,6 +27,7 @@ object EventsReplayJob extends optional.Application with IJob {
   }
 
   def getInputData(config: JobConfig)(implicit mf: Manifest[String], sc: SparkContext): RDD[String] = {
+    fc.inputEventsCount = sc.longAccumulator("Count")
     DataFetcher.fetchBatchData[String](config.search).cache()
   }
 

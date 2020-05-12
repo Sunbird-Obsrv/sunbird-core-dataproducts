@@ -85,10 +85,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     } else if (interval.interval.nonEmpty)
     {
       val dateRange = interval.interval.get
-      val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
-      val startDate = DateTime.parse(dateRange.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
-      val endDate = DateTime.parse(dateRange.endDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
-      startDate + "/" + endDate
+      getDateRange(dateRange)
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
@@ -140,6 +137,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       JobLogger.log("No data found from druid", None, Level.INFO)
     }
     data
+  }
+
+  def getDateRange(interval: QueryInterval): String = {
+    val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
+    val startDate = DateTime.parse(interval.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    val endDate = DateTime.parse(interval.endDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    startDate + "/" + endDate
   }
 
   private def getStringProperty(config: Map[String, AnyRef], key: String, defaultValue: String) : String = {

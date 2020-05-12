@@ -21,12 +21,14 @@ import scala.concurrent.Future
     implicit val fc = mock[FrameworkContext];
 
     "TestMetricsAuditJob" should "get the metrics for monitoring the data pipeline" in {
+      fc.inputEventsCount =  sc.longAccumulator("Count")
       val auditConfig = "{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.model.MetricsAuditJob\",\"modelParams\":{\"auditConfig\":[{\"name\":\"denorm\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/denorm/2019-12-03-1575312964601.json\"}]},\"filters\":[{\"name\":\"flags.user_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.content_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.device_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.dialcode_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.collection_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.derived_location_retrieved\",\"operator\":\"EQ\",\"value\":true}]},{\"name\":\"raw\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/raw/raw.json\"}]}},{\"name\":\"failed\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/failed/2019-12-04-1575420457646.json\"}]}},{\"name\":\"channel-raw\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/channel-raw/2019-12-04-1575399627832.json\"}]}},{\"name\":\"channel-summary\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/channel-summary/2019-12-04-1575510009570.json\"}]}}]},\"output\":[{\"to\":\"file\",\"params\":{\"path\":\"src/test/resources/\"}}],\"parallelization\":8,\"appName\":\"Metrics Audit\"}"
       val config = JSONUtils.deserialize[JobConfig](auditConfig)
       MetricsAuditModel.execute(sc.emptyRDD, config.modelParams)
     }
 
     it should "load the local file and give the denorm count" in {
+      fc.inputEventsCount =  sc.longAccumulator("Count")
       val auditConfig = "{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.model.MetricsAuditJob\",\"modelParams\":{\"auditConfig\":[{\"name\":\"denorm\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/denorm/2019-12-03-1575312964601.json\"}]},\"filters\":[{\"name\":\"flags.user_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.content_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.device_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.dialcode_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.collection_data_retrieved\",\"operator\":\"EQ\",\"value\":true},{\"name\":\"flags.derived_location_retrieved\",\"operator\":\"EQ\",\"value\":true}]}]},\"output\":[{\"to\":\"file\",\"params\":{\"file\":\"src/test/resources/audit-metrics-result\"}}],\"parallelization\":8,\"appName\":\"Metrics Audit\"}"
       val config = JSONUtils.deserialize[JobConfig](auditConfig)
       val metrics = MetricsAuditModel.execute(sc.emptyRDD, config.modelParams)
@@ -42,6 +44,7 @@ import scala.concurrent.Future
     }
 
     it should "load the local file and give the count for other files than failed/denorm" in {
+      fc.inputEventsCount =  sc.longAccumulator("Count")
       val auditConfig = "{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.model.MetricsAuditJob\",\"modelParams\":{\"auditConfig\":[{\"name\":\"raw\",\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/audit-metrics-report/raw/raw.json\"}]}}]},\"output\":[{\"to\":\"file\",\"params\":{\"file\":\"src/test/resources/audit-metrics-result\"}}],\"parallelization\":8,\"appName\":\"Metrics Audit\"}"
       val config = Fetcher("local", None, Option(Array(Query(None, None, None, None, None, None, None, None, None, Option("src/test/resources/audit-metrics-report/raw/raw.json")))))
       val testRDD = DataFetcher.fetchBatchData[String](config)
@@ -52,6 +55,7 @@ import scala.concurrent.Future
     }
 
     it should "load failed files from local and give the count for failed backup" in {
+      fc.inputEventsCount =  sc.longAccumulator("Count")
       val config = Fetcher("local", None, Option(Array(Query(None, None, None, None, None, None, None, None, None, Option("src/test/resources/audit-metrics-report/failed/2019-12-04-1575420457646.json")))))
       val testRDD = DataFetcher.fetchBatchData[V3ContextEvent](config)
       testRDD.count() should be (94)
