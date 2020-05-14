@@ -251,11 +251,10 @@
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>ing.wbaa.druid</groupId>
-			<artifactId>scruid_2.11</artifactId>
-			<version>2.3.2</version>
+			<artifactId>scruid_${scala.maj.version}</artifactId>
 			<scope>system</scope>
 			<systemPath>${project.basedir}/lib/scruid_2.11-2.3.2.jar</systemPath>
 		</dependency>
@@ -268,7 +267,7 @@
 		<dependency>
 			<groupId>io.zonky.test</groupId>
 			<artifactId>embedded-postgres</artifactId>
-			<version>1.2.6</version>
+			<version>1.2.6</version>	    
 			<scope>test</scope>
 		</dependency>
 		<dependency>
