@@ -259,12 +259,6 @@
 			<scope>system</scope>
 			<systemPath>${project.basedir}/lib/scruid_2.11-2.3.2.jar</systemPath>
 		</dependency>
-<!--		&lt;!&ndash; https://mvnrepository.com/artifact/com.typesafe.akka/akka-http &ndash;&gt;-->
-<!--		<dependency>-->
-<!--			<groupId>com.typesafe.akka</groupId>-->
-<!--			<artifactId>akka-http_2.11</artifactId>-->
-<!--			<version>10.1.9</version>-->
-<!--		</dependency>-->
 		<dependency>
 		    <groupId>pl.allegro.tech</groupId>
 		    <artifactId>embedded-elasticsearch</artifactId>
