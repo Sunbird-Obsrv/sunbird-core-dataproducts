@@ -8,7 +8,7 @@ import org.ekstep.analytics.framework.util.CommonUtil
 
 case class Item(itemId: String, timeSpent: Option[Double], res: Option[Array[String]], resValues: Option[Array[AnyRef]], mc: Option[AnyRef], mmc: Option[AnyRef], score: Int, time_stamp: Long, maxScore: Option[AnyRef], pass: String, qtitle: Option[String], qdesc: Option[String]);
 
-class Summary(val firstEvent: V3Event) {
+class Summary(val firstEvent: V3EventNew) {
 
     val defaultPData = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
     val interactTypes = List("touch", "drag", "drop", "pinch", "zoom", "shake", "rotate", "speak", "listen", "write", "draw", "start", "end", "choose", "activate", "scroll", "click", "edit", "submit", "search", "dnd", "added", "removed", "selected")
@@ -28,7 +28,7 @@ class Summary(val firstEvent: V3Event) {
     var interactEventsCount: Long = if(StringUtils.equals("INTERACT", firstEvent.eid) && interactTypes.contains(firstEvent.edata.`type`.toLowerCase)) 1l else 0l
     var `type`: String = if (null == firstEvent.edata.`type`) "app" else StringUtils.lowerCase(firstEvent.edata.`type`)
     var mode: Option[String] = if (firstEvent.edata.mode == null) Option("") else Option(firstEvent.edata.mode)
-    var lastEvent: V3Event = null
+    var lastEvent: V3EventNew = null
     var itemResponses: Buffer[Item] = Buffer[Item]()
     var endTime: Long = 0l
     var timeSpent: Double = 0.0
@@ -37,8 +37,8 @@ class Summary(val firstEvent: V3Event) {
     var eventsSummary: Map[String, Long] = Map(firstEvent.eid -> 1)
     var pageSummary: Iterable[PageSummary] = Iterable[PageSummary]()
     var prevEventEts: Long = startTime
-    var lastImpression: V3Event = null
-    var impressionMap: Map[V3Event, Double] = Map()
+    var lastImpression: V3EventNew = null
+    var impressionMap: Map[V3EventNew, Double] = Map()
     var summaryEvents: Buffer[MeasuredEvent] = Buffer()
 
     var CHILDREN: Buffer[Summary] = Buffer()
@@ -106,7 +106,7 @@ class Summary(val firstEvent: V3Event) {
         this.isClosed = false
     }
 
-    def add(event: V3Event, idleTime: Int) {
+    def add(event: V3EventNew, idleTime: Int) {
         if(this.startTime == 0l) this.startTime = event.ets
         val ts = CommonUtil.getTimeDiff(prevEventEts, event.ets).get
         prevEventEts = event.ets
@@ -169,7 +169,7 @@ class Summary(val firstEvent: V3Event) {
         }
     }
 
-    def checkEnd(event: V3Event, idleTime: Int, config: Map[String, AnyRef]): Summary = {
+    def checkEnd(event: V3EventNew, idleTime: Int, config: Map[String, AnyRef]): Summary = {
         val mode = if(event.edata.mode == null) "" else event.edata.mode
         if(StringUtils.equalsIgnoreCase(this.`type`, event.edata.`type`) && StringUtils.equals(this.mode.get, mode)) {
             if(this.PARENT == null) return this else return PARENT;
@@ -184,7 +184,7 @@ class Summary(val firstEvent: V3Event) {
         return summ;
     }
     
-    def getSimilarEndSummary(event: V3Event): Summary = {
+    def getSimilarEndSummary(event: V3EventNew): Summary = {
         val mode = if(event.edata.mode == null) "" else event.edata.mode
         if(StringUtils.equalsIgnoreCase(this.`type`, event.edata.`type`) && StringUtils.equals(this.mode.get, mode)) {
             return this;
