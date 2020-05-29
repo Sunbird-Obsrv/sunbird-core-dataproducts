@@ -12,7 +12,7 @@ case class LocationList(count: Int, response: List[Map[String, String]])
 case class LocationResponse(id: String, ver: String, ts: String, params: Params, responseCode: String, result: LocationList)
 
 
-class DruidQueryUtil {
+object DruidQueryUtil {
     def removeInvalidLocations(mainDf: DataFrame, filterDf: DataFrame, columns: List[String])(implicit sc: SparkContext): DataFrame = {
         if (filterDf.count() > 0)
             mainDf.join(filterDf, columns, "inner")

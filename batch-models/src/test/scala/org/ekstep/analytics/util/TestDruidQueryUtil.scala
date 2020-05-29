@@ -7,7 +7,7 @@ import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
 import org.ekstep.analytics.model.SparkSpec
 import org.scalamock.scalatest.MockFactory
 
-class TestDruidQueryUtil extends SparkSpec with MockFactory{
+class TestDruidQueryUtil extends SparkSpec with MockFactory {
 
     implicit val fc = new FrameworkContext();
 
@@ -23,7 +23,8 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory{
                |  }
                |}
                """.stripMargin
-        val response = s"""{
+        val response =
+            s"""{
     "id": "api.location.search",
     "ver": "v1",
     "ts": "2020-05-28 15:48:24:648+0000",
@@ -60,11 +61,11 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory{
             }
           }"""
         (mockRestUtil.post[LocationResponse](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[LocationResponse]))
-          .expects(AppConf.getConfig("location.search.url"),request ,Some(Map("Authorization" -> AppConf.getConfig("location.search.token"))),manifest[LocationResponse])
+          .expects(AppConf.getConfig("location.search.url"), request, Some(Map("Authorization" -> AppConf.getConfig("location.search.token"))), manifest[LocationResponse])
           .returns(JSONUtils.deserialize[LocationResponse](response))
-        val df = new DruidQueryUtil().getValidLocations(mockRestUtil)
+        val df = DruidQueryUtil.getValidLocations(mockRestUtil)
 
-        df.count() should be (2)
+        df.count() should be(2)
 
 
     }
@@ -77,7 +78,7 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory{
         val mainDf = Seq(("Andhra Pradesh", "Nellore"), ("Andhra Pradesh", "Chennai")).toDF("state", "district")
         val filterDf = Seq(("Andhra Pradesh", "Nellore")).toDF("state", "district")
 
-        val df = new DruidQueryUtil().removeInvalidLocations(mainDf, filterDf, List("state", "district"))
+        val df = DruidQueryUtil.removeInvalidLocations(mainDf, filterDf, List("state", "district"))
         df.count() should be(1)
     }
 }

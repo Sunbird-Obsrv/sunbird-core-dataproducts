@@ -118,7 +118,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         if (m.druidQuery.dimensions.nonEmpty) m.druidQuery.dimensions.get.map(f => f.aliasName.getOrElse(f.fieldName))
         else List()
       }
-      implicit val druidQueryUtil = new DruidQueryUtil();
+
 
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
@@ -126,13 +126,11 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
+        val df = {if (f.locationMapping.get) {
+          DruidQueryUtil.removeInvalidLocations(data.toDF(),
+            DruidQueryUtil.getValidLocations(RestUtil),List("state", "district"))
+        } else data.toDF()}.na.fill(0L)
 
-        val df = if (!f.locationMapping.get) {
-          data.toDF().na.fill(0L)
-        } else {
-          druidQueryUtil.removeInvalidLocations(data.toDF(),
-            druidQueryUtil.getValidLocations(RestUtil),List("state", "district")).na.fill(0L)
-        }
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
