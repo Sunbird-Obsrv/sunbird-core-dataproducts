@@ -6,6 +6,7 @@ import scala.collection.mutable.Buffer
 import org.apache.commons.lang3.StringUtils
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.CommonUtil
+import org.ekstep.analytics.model.WFSInputEvent
 
 case class Item(itemId: String, timeSpent: Option[Double], res: Option[Array[String]], resValues: Option[Array[AnyRef]], mc: Option[AnyRef], mmc: Option[AnyRef], score: Int, time_stamp: Long, maxScore: Option[AnyRef], pass: String, qtitle: Option[String], qdesc: Option[String]);
 
