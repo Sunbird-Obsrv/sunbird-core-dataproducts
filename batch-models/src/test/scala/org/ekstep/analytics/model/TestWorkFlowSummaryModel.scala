@@ -1,6 +1,6 @@
 package org.ekstep.analytics.model
 
-import org.ekstep.analytics.framework.{V3Event, _}
+import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.util.JSONUtils
 
 import scala.collection.mutable.Buffer
@@ -19,7 +19,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
 
         fc.outputEventsCount = sc.longAccumulator("OutputEventsCount");
         fc.inputEventsCount = sc.longAccumulator("InputEventsCount");
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data2.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data2.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(8)
         fc.outputEventsCount.value should be(8)
@@ -47,7 +47,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
 
     it should "generate 3 workflow summary" in {
       
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data3.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data3.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(3)
 
@@ -128,7 +128,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary with breaking session logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data4.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data4.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(7)
 
@@ -178,7 +178,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary with proper root summary setting logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data5.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data5.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(19)
 
@@ -220,7 +220,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary with default app summary for events starting with other start events" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data1.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data1.log")
         val out = WorkFlowSummaryModel.execute(data, None)
 
         out.count() should be(9)
@@ -256,7 +256,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary with proper root summary closing logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data6.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data6.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(15)
 
@@ -291,7 +291,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary to test for END case scenarios" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data7.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data7.log")
         val out = WorkFlowSummaryModel.execute(data, None)
 
         out.count() should be(6)
@@ -324,7 +324,7 @@ class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
     }
 
     it should "generate workflow summary to test else case for session breaking logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data8.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data8.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(1)
     }

@@ -1,5 +1,7 @@
 package org.ekstep.analytics.model
 
+import java.io.Serializable
+
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -16,21 +18,32 @@ import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework._
 
-case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[V3Event]) extends AlgoInput
+@scala.beans.BeanInfo
+class WFSInputEvent(val eid: String, val ets: Long, val `@timestamp`: String, val ver: String, val mid: String, val actor: Actor, val context: V3Context, val `object`: Option[V3Object], val edata: WFSInputEData, val tags: List[AnyRef] = null) extends AlgoInput with Input {}
+@scala.beans.BeanInfo
+class WFSInputEData(val `type`: String, val mode: String, val duration: Long, val pageid: String, val item: Question,
+                    val resvalues: Array[Map[String, AnyRef]], val pass: String, val score: Int) extends Serializable {}
+
+case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[String]) extends AlgoInput
 case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
 case class WorkflowIndex(did: String, channel: String, pdataId: String)
+case class WorkFlowIndexEvent(eid: String, context: V3Context)
 
-object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
+object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
 
     implicit val className = "org.ekstep.analytics.model.WorkFlowSummaryModel"
     override def name: String = "WorkFlowSummaryModel"
     val serverEvents = Array("LOG", "AUDIT", "SEARCH");
 
-    override def preProcess(data: RDD[V3Event], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
+    override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
 
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val partitionedData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+        val indexedData = data.map{f =>
+            val index = JSONUtils.deserialize[WorkFlowIndexEvent](f)
+            (index, f)
+        }
+        val partitionedData = indexedData.filter(f => !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
         
@@ -48,10 +61,11 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
         
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val sortedEvents = f.events.sortBy { x => x.ets }
+            val events = f.events.map(f => JSONUtils.deserialize[WFSInputEvent](f))
+            val sortedEvents = events.sortBy { x => x.ets }
             var rootSummary: org.ekstep.analytics.util.Summary = null
             var currSummary: org.ekstep.analytics.util.Summary = null
-            var prevEvent: V3Event = sortedEvents.head
+            var prevEvent: WFSInputEvent = sortedEvents.head
             
             sortedEvents.foreach{ x =>
 
