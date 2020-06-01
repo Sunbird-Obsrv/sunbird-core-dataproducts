@@ -1,8 +1,7 @@
 package org.ekstep.analytics.util
 
-import org.ekstep.analytics.framework.WFSInputEvent
 import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.model.SparkSpec
+import org.ekstep.analytics.model.{SparkSpec, WFSInputEvent}
 
 class TestSummary extends SparkSpec {
 
