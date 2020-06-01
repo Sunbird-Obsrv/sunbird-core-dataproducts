@@ -6,7 +6,6 @@ import org.ekstep.analytics.model.{SparkSpec, WFSInputEvent}
 class TestSummary extends SparkSpec {
 
     it should "create summary without uid, pdata and edata.type" in {
-
         val eventStr = "{\"eid\":\"START\",\"ets\":1534595611976,\"ver\":\"3.0\",\"mid\":\"817e25d0-33f5-48a2-8239-db286aaf3bd8\",\"actor\":{\"type\":\"User\"},\"context\":{\"channel\":\"01235953109336064029450\",\"env\":\"home\",\"sid\":\"8f32dbc4-c0d0-4630-9ff6-8c3bce3d15bb\",\"did\":\"a49c706d0402d6db3bb7cb3105cc9e7cf9b2ed7e\",\"cdata\":[]},\"object\":{\"id\":\"do_31250841732493312026783\",\"type\":\"TextBookUnit\",\"rollup\":{\"l1\":\"do_31250841732058316826675\",\"l2\":\"do_31250841732491673626778\",\"l3\":\"do_31250841732493312026783\"}},\"edata\":{\"mode\":\"play\",\"duration\":0,\"pageid\":\"collection-detail\",\"score\":0,\"rating\":0.0,\"index\":0,\"size\":0},\"tags\":[],\"@timestamp\":\"2018-08-19T04:08:41.195Z\"}"
         val event = JSONUtils.deserialize[WFSInputEvent](eventStr)
         val summary = new Summary(event)
