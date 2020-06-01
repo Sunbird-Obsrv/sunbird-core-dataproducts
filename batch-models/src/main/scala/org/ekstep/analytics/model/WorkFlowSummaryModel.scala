@@ -1,5 +1,7 @@
 package org.ekstep.analytics.model
 
+import java.io.Serializable
+
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
@@ -15,6 +17,12 @@ import org.ekstep.analytics.util.Constants
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework._
+
+@scala.beans.BeanInfo
+class WFSInputEvent(val eid: String, val ets: Long, val `@timestamp`: String, val ver: String, val mid: String, val actor: Actor, val context: V3Context, val `object`: Option[V3Object], val edata: WFSInputEData, val tags: List[AnyRef] = null) extends AlgoInput with Input {}
+@scala.beans.BeanInfo
+class WFSInputEData(val `type`: String, val mode: String, val duration: Long, val pageid: String, val item: Question,
+                    val resvalues: Array[Map[String, AnyRef]], val pass: String, val score: Int) extends Serializable {}
 
 case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[String]) extends AlgoInput
 case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput

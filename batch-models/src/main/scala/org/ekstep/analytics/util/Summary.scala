@@ -1,6 +1,7 @@
 package org.ekstep.analytics.util
 
 import org.ekstep.analytics.framework._
+
 import scala.collection.mutable.Buffer
 import org.apache.commons.lang3.StringUtils
 import org.ekstep.analytics.framework.conf.AppConf
@@ -220,7 +221,7 @@ class Summary(val firstEvent: WFSInputEvent) {
         val interactEventsPerMin: Double = if (this.interactEventsCount == 0 || this.timeSpent == 0) 0d
         else if (this.timeSpent < 60.0) this.interactEventsCount.toDouble
         else BigDecimal(this.interactEventsCount / (this.timeSpent / 60)).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble;
-        val syncts = CommonUtil.getEventSyncTS(if(this.lastEvent == null) this.firstEvent else this.lastEvent)
+        val syncts = getEventSyncTS(if(this.lastEvent == null) this.firstEvent else this.lastEvent)
         val eventsSummary = this.eventsSummary.map(f => EventSummary(f._1, f._2.toInt))
         val measures = Map("start_time" -> this.startTime,
             "end_time" -> this.endTime,
@@ -265,6 +266,11 @@ class Summary(val firstEvent: WFSInputEvent) {
                 EnvSummary(f._1, timeSpent, count)
             }
         } else Iterable[EnvSummary]()
+    }
+
+    def getEventSyncTS(event: WFSInputEvent): Long = {
+        val timeInString = event.`@timestamp`;
+        CommonUtil.getEventSyncTS(timeInString);
     }
 
 }
