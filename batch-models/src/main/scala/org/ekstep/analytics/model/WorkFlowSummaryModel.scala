@@ -53,11 +53,11 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
         
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val events = f.events.map(f => JSONUtils.deserialize[ReducedV3Event](f))
+            val events = f.events.map(f => JSONUtils.deserialize[WFSInputEvent](f))
             val sortedEvents = events.sortBy { x => x.ets }
             var rootSummary: org.ekstep.analytics.util.Summary = null
             var currSummary: org.ekstep.analytics.util.Summary = null
-            var prevEvent: ReducedV3Event = sortedEvents.head
+            var prevEvent: WFSInputEvent = sortedEvents.head
             
             sortedEvents.foreach{ x =>
 
