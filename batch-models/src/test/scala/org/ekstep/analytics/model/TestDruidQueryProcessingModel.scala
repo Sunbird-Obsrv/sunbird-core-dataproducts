@@ -7,10 +7,13 @@ import ing.wbaa.druid._
 import ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.exception.DruidConfigException
+import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.JSONUtils
+import org.ekstep.analytics.util.DruidQueryUtil
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers}
 
@@ -408,6 +411,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
     "TestDruidQueryProcessingModel" should "execute remove invalid locations" in {
 
+
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -438,6 +442,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         the[Exception] thrownBy {
             DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams))
         } should have message "Merge report script failed with exit code 127"
+
     }
 
 }
