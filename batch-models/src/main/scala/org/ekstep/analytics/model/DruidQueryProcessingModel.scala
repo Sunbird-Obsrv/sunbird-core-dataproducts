@@ -39,9 +39,9 @@ case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
 case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"), locationMapping: Option[Boolean] = Some(false))
 case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                       reportPath: String)
+                       reportPath: String, postContainer: Option[String] = None)
 case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                             merge: MergeFiles, container: String)
+                             merge: MergeFiles, container: String, postContainer: Option[String])
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
@@ -119,7 +119,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         else List()
       }
 
-
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
       import sqlContext.implicits._
@@ -129,8 +128,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val df = {if (f.locationMapping.get) {
           DruidQueryUtil.removeInvalidLocations(data.toDF(),
             DruidQueryUtil.getValidLocations(RestUtil),List("state", "district"))
-        } else data.toDF()}.na.fill(0L)
-
+        } else data.toDF()}.na.fill(0)
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
@@ -191,7 +189,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         }
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
-        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container)
+        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer)
       mergeReport(mergeScriptConfig)
     }
     else {
@@ -202,6 +200,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
     val mergeConfigStr = JSONUtils.serialize(mergeConfig)
     val mergeReportCommand = Seq("bash", "-c",
+
       s"source ${virtualEnvDir.get}/bin/activate; " +
         s"dataproducts report_merger --report_config='$mergeConfigStr'")
     JobLogger.log(s"Merge report script command:: $mergeReportCommand", None, INFO)
@@ -213,7 +212,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       throw new Exception(s"Merge report script failed with exit code $mergeReportExitCode")
     }
   }
-
 
 
 }
