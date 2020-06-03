@@ -11,7 +11,7 @@ import org.scalamock.scalatest.MockFactory
 class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
   implicit val fc = new FrameworkContext();
-  "UpdateContentRating" should "get content list which are rated in given time" in {
+  ignore should "get content list which are rated in given time" in {
     val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
