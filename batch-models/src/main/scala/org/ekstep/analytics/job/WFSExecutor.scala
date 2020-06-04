@@ -15,7 +15,7 @@ object WFSExecutor extends Application {
 
         JobLogger.start("Started executing WFSExecutor", Option(Map("config" -> config, "model" -> model, "fromPartition" -> fromPartition, "toPartition" -> toPartition)))
         val con = JSONUtils.deserialize[JobConfig](config)
-        val sc = CommonUtil.getSparkContext(JobContext.parallelization, con.appName.getOrElse(con.model));
+        val sc = CommonUtil.getSparkContext(con.parallelization.getOrElse(200), con.appName.getOrElse(con.model));
         try {
             val result = CommonUtil.time({
                 execute(model, fromPartition.toInt, toPartition.toInt, config)(sc);
