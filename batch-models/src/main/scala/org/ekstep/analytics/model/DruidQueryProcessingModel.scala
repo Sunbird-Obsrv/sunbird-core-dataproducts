@@ -41,7 +41,7 @@ case class OutputConfig(`type`: String, label: Option[String], metrics: List[Str
 case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
                        reportPath: String, postContainer: Option[String] = None)
 case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                             merge: MergeFiles, container: String, postContainer: Option[String])
+                             merge: MergeFiles, container: String, postContainer: Option[String] = None)
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
