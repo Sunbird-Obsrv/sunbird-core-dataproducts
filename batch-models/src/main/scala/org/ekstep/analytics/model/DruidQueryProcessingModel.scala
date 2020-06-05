@@ -125,7 +125,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
-        val df = {if (f.locationMapping.get) {
+        val df = {if (f.locationMapping.getOrElse(false)) {
           DruidQueryUtil.removeInvalidLocations(data.toDF(),
             DruidQueryUtil.getValidLocations(RestUtil),List("state", "district"))
         } else data.toDF()}.na.fill(0)
