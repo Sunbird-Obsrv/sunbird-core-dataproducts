@@ -15,7 +15,7 @@ class Summary(val firstEvent: WFSInputEvent) {
     val defaultPData = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
     val interactTypes = List("touch", "drag", "drop", "pinch", "zoom", "shake", "rotate", "speak", "listen", "write", "draw", "start", "end", "choose", "activate", "scroll", "click", "edit", "submit", "search", "dnd", "added", "removed", "selected")
     val sid: String = firstEvent.context.sid.getOrElse("")
-    val uid: String = if (firstEvent.actor.id == null) "" else firstEvent.actor.id
+    val uid: String = if (firstEvent.actor == null || firstEvent.actor.id == null) "" else firstEvent.actor.id
     val `object`: Option[V3Object] = if (firstEvent.`object`.isDefined) firstEvent.`object` else None;
     val telemetryVersion: String = firstEvent.ver
     val tags: Option[List[AnyRef]] = Option(firstEvent.tags)
