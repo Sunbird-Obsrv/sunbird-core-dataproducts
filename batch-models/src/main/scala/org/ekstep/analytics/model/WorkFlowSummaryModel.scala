@@ -43,12 +43,11 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
             val index = JSONUtils.deserialize[WorkFlowIndexEvent](f)
             (index, f)
         }
-        val partitionedData = indexedData.filter(f => !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
+        val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
-        
+
         partitionedData.map { x => WorkflowInput(x._1, x._2) }
-            
     }
     
     override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {

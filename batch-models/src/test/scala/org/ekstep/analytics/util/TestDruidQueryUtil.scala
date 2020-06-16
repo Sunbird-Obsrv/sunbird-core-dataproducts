@@ -56,16 +56,45 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory {
                  "id": "f460be3e-340b-4fde-84db-cab1985efd6c",
                  "type": "district",
                  "parentId": "0393395d-ea39-49e0-8324-313b4df4a550"
-                 }],
-             "count": 3
+                 },{
+                               "code": "2",
+                               "name": "West Bengal",
+                               "id": "0393395d-ea39-49e0-8324-313b4df4a551",
+                               "type": "state"
+                           },
+                {
+                                "code": "287",
+                                "name": "Koltata",
+                                "id": "f460be3e-340b-4fde-84db-cab1985efdfe",
+                                "type": "district",
+                                "parentId": "0393395d-ea39-49e0-8324-313b4df4a551"
+                                }],
+             "count": 5
             }
           }"""
+        val stateResponse =
+            s"""
+               {
+                 "version": "v1",
+                 "lookupExtractorFactory": {
+                   "type": "map",
+                   "map": {
+                     "Andhra Pradesh": "apekx",
+                     "Assam": "as",
+                     "Bihar": "br"
+                   }
+                 }
+               }
+             """.stripMargin
+        (mockRestUtil.get[StateLookup](_: String)(_: Manifest[StateLookup]))
+          .expects(AppConf.getConfig("druid.state.lookup.url"),manifest[StateLookup])
+          .returns(JSONUtils.deserialize[StateLookup](stateResponse))
         (mockRestUtil.post[LocationResponse](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[LocationResponse]))
           .expects(AppConf.getConfig("location.search.url"), request, Some(Map("Authorization" -> AppConf.getConfig("location.search.token"))), manifest[LocationResponse])
           .returns(JSONUtils.deserialize[LocationResponse](response))
         val df = DruidQueryUtil.getValidLocations(mockRestUtil)
 
-        df.count() should be(2)
+        df.count() should be(3)
 
 
     }
@@ -75,10 +104,34 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory {
         implicit val sqlContext = new SQLContext(sc)
         import sqlContext.implicits._
 
-        val mainDf = Seq(("Andhra Pradesh", "Nellore"), ("Andhra Pradesh", "Chennai")).toDF("state", "district")
-        val filterDf = Seq(("Andhra Pradesh", "Nellore")).toDF("state", "district")
+        val mainDf = Seq(("apekx", "East Godavari"), ("apekx", "Chennai")).toDF("state", "district")
+        val filterDf = Seq(("apekx", "East Godavari")).toDF("state", "district")
 
         val df = DruidQueryUtil.removeInvalidLocations(mainDf, filterDf, List("state", "district"))
         df.count() should be(1)
+    }
+
+    it should "test the lookup Values" in {
+
+        val mockRestUtil = mock[HTTPClient]
+        val stateResponse =
+            s"""
+               {
+                 "version": "v1",
+                 "lookupExtractorFactory": {
+                   "type": "map",
+                   "map": {
+                     "Andhra Pradesh": "apekx",
+                     "Assam": "as",
+                     "Bihar": "br"
+                   }
+                 }
+               }
+             """.stripMargin
+        (mockRestUtil.get[StateLookup](_: String)(_: Manifest[StateLookup]))
+          .expects(AppConf.getConfig("druid.state.lookup.url"),manifest[StateLookup])
+          .returns(JSONUtils.deserialize[StateLookup](stateResponse))
+        DruidQueryUtil.getStateLookup(mockRestUtil).size should be (3)
+
     }
 }
