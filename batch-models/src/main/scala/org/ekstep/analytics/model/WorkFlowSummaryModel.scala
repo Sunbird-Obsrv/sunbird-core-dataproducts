@@ -40,9 +40,15 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
         val indexedData = data.map{f =>
-            val index = JSONUtils.deserialize[WorkFlowIndexEvent](f)
-            (index, f)
-        }
+                try {
+                    (JSONUtils.deserialize[WorkFlowIndexEvent](f), f)
+                }
+                catch {
+                    case ex: Exception =>
+                        JobLogger.log(ex.getMessage, None, INFO)
+                        (null.asInstanceOf[WorkFlowIndexEvent], "")
+                }
+        }.filter(f => null != f._1)
         val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
@@ -60,7 +66,16 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
         
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val events = f.events.map(f => JSONUtils.deserialize[WFSInputEvent](f))
+            val events = f.events.map{f =>
+                try {
+                    JSONUtils.deserialize[WFSInputEvent](f)
+                }
+                catch {
+                    case ex: Exception =>
+                        JobLogger.log(ex.getMessage, None, INFO)
+                        null.asInstanceOf[WFSInputEvent]
+                }
+            }.filter(f => null != f)
             val sortedEvents = events.sortBy { x => x.ets }
             var rootSummary: org.ekstep.analytics.util.Summary = null
             var currSummary: org.ekstep.analytics.util.Summary = null
