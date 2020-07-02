@@ -34,7 +34,7 @@ case class DruidOutput(date: Option[String], state: Option[String], district: Op
                        total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
 
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None)
-case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String])
+case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Integer = 0)
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
 case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"), locationMapping: Option[Boolean] = Option(false))
@@ -88,16 +88,16 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     } else if (interval.interval.nonEmpty)
     {
       val dateRange = interval.interval.get
-      getDateRange(dateRange)
+      getDateRange(dateRange, interval.intervalSlider)
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
 
     val metrics = reportConfig.metrics.flatMap { f =>
       val queryConfig = if (granularity.nonEmpty)
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervals" -> queryInterval, "granularity" -> granularity.get)
+        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
       else
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervals" -> queryInterval)
+        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
 
       val data = DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
       data.map { x =>
@@ -143,10 +143,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     data
   }
 
-  def getDateRange(interval: QueryInterval): String = {
+  def getDateRange(interval: QueryInterval, intervalSlider: Integer = 0): String = {
     val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
-    val startDate = DateTime.parse(interval.startDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
-    val endDate = DateTime.parse(interval.endDate).withTimeAtStartOfDay().plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    val startDate = DateTime.parse(interval.startDate).withTimeAtStartOfDay().minusDays(intervalSlider).plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
+    val endDate = DateTime.parse(interval.endDate).withTimeAtStartOfDay().minusDays(intervalSlider).plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
     startDate + "/" + endDate
   }
 
