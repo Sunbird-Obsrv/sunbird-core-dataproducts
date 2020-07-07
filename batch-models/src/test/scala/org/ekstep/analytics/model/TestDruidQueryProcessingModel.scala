@@ -336,6 +336,10 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val interval = QueryInterval("2020-05-02", "2020-05-06")
         val result = DruidQueryProcessingModel.getDateRange(interval)
         result should be ("2020-05-02T05:30:00/2020-05-06T05:30:00")
+
+        val slidingInterval = QueryInterval("2020-05-02", "2020-05-06")
+        val slidingIntervalResult = DruidQueryProcessingModel.getDateRange(slidingInterval, 2)
+        slidingIntervalResult should be ("2020-04-30T05:30:00/2020-05-04T05:30:00")
     }
 
     it should "test for setStorageConf method" in {
