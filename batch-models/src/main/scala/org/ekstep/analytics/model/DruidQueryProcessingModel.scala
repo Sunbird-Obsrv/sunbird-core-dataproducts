@@ -15,24 +15,6 @@ import org.ekstep.analytics.util.DruidQueryUtil
 import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 
-case class DruidOutput(date: Option[String], state: Option[String], district: Option[String], producer_id: Option[String], content_name: Option[String], content_id: Option[String], default_dimension: Option[String], device_loc_state: Option[String],
-                       default_metric_long: Option[Integer] = Option(0), default_metric_double: Option[Double] = Option(0), total_scans: Option[Integer] = Option(0),
-                       total_count: Option[Integer] = Option(0), total_scans_on_portal: Option[Integer] = Option(0), total_scans_on_app: Option[Integer] = Option(0),
-                       total_sessions: Option[Integer] = Option(0), total_ts: Option[Double] = Option(0.0),
-                       total_successful_scans: Option[Integer] = Option(0), total_failed_scans: Option[Integer] = Option(0),
-                       total_content_download: Option[Integer] = Option(0), total_content_plays: Option[Integer] = Option(0),
-                       total_content_plays_on_portal: Option[Integer] = Option(0), total_content_plays_on_app: Option[Integer] = Option(0),
-                       total_content_plays_on_desktop: Option[Integer] = Option(0), total_app_sessions: Option[Integer] = Option(0),
-                       total_unique_devices: Option[Double] = Option(0), total_unique_devices_on_portal: Option[Double] = Option(0),
-                       time_spent_on_app_in_hours: Option[Double] = Option(0), total_devices_playing_content: Option[Integer] = Option(0),
-                       devices_playing_content_on_app: Option[Integer] = Option(0), devices_playing_content_on_portal: Option[Integer] = Option(0),
-                       total_unique_devices_on_app: Option[Double] = Option(0), total_unique_devices_on_desktop: Option[Double] = Option(0),
-                       total_time_spent_in_hours: Option[Double] = Option(0), total_time_spent_in_hours_on_app: Option[Double] = Option(0),
-                       total_time_spent_in_hours_on_portal: Option[Double] = Option(0), total_time_spent_in_hours_on_desktop: Option[Double] = Option(0),
-                       total_percent_failed_scans: Option[Double] = Option(0), total_content_download_on_app: Option[Integer] = Option(0),
-                       total_content_download_on_portal: Option[Integer] = Option(0), total_content_download_on_desktop: Option[Integer] = Option(0),
-                       total_unique_devices_on_desktop_played_content: Option[Integer] = Option(0)) extends Input with AlgoInput with AlgoOutput with Output
-
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None)
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Integer = 0)
 case class QueryInterval(startDate: String, endDate: String)
@@ -43,6 +25,18 @@ case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rol
 case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
                              merge: MergeFiles, container: String, postContainer: Option[String] = None)
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
+
+case class DruidOutput(t: Map[String, Any]) extends Map[String,Any]  with Input with AlgoInput with AlgoOutput with Output {
+  private val internalMap = t
+  override def +[B1 >: Any](kv: (String, B1)): Map[String, B1] = new DruidOutput(internalMap + kv)
+
+  override def get(key: String): Option[Any] =internalMap.get(key)
+
+  override def iterator: Iterator[(String, Any)] = internalMap.iterator
+
+  override def -(key: String): Map[String, Any] = new DruidOutput(internalMap - key)
+}
+
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
 
@@ -72,6 +66,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   }
 
   override def algorithm(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
+    val streamQuery = config.getOrElse("streamQuery", false).asInstanceOf[Boolean]
     val strConfig = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(strConfig))
 
@@ -85,30 +80,42 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val granularity = interval.granularity
     val queryInterval = if (interval.staticInterval.nonEmpty) {
       interval.staticInterval.get
-    } else if (interval.interval.nonEmpty)
-    {
+    } else if (interval.interval.nonEmpty) {
       val dateRange = interval.interval.get
       getDateRange(dateRange, interval.intervalSlider)
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
 
-    val metrics = reportConfig.metrics.flatMap { f =>
+    val metrics = reportConfig.metrics.map { f =>
       val queryConfig = if (granularity.nonEmpty)
         JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
       else
         JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
 
-      val data = DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
+      val data = if (streamQuery) {
+        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
+      }
+      else {
+        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
+
+      }
+
       data.map { x =>
         val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
         val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
         (key, dataMap)
+
       }
+
+
     }
-    val finalResult = sc.parallelize(metrics).foldByKey(Map())(_ ++ _)
-    finalResult.map { f => JSONUtils.deserialize[DruidOutput](JSONUtils.serialize(f._2)) }
+    val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+    finalResult.map { f =>
+      DruidOutput(f._2)
+    }
   }
+
 
   override def postProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
     if (data.count() > 0) {
@@ -121,14 +128,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
-      import sqlContext.implicits._
       //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
         val df = {if (f.locationMapping.getOrElse(false)) {
-          DruidQueryUtil.removeInvalidLocations(data.toDF(),
+          DruidQueryUtil.removeInvalidLocations(sqlContext.read.json(data.map(f => JSONUtils.serialize(f))),
             DruidQueryUtil.getValidLocations(RestUtil),List("state", "district"))
-        } else data.toDF()}.na.fill(0)
+        } else sqlContext.read.json(data.map(f => JSONUtils.serialize(f)))}.na.fill(0)
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
@@ -155,7 +161,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   }
 
   def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
-
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
     val format = config.get("format").get.asInstanceOf[String]
@@ -171,6 +176,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
+
       }
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {

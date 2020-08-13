@@ -75,11 +75,11 @@ import scala.concurrent.Future
           }
         """
       val doc: Json = parse(json).getOrElse(Json.Null);
-      val results = List(DruidResult.apply(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC), doc));
-      val druidResponse = DruidResponse.apply(results, QueryType.Timeseries)
+      val results = List(DruidResult.apply(Some(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC)), doc));
+      val druidResponse = DruidResponseTimeseriesImpl.apply(results, QueryType.Timeseries)
 
       val mockDruidClient = mock[DruidClient]
-      (mockDruidClient.doQuery(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
+      (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
       (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
 
 
