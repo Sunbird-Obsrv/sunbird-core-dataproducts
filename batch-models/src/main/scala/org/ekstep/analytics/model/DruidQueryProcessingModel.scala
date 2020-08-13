@@ -128,6 +128,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
+      import sqlContext.implicits._
       //Using foreach as parallel execution might conflict with local file path
       val key = config.getOrElse("key", null).asInstanceOf[String]
       reportConfig.output.foreach { f =>
