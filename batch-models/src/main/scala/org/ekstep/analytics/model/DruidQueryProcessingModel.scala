@@ -86,7 +86,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
-
+    type pairRDD = (String,Map[String,AnyRef])
     val metrics = reportConfig.metrics.map { f =>
       val queryConfig = if (granularity.nonEmpty)
         JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
@@ -100,21 +100,20 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
 
       }
-
       data.map { x =>
         val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
         val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
         (key, dataMap)
 
       }
-    }.fold(sc.emptyRDD)(_ union _)
+    }.fold(sc.emptyRDD[pairRDD])(_ union(_))
 
     val finalResult = metrics.foldByKey(Map())(_ ++ _)
     finalResult.map { f =>
       DruidOutput(f._2)
     }
   }
-
+  
 
   override def postProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
     if (data.count() > 0) {
