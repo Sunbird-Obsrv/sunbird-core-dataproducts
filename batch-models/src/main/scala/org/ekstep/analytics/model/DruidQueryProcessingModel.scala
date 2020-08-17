@@ -107,8 +107,9 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         (key, dataMap)
 
       }
-    }
-    val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+    }.fold(sc.emptyRDD)(_ union _)
+
+    val finalResult = metrics.foldByKey(Map())(_ ++ _)
     finalResult.map { f =>
       DruidOutput(f._2)
     }
