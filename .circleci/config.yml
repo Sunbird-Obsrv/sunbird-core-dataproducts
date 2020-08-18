@@ -4,7 +4,8 @@ jobs:
     machine: true
     steps:
     - checkout
-    - run: git clone https://github.com/project-sunbird/sunbird-analytics-core
+    - run: 
+        command: mvn --version
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
