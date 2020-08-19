@@ -102,16 +102,14 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       data.map { x =>
         val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
         val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
-        (key, DruidOutput(dataMap))
-      }
-    } .reduceLeft((rdd1, rdd2) => rdd1 ++ (rdd2))
-      //.fold(sc.emptyRDD[pairRDD])((acc, ele) => acc++ele)
+        (key, dataMap)
 
-    val finalResult = metrics.foldByKey(DruidOutput(Map()))((intialMap, finalMap) =>{
-      DruidOutput(intialMap ++ finalMap)
-    })
+      }
+
+    }
+    val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
     finalResult.map { f =>
-      f._2
+      DruidOutput(f._2)
     }
   }
 
