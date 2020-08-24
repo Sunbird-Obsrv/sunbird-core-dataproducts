@@ -479,7 +479,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
             Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.diksha.app", "prod.diksha.portal"))), DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
         val reportConfig = ReportConfig("test_usage_metrics", "groupBy", QueryDateRange(Option(QueryInterval("2020-05-24", "2020-05-24")), None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), Map("state" -> "State", "district" -> "District", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_sessions", "total_ts"), List("date"), List("id", "dims"), Some(true))), Option(MergeConfig("DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
         val strConfig = JSONUtils.serialize(reportConfig)
-        val modelParams = Map("streamQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports/")
+        val modelParams = Map("quoteColumns" -> List("Content Play Time"),"streamQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports/")
         the[Exception] thrownBy {
           DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
         } should have message "Merge report script failed with exit code 127"

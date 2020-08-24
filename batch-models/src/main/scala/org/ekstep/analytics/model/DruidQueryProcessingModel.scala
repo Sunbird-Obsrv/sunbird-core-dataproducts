@@ -169,12 +169,20 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportMergeConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
+    val quoteColumns =config.get("quoteColumns").getOrElse(List()).asInstanceOf[List[String]]
     val deltaFiles = if (dims.nonEmpty) {
       val duplicateDims = dims.map(f => f.concat("Duplicate"))
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
 
+      }
+      if(quoteColumns.nonEmpty) {
+        import org.apache.spark.sql.functions.udf
+        val quoteStr = udf((column: String) =>  "\'"+column+"\'")
+        quoteColumns.map(column => {
+          duplicateDimsDf = duplicateDimsDf.withColumn(column, quoteStr(col(column)))
+        })
       }
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
