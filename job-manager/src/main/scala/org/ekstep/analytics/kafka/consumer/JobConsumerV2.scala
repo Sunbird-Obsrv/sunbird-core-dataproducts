@@ -24,7 +24,6 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
                 val message = iterator.next().message()
                 Some(new String(message))
             } else {
-                JobLogger.log("No message from queue", None, INFO);
                 None
             }
         } catch {
