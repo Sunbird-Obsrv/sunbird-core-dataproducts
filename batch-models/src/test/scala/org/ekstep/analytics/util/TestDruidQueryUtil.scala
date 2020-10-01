@@ -86,8 +86,8 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory {
                  }
                }
              """.stripMargin
-        (mockRestUtil.get[StateLookup](_: String)(_: Manifest[StateLookup]))
-          .expects(AppConf.getConfig("druid.state.lookup.url"),manifest[StateLookup])
+        (mockRestUtil.get[StateLookup](_: String, _: Option[Map[String, String]])(_: Manifest[StateLookup]))
+          .expects(AppConf.getConfig("druid.state.lookup.url"), None,manifest[StateLookup])
           .returns(JSONUtils.deserialize[StateLookup](stateResponse))
         (mockRestUtil.post[LocationResponse](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[LocationResponse]))
           .expects(AppConf.getConfig("location.search.url"), request, Some(Map("Authorization" -> AppConf.getConfig("location.search.token"))), manifest[LocationResponse])
@@ -128,8 +128,8 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory {
                  }
                }
              """.stripMargin
-        (mockRestUtil.get[StateLookup](_: String)(_: Manifest[StateLookup]))
-          .expects(AppConf.getConfig("druid.state.lookup.url"),manifest[StateLookup])
+        (mockRestUtil.get[StateLookup](_: String, _: Option[Map[String, String]])(_: Manifest[StateLookup]))
+          .expects(AppConf.getConfig("druid.state.lookup.url"), None, manifest[StateLookup])
           .returns(JSONUtils.deserialize[StateLookup](stateResponse))
         DruidQueryUtil.getStateLookup(mockRestUtil).size should be (3)
 

@@ -2,23 +2,24 @@ package org.ekstep.analytics.job
 
 import org.ekstep.analytics.framework.util.JSONUtils
 import java.util.concurrent._
+
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework.JobConfig
-import org.sunbird.cloud.storage.conf.AppConf
-import org.sunbird.cloud.storage.factory.{ StorageConfig, StorageServiceFactory }
+import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2
 import org.ekstep.analytics.framework.FrameworkContext
 import java.util.concurrent.atomic.AtomicBoolean
+import org.ekstep.analytics.framework.conf.AppConf
 
 case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
 
 object JobManager extends optional.Application {
 
     implicit val className = "org.ekstep.analytics.job.JobManager";
-    val storageType = AppConf.getStorageType()
-    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
+    val storageType = AppConf.getConfig("cloud_storage_type")
+    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config")))
 
     def main(config: String) {
         JobLogger.init("JobManager");
@@ -54,6 +55,7 @@ object JobManager extends optional.Application {
     }
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
+        JobLogger.log("Initializing the job consumer", None, INFO);
         val props = JobConsumerV2Config.makeProps(config.zookeeperConnect, config.consumerGroup)
         val consumer = new JobConsumerV2(config.topic, props);
         consumer;
@@ -75,9 +77,9 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
     override def run {
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"));
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
         // Register the reports storage service
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret"));
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
 
         while(running.get()) {
             val record = consumer.read;
