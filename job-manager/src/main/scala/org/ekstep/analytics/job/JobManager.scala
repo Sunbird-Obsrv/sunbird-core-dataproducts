@@ -18,7 +18,7 @@ object JobManager extends optional.Application {
 
     implicit val className = "org.ekstep.analytics.job.JobManager";
     val storageType = AppConf.getStorageType()
-//    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
+    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getStorageKey(storageType), AppConf.getStorageSecret(storageType)))
 
     def main(config: String) {
         JobLogger.init("JobManager");
@@ -28,13 +28,13 @@ object JobManager extends optional.Application {
     }
 
     def init(config: JobManagerConfig) = {
-//        try {
-//            storageService.deleteObject(config.tempBucket, config.tempFolder, Option(true));
-//        }
-//        catch {
-//            case ex: Exception =>
-//                ex.printStackTrace()
-//        }
+        try {
+            storageService.deleteObject(config.tempBucket, config.tempFolder, Option(true));
+        }
+        catch {
+            case ex: Exception =>
+                ex.printStackTrace()
+        }
         val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
         val consumer = initializeConsumer(config, jobQueue);
         JobLogger.log("Initialized the job consumer", None, INFO);
@@ -76,11 +76,14 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
     }
 
     override def run {
+        JobLogger.log("Job runner: run method", None, INFO);
+        println("creating framework context")
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), "azure_storage_key", "azure_storage_secret");
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getStorageKey(AppConf.getStorageType()), AppConf.getStorageSecret(AppConf.getStorageType()));
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports_azure_storage_key"), AppConf.getConfig("reports_azure_storage_secret"));
+        println("fc : " + fc.storageContainers.size)
 
         JobLogger.log("Job runner: run", None, INFO);
         while(running.get()) {

@@ -14,6 +14,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = Consumer.create(config)
     private val filterSpec = new Whitelist(topic)
     private val streams = connector.createMessageStreamsByFilter(filterSpec, 1, new StringDecoder(), new StringDecoder())(0)
+    JobLogger.log("Consumer config: " + config, None, INFO)
 
     lazy val iterator = streams.iterator()
 
