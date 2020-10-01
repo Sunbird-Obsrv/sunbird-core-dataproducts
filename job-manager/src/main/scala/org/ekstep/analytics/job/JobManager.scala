@@ -58,7 +58,6 @@ object JobManager extends optional.Application {
         JobLogger.log("Initializing the job consumer", None, INFO);
         val props = JobConsumerV2Config.makeProps(config.zookeeperConnect, config.consumerGroup)
         val consumer = new JobConsumerV2(config.topic, props);
-        println(consumer.className)
         consumer;
     }
 }
@@ -69,7 +68,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
 
     private val running = new AtomicBoolean(false)
     running.set(true)
-    JobLogger.log("Initializing the JobRunner: " + running.get(), None, INFO);
 
     def stop(): Unit = {
         running.set(false)
@@ -77,16 +75,12 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
     }
 
     override def run {
-        JobLogger.log("Job runner: run method", None, INFO);
-        println("creating framework context")
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), "azure_storage_key", "azure_storage_secret");
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
         // Register the reports storage service
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), "reports_azure_storage_key", "reports_azure_storage_secret");
-        println("fc : " + fc.storageContainers.size)
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
 
-        JobLogger.log("Job runner: run", None, INFO);
         while(running.get()) {
             val record = consumer.read;
             if (record.isDefined) {
@@ -95,7 +89,6 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                 if (record.get.contains("monitor-job-summ"))
                     stop();
             } else {
-                JobLogger.log("record is not defined", None, INFO);
                 // $COVERAGE-OFF$ Code is unreachable
                 Thread.sleep(10 * 1000); // Sleep for 10 seconds
                 // $COVERAGE-ON$
