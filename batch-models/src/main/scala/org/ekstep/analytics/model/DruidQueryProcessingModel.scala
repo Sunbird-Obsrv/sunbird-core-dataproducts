@@ -15,15 +15,17 @@ import org.ekstep.analytics.util.DruidQueryUtil
 import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 
-case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None)
+case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None, storeType: Option[String] = None)
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Int = 0)
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
 case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"), locationMapping: Option[Boolean] = Option(false))
 case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                       reportPath: String, postContainer: Option[String] = None)
+                       reportPath: String, postContainer: Option[String] = None,
+                       deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
 case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                             merge: MergeFiles, container: String, postContainer: Option[String] = None)
+                        merge: MergeFiles, container: String, postContainer: Option[String] = None,
+                        deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 case class DruidOutput(t: Map[String, Any]) extends Map[String,Any]  with Input with AlgoInput with AlgoOutput with Output {
@@ -46,7 +48,19 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   override def preProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
 
-    setStorageConf(getStringProperty(config, "store", "local"), config.get("accountKey").asInstanceOf[Option[String]], config.get("accountSecret").asInstanceOf[Option[String]])
+    val storeType = config("reportConfig").asInstanceOf[Map[String, AnyRef]].getOrElse("storeType", None)
+    var accountKey = config.get("accountKey").asInstanceOf[String]
+    var accountSecret = config.get("accountSecret").asInstanceOf[String]
+
+    if (storeType == "private") {
+      accountKey = "azure_storage_key"
+      accountSecret = "azure_storage_secret"
+    } else if (storeType == "public") {
+      accountKey = "reports_storage_key"
+      accountSecret = "reports_storage_secret"
+    }
+
+    setStorageConf(getStringProperty(config, "store", "local"), accountKey.asInstanceOf[Option[String]], accountSecret.asInstanceOf[Option[String]])
     data
   }
 
@@ -201,7 +215,8 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         }
       }
       val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
-        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer)
+        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")),
+        container, mergeConf.postContainer, mergeConf.deltaFileAccess, mergeConf.reportFileAccess)
       mergeReport(mergeScriptConfig)
     }
     else {
