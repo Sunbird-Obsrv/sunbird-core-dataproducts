@@ -40,10 +40,12 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
     implicit val className: String = "org.ekstep.analytics.model.ExperimentDefinitionModel"
 
     override def name: String = "ExperimentDefinitionModel"
+    implicit val utils: ExperimentDataUtils = new ExperimentDataUtils
 
     override def preProcess(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ExperimentDefinition] = {
 
-        val experiments = sc.cassandraTable[ExperimentDefinition](Constants.PLATFORM_KEY_SPACE_NAME, Constants.EXPERIMENT_DEFINITION_TABLE)
+        // Get experiments from postgres
+        val experiments = utils.getExprimentData(Constants.EXPERIMENT_DEFINITION_TABLE)
           .filter(metadata => metadata.status.equalsIgnoreCase("SUBMITTED"))
 
         experiments
@@ -52,10 +54,9 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
     override def algorithm(experiments: RDD[ExperimentDefinition], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ExperimentDefinitionOutput] = {
 
         val metadata: ListBuffer[ExperimentDefinitionMetadata] = ListBuffer()
-        implicit val utils: ExperimentDataUtils = new ExperimentDataUtils
         val result = algorithmProcess(experiments, metadata)
-        sc.makeRDD(metadata).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME,
-            Constants.EXPERIMENT_DEFINITION_TABLE, SomeColumns("exp_id", "status", "status_message", "updated_on", "updated_by", "stats"))
+        // save to postgres
+        utils.saveExperimentMetaData(Constants.EXPERIMENT_DEFINITION_TABLE, sc.parallelize(metadata))
         result.fold(sc.emptyRDD[ExperimentDefinitionOutput])(_ ++ _)
 
     }
@@ -162,5 +163,21 @@ class ExperimentDataUtils {
         implicit val sqlContext = new SQLContext(sc)
         val encoder = Encoders.product[DeviceProfileModel]
         sqlContext.sparkSession.read.jdbc(url, table, CommonUtil.getPostgresConnectionProps()).as[DeviceProfileModel](encoder).rdd
+    }
+
+    def saveExperimentMetaData(table: String, data: RDD[ExperimentDefinitionMetadata])(implicit sc: SparkContext): Unit = {
+        val db = AppConf.getConfig("postgres.db")
+        val url = AppConf.getConfig("postgres.url") + s"$db"
+        implicit val sqlContext = new SQLContext(sc)
+        import sqlContext.implicits._
+        data.toDF.write.jdbc(url, table, CommonUtil.getPostgresConnectionProps())
+    }
+
+    def getExprimentData(table: String)(implicit sc: SparkContext): RDD[ExperimentDefinition] = {
+        val db = AppConf.getConfig("postgres.db")
+        val url = AppConf.getConfig("postgres.url") + s"$db"
+        implicit val sqlContext = new SQLContext(sc)
+        val encoder = Encoders.product[ExperimentDefinition]
+        sqlContext.sparkSession.read.jdbc(url, table, CommonUtil.getPostgresConnectionProps()).as[ExperimentDefinition](encoder).rdd
     }
 }
