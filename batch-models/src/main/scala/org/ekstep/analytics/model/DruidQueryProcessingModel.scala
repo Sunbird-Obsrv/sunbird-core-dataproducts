@@ -15,7 +15,9 @@ import org.ekstep.analytics.util.DruidQueryUtil
 import org.joda.time.{DateTime, DateTimeZone}
 import org.sunbird.cloud.storage.conf.AppConf
 
-case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig], mergeConfig: Option[MergeConfig] = None, storeType: Option[String] = Option("private"))
+case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: Map[String, String], output: List[OutputConfig],
+                        mergeConfig: Option[MergeConfig] = None, storageKey: Option[String] = Option(AppConf.getConfig("storage.key.config")),
+                        storageSecret: Option[String] = Option(AppConf.getConfig("storage.secret.config")))
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Int = 0)
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
@@ -47,11 +49,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   override def preProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
 
     val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(config.getOrElse("reportConfig", Map()).asInstanceOf[Map[String, AnyRef]]))
-    val storeType = reportConfig.storeType.getOrElse("private")
-    val accountKey = if(storeType.equalsIgnoreCase("public")) AppConf.getConfig("reports.storage.key.config") else AppConf.getConfig("storage.key.config")
-    val accountSecret = if(storeType.equalsIgnoreCase("public")) AppConf.getConfig("reports.storage.secret.config") else AppConf.getConfig("storage.secret.config")
-
-    setStorageConf(getStringProperty(config, "store", "local"), Option(accountKey), Option(accountSecret))
+    setStorageConf(getStringProperty(config, "store", "local"), reportConfig.storageKey, reportConfig.storageSecret)
     data
   }
 
