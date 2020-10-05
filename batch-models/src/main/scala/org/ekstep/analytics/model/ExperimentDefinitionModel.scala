@@ -7,7 +7,7 @@ import com.datastax.spark.connector._
 import com.datastax.spark.connector.types.TimestampFormatter
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Encoders, SQLContext}
+import org.apache.spark.sql.{Encoders, SQLContext, SaveMode}
 import org.ekstep.analytics.framework.Level.ERROR
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
@@ -170,7 +170,7 @@ class ExperimentDataUtils {
         val url = AppConf.getConfig("postgres.url") + s"$db"
         implicit val sqlContext = new SQLContext(sc)
         import sqlContext.implicits._
-        data.toDF.write.jdbc(url, table, CommonUtil.getPostgresConnectionProps())
+        data.toDF.write.mode(SaveMode.Append).jdbc(url, table, CommonUtil.getPostgresConnectionProps())
     }
 
     def getExprimentData(table: String)(implicit sc: SparkContext): RDD[ExperimentDefinition] = {
