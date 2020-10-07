@@ -47,9 +47,6 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
         // Get experiments from postgres
         val experiments = utils.getExprimentData(Constants.EXPERIMENT_DEFINITION_TABLE)
           .filter(metadata => metadata.status.equalsIgnoreCase("SUBMITTED"))
-
-        println("experiments size: " + experiments.count())
-        println("expermiment details: " + experiments.first().exp_id, experiments.first().status)
         experiments
     }
 
