@@ -4,7 +4,7 @@ import org.apache.spark.SparkContext
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework.{DeviceProfileModel, JobConfig, OutputDispatcher}
 import org.scalamock.scalatest.MockFactory
-
+import org.ekstep.analytics.util.Constants
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
 import org.ekstep.analytics.framework.FrameworkContext
@@ -22,7 +22,9 @@ class TestExperimentDefinition  extends SparkSpec(null) with MockFactory {
     super.beforeAll()
     EmbeddedPostgresql.start()
     EmbeddedPostgresql.createDeviceProfileTable()
-    EmbeddedCassandra.loadData("src/test/resources/experiment/experiment-data.cql")
+    EmbeddedPostgresql.createExperimentTable()
+    val insertQuery = s"""INSERT INTO ${Constants.EXPERIMENT_DEFINITION_TABLE}(exp_id, exp_name, criteria, exp_data, status) VALUES ('U1234', 'USER_ORG', '{"type":"user","filters":{"organisations.orgName":["sunbird"]}}', '{"startDate":"2019-08-06","endDate":"2019-08-09", "key":"/org/profile","client":"portal"}', 'SUBMITTED')"""
+    EmbeddedPostgresql.execute(insertQuery)
   }
 
   override def afterAll(): Unit ={
