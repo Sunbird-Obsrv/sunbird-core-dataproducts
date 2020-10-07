@@ -60,7 +60,7 @@ object EmbeddedPostgresql {
            |exp_data VARCHAR(300),
            |exp_description VARCHAR(200),
            |exp_name VARCHAR(50),
-           |stats json,
+           |stats VARCHAR(300),
            |status VARCHAR(50),
            |status_message VARCHAR(50),
            |updated_by VARCHAR(50),
