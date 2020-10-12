@@ -81,35 +81,36 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
-    type pairRDD = (String,DruidOutput)
-    val metrics = reportConfig.metrics.map { f =>
-      val queryConfig = if (granularity.nonEmpty)
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
-      else
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
-      val config = JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig))
-      val data = if (streamQuery) {
-        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
-      }
-      else if(exhaustQuery)
-      {
-
-        return DruidDataFetcher.executeSQLQuery(config,fc.getAkkaHttpUtil())
-      }
-      else {
-        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
-      }
-      data.map { x =>
-        val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
-        val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
-        (key, dataMap)
-
-      }
-
+    if(exhaustQuery) {
+      val queryConfig = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(reportConfig.metrics.head.druidQuery)) ++
+          Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
+      DruidDataFetcher.executeSQLQuery(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), fc.getAkkaHttpUtil())
     }
-    val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
-    finalResult.map { f =>
-      DruidOutput(f._2)
+    else {
+      val metrics = reportConfig.metrics.map { f =>
+        val queryConfig = if (granularity.nonEmpty)
+          JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
+        else
+          JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
+        val config = JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig))
+        val data = if (streamQuery) {
+          DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
+        }
+        else {
+          DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
+        }
+        data.map { x =>
+          val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
+          val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
+          (key, dataMap)
+
+        }
+
+      }
+      val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+      finalResult.map { f =>
+        DruidOutput(f._2)
+      }
     }
   }
 
