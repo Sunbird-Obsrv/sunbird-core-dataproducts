@@ -2,7 +2,10 @@ package org.ekstep.analytics.model
 
 import java.time.{ZoneOffset, ZonedDateTime}
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import cats.syntax.either._
 import ing.wbaa.druid._
 import ing.wbaa.druid.client.DruidClient
@@ -11,10 +14,11 @@ import io.circe.parser._
 import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.exception.DruidConfigException
-import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
+import org.ekstep.analytics.framework.fetcher.{AkkaHttpClient, DruidDataFetcher}
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.sunbird.cloud.storage.conf.AppConf
 
 import scala.concurrent.Future
 
@@ -348,7 +352,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val slidingInterval = QueryInterval("2020-05-02", "2020-05-06")
         val slidingIntervalResult = DruidQueryProcessingModel.getDateRange(slidingInterval, 2)
         slidingIntervalResult should be ("2020-04-30T05:30:00/2020-05-04T05:30:00")
-    }
+        }
 
     it should "test for setStorageConf method" in {
         DruidQueryProcessingModel.setStorageConf("s3", None, None)
@@ -504,6 +508,42 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val output3 = output - ("count")
         output3.size should be(4)
         output3.get("total_ts").get should be(5)
+    }
+
+
+    "TestDruidQueryProcessor" should "exhaust query " in {
+        implicit val sqlContext = new SQLContext(sc)
+
+
+        val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
+            None, None, None, None, None, None, Option(List(DruidSQLDimension("state",Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
+                DruidSQLDimension("dimensions_pdata_id",None))),None)
+
+        val mockAKkaUtil = mock[AkkaHttpClient]
+        val url = String.format("%s://%s:%s%s%s", "http",AppConf.getConfig("druid.rollup.host"),
+            AppConf.getConfig("druid.rollup.port"),AppConf.getConfig("druid.url"),"sql")
+        val request = HttpRequest(method = HttpMethods.POST,
+            uri = url,
+            entity = HttpEntity(ContentTypes.`application/json`, JSONUtils.serialize(DruidDataFetcher.getSQLDruidQuery(sqlQuery))))
+        val stripString =
+            """
+              {"dimensions_pdata_id":"dev.portal", "state":"10","date":"2020-09-12","total_count":11}
+              {"dimensions_pdata_id":"dev.app", "state":"5","date":"2020-09-12","total_count" :10}
+            """.stripMargin
+        (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
+          .expects(request,DruidDataFetcher.system)
+          .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
+
+        (fc.getAkkaHttpUtil _).expects().returns(mockAKkaUtil).once()
+
+          val reportConfig = ReportConfig("test_usage_metrics", "sql", QueryDateRange(Option(QueryInterval("2020-08-23", "2020-08-24")), None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)), Map(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(true))), Option(MergeConfig("DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
+        val strConfig = JSONUtils.serialize(reportConfig)
+        val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports/")
+        the[Exception] thrownBy {
+            DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
+            DruidDataFetcher.system.terminate()
+        } should have message "Merge report script failed with exit code 127"
+
     }
 
 
