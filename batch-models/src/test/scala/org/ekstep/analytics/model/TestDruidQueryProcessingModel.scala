@@ -422,7 +422,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     }
 
 
-    "TestDruidQueryProcessingModel" should "execute remove invalid locations" in {
+    it should "execute remove invalid locations" in {
 
         implicit val sqlContext = new SQLContext(sc)
         import scala.concurrent.ExecutionContext.Implicits.global
@@ -490,7 +490,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
     }
 
-    "TestDruidQueryProcessingModel" should "verify DruidOutput operations"  in {
+    it should "verify DruidOutput operations"  in {
         val json: String =
             """
           {
@@ -511,7 +511,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     }
 
 
-    "TestDruidQueryProcessor" should "exhaust query " in {
+    it should "exhaust query " in {
         implicit val sqlContext = new SQLContext(sc)
 
 
