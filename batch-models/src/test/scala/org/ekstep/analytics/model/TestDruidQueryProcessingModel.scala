@@ -461,7 +461,6 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     it should "execute the stream query" in {
 
         implicit val sqlContext = new SQLContext(sc)
-
         val json: String =
             """
           {
@@ -477,6 +476,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         implicit val mockDruidConfig = DruidConfig.DefaultConfig
         val mockDruidClient = mock[DruidClient]
         (mockDruidClient.doQueryAsStream(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Source(results)).anyNumberOfTimes();
+        (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""), Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("derived_loc_state", Option("state")), DruidDimension("derived_loc_district", Option("district"), Option("Extraction"), Option("STRING"),
             Option(List(ExtractFn("registeredLookup", "districtLookup"), ExtractFn("javascript", "function(str){return str == null ? null: str.toLowerCase().trim().split(' ').map(function(t){return t.substring(0,1).toUpperCase()+t.substring(1,t.length)}).join(' ')}")))))),
@@ -514,7 +514,6 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     it should "exhaust query " in {
         implicit val sqlContext = new SQLContext(sc)
 
-
         val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
             None, None, None, None, None, None, Option(List(DruidSQLDimension("state",Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
                 DruidSQLDimension("dimensions_pdata_id",None))),None)
@@ -530,8 +529,11 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
               {"dimensions_pdata_id":"dev.portal", "state":"10","date":"2020-09-12","total_count":11}
               {"dimensions_pdata_id":"dev.app", "state":"5","date":"2020-09-12","total_count" :10}
             """.stripMargin
+        val mockDruidClient = mock[DruidClient]
+        (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
+        (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
         (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
-          .expects(request,DruidDataFetcher.system)
+          .expects(request,mockDruidClient.actorSystem)
           .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
 
         (fc.getAkkaHttpUtil _).expects().returns(mockAKkaUtil).once()
@@ -541,7 +543,6 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports/")
         the[Exception] thrownBy {
             DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
-            DruidDataFetcher.system.terminate()
         } should have message "Merge report script failed with exit code 127"
 
     }
