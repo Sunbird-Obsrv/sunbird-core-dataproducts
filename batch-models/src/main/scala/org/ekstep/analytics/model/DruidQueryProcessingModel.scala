@@ -1,5 +1,6 @@
 package org.ekstep.analytics.model
 
+import akka.actor.ActorSystem
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
@@ -8,7 +9,7 @@ import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.ScriptDispatcher
 import org.ekstep.analytics.framework.exception.DruidConfigException
-import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
+import org.ekstep.analytics.framework.fetcher.{AkkaHttpUtil, DruidDataFetcher}
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
 import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.util.DruidQueryUtil
@@ -28,16 +29,6 @@ case class MergeScriptConfig(id: String, frequency: String, basePath: String, ro
                              merge: MergeFiles, container: String, postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
 case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
-case class DruidOutput(t: Map[String, Any]) extends Map[String,Any]  with Input with AlgoInput with AlgoOutput with Output {
-  private val internalMap = t
-  override def +[B1 >: Any](kv: (String, B1)): Map[String, B1] = new DruidOutput(internalMap + kv)
-
-  override def get(key: String): Option[Any] =internalMap.get(key)
-
-  override def iterator: Iterator[(String, Any)] = internalMap.iterator
-
-  override def -(key: String): Map[String, Any] = new DruidOutput(internalMap - key)
-}
 
 
 object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidOutput, DruidOutput, DruidOutput] with Serializable {
@@ -70,6 +61,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   override def algorithm(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
     val streamQuery = config.getOrElse("streamQuery", false).asInstanceOf[Boolean]
+    val exhaustQuery = config.getOrElse("exhaustQuery", false).asInstanceOf[Boolean]
     val strConfig = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
     val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(strConfig))
 
@@ -89,40 +81,47 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
-    type pairRDD = (String,DruidOutput)
-    val metrics = reportConfig.metrics.map { f =>
-      val queryConfig = if (granularity.nonEmpty)
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
-      else
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
-
-      val data = if (streamQuery) {
-        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
-      }
-      else {
-        DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
-      }
-      data.map { x =>
-        val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
-        val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
-        (key, dataMap)
-
-      }
-
+    if(exhaustQuery) {
+      val queryConfig = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(reportConfig.metrics.head.druidQuery)) ++
+          Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
+      DruidDataFetcher.executeSQLQuery(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), fc.getAkkaHttpUtil())
     }
-    val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
-    finalResult.map { f =>
-      DruidOutput(f._2)
+    else {
+      val metrics = reportConfig.metrics.map { f =>
+        val queryConfig = if (granularity.nonEmpty)
+          JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
+        else
+          JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
+        val config = JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig))
+        val data = if (streamQuery) {
+          DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
+        }
+        else {
+          DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
+        }
+        data.map { x =>
+          val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
+          val key = dataMap.filter(m => (queryDims.flatten ++ List("date")).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
+          (key, dataMap)
+
+        }
+
+      }
+      val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+      finalResult.map { f =>
+        DruidOutput(f._2)
+      }
     }
   }
 
 
   override def postProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
-    if (data.count() > 0) {
+    if (fc.inputEventsCount.value > 0) {
       val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
       val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap))
       val dimFields = reportConfig.metrics.flatMap { m =>
         if (m.druidQuery.dimensions.nonEmpty) m.druidQuery.dimensions.get.map(f => f.aliasName.getOrElse(f.fieldName))
+        else if(m.druidQuery.sqlDimensions.nonEmpty) m.druidQuery.sqlDimensions.get.map(f => f.fieldName)
         else List()
       }
 
