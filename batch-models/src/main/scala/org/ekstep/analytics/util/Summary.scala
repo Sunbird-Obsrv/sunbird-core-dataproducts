@@ -9,6 +9,7 @@ import org.ekstep.analytics.framework.util.CommonUtil
 import org.ekstep.analytics.model.WFSInputEvent
 
 case class Item(itemId: String, timeSpent: Option[Double], res: Option[Array[String]], resValues: Option[Array[AnyRef]], mc: Option[AnyRef], mmc: Option[AnyRef], score: Int, time_stamp: Long, maxScore: Option[AnyRef], pass: String, qtitle: Option[String], qdesc: Option[String]);
+case class ImpressionData(pageid: String, edataType: String, env: String)
 
 class Summary(val firstEvent: WFSInputEvent) {
 
@@ -39,8 +40,8 @@ class Summary(val firstEvent: WFSInputEvent) {
     var eventsSummary: Map[String, Long] = Map(firstEvent.eid -> 1)
     var pageSummary: Iterable[PageSummary] = Iterable[PageSummary]()
     var prevEventEts: Long = startTime
-    var lastImpression: WFSInputEvent = null
-    var impressionMap: Map[WFSInputEvent, Double] = Map()
+    var lastImpression: ImpressionData = null
+    var impressionMap: Map[ImpressionData, Double] = Map()
     var summaryEvents: Buffer[MeasuredEvent] = Buffer()
 
     var CHILDREN: Buffer[Summary] = Buffer()
@@ -122,12 +123,12 @@ class Summary(val firstEvent: WFSInputEvent) {
         }
         if (StringUtils.equals(event.eid, "IMPRESSION")) {
             if (lastImpression == null) {
-                lastImpression = event
+                lastImpression = ImpressionData(event.edata.pageid, event.edata.`type`, event.context.env)
                 impressionMap += (lastImpression -> 0.0)
             } else {
                 val prevTs = impressionMap.get(lastImpression).getOrElse(0.0)
                 impressionMap += (lastImpression -> (prevTs + ts))
-                lastImpression = event
+                lastImpression = ImpressionData(event.edata.pageid, event.edata.`type`, event.context.env)
                 impressionMap += (lastImpression -> 0.0)
             }
         }
@@ -247,11 +248,11 @@ class Summary(val firstEvent: WFSInputEvent) {
     
     def getPageSummaries(): Iterable[PageSummary] = {
         if (this.impressionMap.size > 0) {
-            this.impressionMap.map(f => (f._1.edata.pageid, f)).groupBy(x => x._1).map { f =>
+            this.impressionMap.map(f => (f._1.pageid, f)).groupBy(x => x._1).map { f =>
                 val id = f._1
                 val firstEvent = f._2.head._2._1
-                val `type` = firstEvent.edata.`type`
-                val env = firstEvent.context.env
+                val `type` = firstEvent.edataType
+                val env = firstEvent.env
                 val timeSpent = CommonUtil.roundDouble(f._2.map(x => x._2._2).sum, 2)
                 val visitCount = f._2.size.toLong
                 PageSummary(id, `type`, env, timeSpent, visitCount)
