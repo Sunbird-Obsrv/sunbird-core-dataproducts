@@ -6,6 +6,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils, JobLogger, RestUtil}
 import org.joda.time.DateTime
 
@@ -22,6 +23,7 @@ case class ContentMetrics(
                            totalPlaySessionCountInPortal: Option[Long],
                            totalPlaySessionCountInDeskTop: Option[Long]
                          ) extends AlgoOutput with Output
+case class GraphUpdateEvent(contentId: String, averageRating: Option[Double], totalTimeSpentInApp: Option[Long], totalTimeSpentInPortal: Option[Long], totalTimeSpentInDeskTop: Option[Long], totalPlaySessionCountInApp: Option[Long], totalPlaySessionCountInPortal: Option[Long], totalPlaySessionCountInDeskTop: Option[Long])
 
 object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, ContentMetrics] with Serializable {
 
@@ -41,6 +43,12 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
   override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
     if (data.count() > 0) {
+      val contentMetrics = data.filter(contentMetrics => contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty)
+        .map(f => JSONUtils.serialize(
+          GraphUpdateEvent(f.contentId,f.averageRating,f.totalTimeSpentInApp,f.totalTimeSpentInPortal,
+                f.totalTimeSpentInDeskTop,f.totalPlaySessionCountInApp,f.totalPlaySessionCountInPortal,f.totalPlaySessionCountInDeskTop)))
+      KafkaDispatcher.dispatch(config, contentMetrics)
+
       data.foreach { contentMetrics: ContentMetrics =>
         if (contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty) {
           val response = publishMetricsToContentModel(contentMetrics, baseURL, RestUtil)
