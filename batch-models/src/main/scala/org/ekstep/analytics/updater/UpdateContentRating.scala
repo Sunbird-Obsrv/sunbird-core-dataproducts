@@ -23,7 +23,7 @@ case class ContentMetrics(
                            totalPlaySessionCountInPortal: Option[Long],
                            totalPlaySessionCountInDeskTop: Option[Long]
                          ) extends AlgoOutput with Output
-case class GraphUpdateEvent(contentId: String, averageRating: Option[Double], totalTimeSpentInApp: Option[Long], totalTimeSpentInPortal: Option[Long], totalTimeSpentInDeskTop: Option[Long], totalPlaySessionCountInApp: Option[Long], totalPlaySessionCountInPortal: Option[Long], totalPlaySessionCountInDeskTop: Option[Long])
+case class GraphUpdateEvent(ets: Long, nodeUniqueId: String, transactionData: Map[String, Map[String, Map[String, Any]]], operationType: String = "UPDATE", nodeType: String = "DATA_NODE", graphId: String = "domain", nodeGraphId: Int = 0)
 
 object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, ContentMetrics] with Serializable {
 
@@ -44,9 +44,16 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
     if (data.count() > 0) {
       val contentMetrics = data.filter(contentMetrics => contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty)
-        .map(f => JSONUtils.serialize(
-          GraphUpdateEvent(f.contentId,f.averageRating,f.totalTimeSpentInApp,f.totalTimeSpentInPortal,
-                f.totalTimeSpentInDeskTop,f.totalPlaySessionCountInApp,f.totalPlaySessionCountInPortal,f.totalPlaySessionCountInDeskTop)))
+        .map(f => {
+          val contentMap = Map("me_averageRating" -> f.averageRating,
+            "me_total_time_spent_in_app" -> f.totalTimeSpentInApp,
+            "me_total_time_spent_in_portal" -> f.totalTimeSpentInPortal,
+            "me_total_time_spent_in_desktop" -> f.totalTimeSpentInDeskTop,
+            "me_total_play_sessions_in_app" -> f.totalPlaySessionCountInApp,
+            "me_total_play_sessions_in_portal" -> f.totalPlaySessionCountInPortal,
+            "me_total_play_sessions_in_desktop" -> f.totalPlaySessionCountInDeskTop)
+          JSONUtils.serialize(GraphUpdateEvent(DateTime.now().getMillis, f.contentId, Map("properties" -> Map("ov" -> null, "nv" -> contentMap))))
+        })
       KafkaDispatcher.dispatch(config, contentMetrics)
 
       data.foreach { contentMetrics: ContentMetrics =>
