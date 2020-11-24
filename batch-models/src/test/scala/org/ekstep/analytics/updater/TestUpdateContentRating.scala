@@ -1,5 +1,6 @@
 package org.ekstep.analytics.updater
 
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
@@ -8,10 +9,15 @@ import org.ekstep.media.config.AppConfig
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
-class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
+class TestUpdateContentRating extends SparkSpec(null) with MockFactory with EmbeddedKafka {
 
   implicit val fc = new FrameworkContext();
   "UpdateContentRating" should "get content list which are rated in given time" in {
+    val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 9092, zooKeeperPort = 2181)
+    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
+      Console.println("Started Kafka");
+      createCustomTopic("test", Map(), 1, 1)
+    }
     val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
@@ -24,11 +30,11 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
     UpdateContentRating.execute(sc.emptyRDD, None);
     val metrics1 = sc.parallelize(List(ContentMetrics("test-1",Some(100), Some(20.0), None, None, Some(32432), None, Some(53), Some(552))))
-    UpdateContentRating.postProcess(metrics1, Map())
+    UpdateContentRating.postProcess(metrics1, Map("brokerList"->"localhost:9092", "topic"->"test"))
 
     // check for empty/null content id
     val metrics2 = sc.parallelize(List(ContentMetrics("",Some(100), Some(20.0), None, None, Some(32432), None, Some(53), Some(552))))
-    UpdateContentRating.postProcess(metrics2, Map())
+    UpdateContentRating.postProcess(metrics2, Map("brokerList"->"localhost:9092", "topic"->"test"))
   }
 
   it should "alter end date for replay scenario" in {
