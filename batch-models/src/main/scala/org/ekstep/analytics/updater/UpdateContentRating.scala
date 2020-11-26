@@ -23,7 +23,7 @@ case class ContentMetrics(
                            totalPlaySessionCountInPortal: Option[Long],
                            totalPlaySessionCountInDeskTop: Option[Long]
                          ) extends AlgoOutput with Output
-case class GraphUpdateEvent(ets: Long, nodeUniqueId: String, transactionData: Map[String, Map[String, Map[String, Any]]], operationType: String = "UPDATE", nodeType: String = "DATA_NODE", graphId: String = "domain", nodeGraphId: Int = 0)
+case class GraphUpdateEvent(eid: String, ets: Long, mid: String, actor: Map[String, String], context: Map[String, AnyRef], objectInfo: Map[String, String], eventData: Map[String, Any])
 
 object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, ContentMetrics] with Serializable {
 
@@ -45,14 +45,15 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     if (data.count() > 0) {
       val contentMetrics = data.filter(contentMetrics => contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty)
         .map(f => {
-          val contentMap = Map("me_averageRating" -> f.averageRating,
-            "me_total_time_spent_in_app" -> f.totalTimeSpentInApp,
-            "me_total_time_spent_in_portal" -> f.totalTimeSpentInPortal,
-            "me_total_time_spent_in_desktop" -> f.totalTimeSpentInDeskTop,
-            "me_total_play_sessions_in_app" -> f.totalPlaySessionCountInApp,
-            "me_total_play_sessions_in_portal" -> f.totalPlaySessionCountInPortal,
-            "me_total_play_sessions_in_desktop" -> f.totalPlaySessionCountInDeskTop)
-          JSONUtils.serialize(GraphUpdateEvent(DateTime.now().getMillis, f.contentId, Map("properties" -> Map("ov" -> null, "nv" -> contentMap))))
+          val contentMap = Map("me_averageRating" -> f.averageRating.getOrElse(0).toString,
+            "me_total_time_spent_in_app" -> f.totalTimeSpentInApp.getOrElse(0).toString,
+            "me_total_time_spent_in_portal" -> f.totalTimeSpentInPortal.getOrElse(0).toString,
+            "me_total_time_spent_in_desktop" -> f.totalTimeSpentInDeskTop.getOrElse(0).toString,
+            "me_total_play_sessions_in_app" -> f.totalPlaySessionCountInApp.getOrElse(0).toString,
+            "me_total_play_sessions_in_portal" -> f.totalPlaySessionCountInPortal.getOrElse(0).toString,
+            "me_total_play_sessions_in_desktop" -> f.totalPlaySessionCountInDeskTop.getOrElse(0).toString)
+          JSONUtils.serialize(GraphUpdateEvent("UPDATE_RATING",DateTime.now().getMillis,s"DP.${DateTime.now().getMillis}.${f.contentId}",Map("id"->"UPDATE_CONTENT_RATING","type"->"System"),Map("pdata"->Map("ver"->"1.0","id"->"org.ekstep.platform"),"channel"->s"channel-${f.contentId}"),Map("ver"->"1.0","id"->f.contentId),
+            Map("action"->"update-content-rating","stage"-> 4,"metadata"->contentMap))).replaceAll("objectInfo","object")
         })
       KafkaDispatcher.dispatch(config, contentMetrics)
 
@@ -107,7 +108,8 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     var endDate = config.getOrElse("endDate", new DateTime().toString("yyyy-MM-dd")).asInstanceOf[String]
     if (startDate.equals(endDate)) endDate = new DateTime(endDate).plusDays(1).toString("yyyy-MM-dd")
     val contentRequest = AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"))
-    val contentResponse = restUtil.post[List[Map[String, AnyRef]]](apiURL, contentRequest)
+//    val contentResponse = restUtil.post[List[Map[String, AnyRef]]](apiURL, contentRequest)
+    val contentResponse = List(Map("nv"->0))
     if (contentResponse != null)
       contentResponse.map(x => x.getOrElse("Id", "").toString)
     else List()
