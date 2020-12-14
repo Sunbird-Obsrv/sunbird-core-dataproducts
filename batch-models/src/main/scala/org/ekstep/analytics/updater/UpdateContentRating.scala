@@ -22,10 +22,10 @@ case class ContentMetrics(
                            totalPlaySessionCountInApp: Option[Long],
                            totalPlaySessionCountInPortal: Option[Long],
                            totalPlaySessionCountInDeskTop: Option[Long]
-                         ) extends AlgoOutput with Output
-case class GraphUpdateEvent(eid: String, ets: Long, mid: String, actor: Map[String, String], context: Map[String, AnyRef], objectInfo: Map[String, String], eventData: Map[String, Any])
+                         ) extends AlgoOutput
+case class GraphUpdateEvent(eid: String, ets: Long, mid: String, actor: Map[String, String], context: Map[String, AnyRef], var `object`: Map[String, String], eventData: Map[String, Any]) extends Output
 
-object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, ContentMetrics] with Serializable {
+object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetrics, GraphUpdateEvent] with Serializable {
 
   implicit val className = "org.ekstep.analytics.updater.UpdateContentRating"
 
@@ -40,9 +40,9 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
     getContentConsumptionMetrics(config, RestUtil)
   }
 
-  override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
+  override def postProcess(data: RDD[ContentMetrics], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[GraphUpdateEvent] = {
     val baseURL = AppConf.getConfig("lp.system.update.base.url")
-    if (data.count() > 0) {
+    val graphMetrics = if (data.count() > 0) {
       val contentMetrics = data.filter(contentMetrics => contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty)
         .map(f => {
           val contentMap = Map("me_averageRating" -> f.averageRating.getOrElse(0).toString,
@@ -52,10 +52,9 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
             "me_total_play_sessions_in_app" -> f.totalPlaySessionCountInApp.getOrElse(0).toString,
             "me_total_play_sessions_in_portal" -> f.totalPlaySessionCountInPortal.getOrElse(0).toString,
             "me_total_play_sessions_in_desktop" -> f.totalPlaySessionCountInDeskTop.getOrElse(0).toString)
-          JSONUtils.serialize(GraphUpdateEvent("UPDATE_RATING",DateTime.now().getMillis,s"DP.${DateTime.now().getMillis}.${f.contentId}",Map("id"->"UPDATE_CONTENT_RATING","type"->"System"),Map("pdata"->Map("ver"->"1.0","id"->"org.ekstep.platform"),"channel"->s"channel-${f.contentId}"),Map("ver"->"1.0","id"->f.contentId),
-            Map("action"->"update-content-rating","stage"-> 4,"metadata"->contentMap))).replaceAll("objectInfo","object")
+          GraphUpdateEvent("UPDATE_RATING",DateTime.now().getMillis,s"DP.${DateTime.now().getMillis}.${f.contentId}",Map("id"->"UPDATE_CONTENT_RATING","type"->"System"),Map("pdata"->Map("ver"->"1.0","id"->"org.ekstep.platform"),"channel"->s"channel-${f.contentId}"),Map("ver"->"1.0","id"->f.contentId),
+            Map("action"->"update-content-rating","stage"-> 4,"metadata"->contentMap))
         })
-      KafkaDispatcher.dispatch(config, contentMetrics)
 
       data.foreach { contentMetrics: ContentMetrics =>
         if (contentMetrics.contentId != null && !contentMetrics.contentId.isEmpty) {
@@ -67,10 +66,12 @@ object UpdateContentRating extends IBatchModelTemplate[Empty, Empty, ContentMetr
           JobLogger.log("Skipping system Update API request as content id is empty or null", None, Level.INFO)
         }
       }
+      contentMetrics
     } else {
       JobLogger.log("No records to update", None, Level.INFO)
+      sc.emptyRDD[GraphUpdateEvent]
     }
-    data
+    graphMetrics
   }
 
   def getContentConsumptionMetrics(config: Map[String, AnyRef], restUtil: HTTPClient)(implicit sc: SparkContext, fc: FrameworkContext): RDD[ContentMetrics] = {
