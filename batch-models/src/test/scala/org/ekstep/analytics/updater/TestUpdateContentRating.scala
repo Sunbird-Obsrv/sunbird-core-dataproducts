@@ -213,6 +213,40 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory with Embe
     val data = UpdateContentRating.getContentConsumptionMetrics(jobConfig, mockRestUtil)
     data.count() should be(2)
   }
+
+  it should "return graph events to write to kafka" in {
+    val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 9092, zooKeeperPort = 2181)
+    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
+      Console.println("Started Kafka");
+      createCustomTopic("test", Map(), 1, 1)
+    }
+    val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
+    val endDate = new DateTime().toString("yyyy-MM-dd")
+    val mockRestUtil = mock[HTTPClient]
+    (mockRestUtil.post[List[Map[String, AnyRef]]](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[List[Map[String, AnyRef]]]))
+      .expects("http://localhost:8082/druid/v2/sql/", AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
+      .returns(List(Map("ContentId" -> "test-1"), Map("ContentId" -> "test-2")))
+    val contentIds = UpdateContentRating.getRatedContents(Map("startDate" -> startDate.asInstanceOf[AnyRef], "endDate" -> endDate.asInstanceOf[AnyRef]), mockRestUtil)
+
+    val contentMetrics = List(ContentMetrics("do_1235",Option(34),Option(34),Option(10),
+      Option(5),Option(14),Option(34),Option(34),Option(34)),
+      ContentMetrics("do_07e462",Option(34),Option(34),Option(10),
+        Option(5),Option(14),Option(34),Option(34),Option(34)))
+    val contentRdd = sc.parallelize(contentMetrics)
+
+    val graphMetrics = UpdateContentRating.postProcess(contentRdd, Map("brokerList"->"localhost:9092", "topic"->"test"))
+    graphMetrics.count() should be (2)
+    val metrics1 = graphMetrics.collect().head
+    metrics1.`object`.getOrElse("id","") should be ("do_1235")
+    metrics1.eventData.getOrElse("metadata",Map()).asInstanceOf[Map[String,AnyRef]].getOrElse("me_averageRating","") should be ("34.0")
+    val metrics2 = graphMetrics.collect().lift(1).head
+    metrics2.`object`.getOrElse("id","") should be ("do_07e462")
+    val eventData = metrics2.eventData.getOrElse("metadata",Map()).asInstanceOf[Map[String,AnyRef]]
+    eventData.getOrElse("me_total_time_spent_in_portal","") should be ("5")
+    eventData.getOrElse("me_total_time_spent_in_app","") should be ("10")
+    eventData.getOrElse("me_total_time_spent_in_desktop","") should be ("14")
+  }
+
 }
 
 
