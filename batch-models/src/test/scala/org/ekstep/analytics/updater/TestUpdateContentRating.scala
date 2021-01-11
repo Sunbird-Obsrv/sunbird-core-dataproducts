@@ -1,6 +1,5 @@
 package org.ekstep.analytics.updater
 
-import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
@@ -9,15 +8,10 @@ import org.ekstep.media.config.AppConfig
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
-class TestUpdateContentRating extends SparkSpec(null) with MockFactory with EmbeddedKafka {
+class TestUpdateContentRating extends SparkSpec(null) with MockFactory {
 
   implicit val fc = new FrameworkContext();
   "UpdateContentRating" should "get content list which are rated in given time" in {
-    val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 9092, zooKeeperPort = 2181)
-    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
-      Console.println("Started Kafka");
-      createCustomTopic("test", Map(), 1, 1)
-    }
     val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
     val endDate = new DateTime().toString("yyyy-MM-dd")
     val mockRestUtil = mock[HTTPClient]
@@ -30,11 +24,11 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory with Embe
 
     UpdateContentRating.execute(sc.emptyRDD, None);
     val metrics1 = sc.parallelize(List(ContentMetrics("test-1",Some(100), Some(20.0), None, None, Some(32432), None, Some(53), Some(552))))
-    UpdateContentRating.postProcess(metrics1, Map("brokerList"->"localhost:9092", "topic"->"test"))
+    UpdateContentRating.postProcess(metrics1, Map())
 
     // check for empty/null content id
     val metrics2 = sc.parallelize(List(ContentMetrics("",Some(100), Some(20.0), None, None, Some(32432), None, Some(53), Some(552))))
-    UpdateContentRating.postProcess(metrics2, Map("brokerList"->"localhost:9092", "topic"->"test"))
+    UpdateContentRating.postProcess(metrics2, Map())
   }
 
   it should "alter end date for replay scenario" in {
@@ -213,40 +207,6 @@ class TestUpdateContentRating extends SparkSpec(null) with MockFactory with Embe
     val data = UpdateContentRating.getContentConsumptionMetrics(jobConfig, mockRestUtil)
     data.count() should be(2)
   }
-
-  it should "return graph events to write to kafka" in {
-    val userDefinedConfig = EmbeddedKafkaConfig(kafkaPort = 9092, zooKeeperPort = 2181)
-    withRunningKafkaOnFoundPort(userDefinedConfig) { implicit actualConfig =>
-      Console.println("Started Kafka");
-      createCustomTopic("test", Map(), 1, 1)
-    }
-    val startDate = new DateTime().minusDays(1).toString("yyyy-MM-dd")
-    val endDate = new DateTime().toString("yyyy-MM-dd")
-    val mockRestUtil = mock[HTTPClient]
-    (mockRestUtil.post[List[Map[String, AnyRef]]](_: String, _: String, _: Option[Map[String, String]])(_: Manifest[List[Map[String, AnyRef]]]))
-      .expects("http://localhost:8082/druid/v2/sql/", AppConf.getConfig("druid.unique.content.query").format(new DateTime(startDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss"), new DateTime(endDate).withTimeAtStartOfDay().toString("yyyy-MM-dd HH:mm:ss")), None, manifest[List[Map[String, AnyRef]]])
-      .returns(List(Map("ContentId" -> "test-1"), Map("ContentId" -> "test-2")))
-    val contentIds = UpdateContentRating.getRatedContents(Map("startDate" -> startDate.asInstanceOf[AnyRef], "endDate" -> endDate.asInstanceOf[AnyRef]), mockRestUtil)
-
-    val contentMetrics = List(ContentMetrics("do_1235",Option(34),Option(34),Option(10),
-      Option(5),Option(14),Option(34),Option(34),Option(34)),
-      ContentMetrics("do_07e462",Option(34),Option(34),Option(10),
-        Option(5),Option(14),Option(34),Option(34),Option(34)))
-    val contentRdd = sc.parallelize(contentMetrics)
-
-    val graphMetrics = UpdateContentRating.postProcess(contentRdd, Map("brokerList"->"localhost:9092", "topic"->"test"))
-    graphMetrics.count() should be (2)
-    val metrics1 = graphMetrics.collect().head
-    metrics1.`object`.getOrElse("id","") should be ("do_1235")
-    metrics1.eventData.getOrElse("metadata",Map()).asInstanceOf[Map[String,AnyRef]].getOrElse("me_averageRating","") should be ("34.0")
-    val metrics2 = graphMetrics.collect().lift(1).head
-    metrics2.`object`.getOrElse("id","") should be ("do_07e462")
-    val eventData = metrics2.eventData.getOrElse("metadata",Map()).asInstanceOf[Map[String,AnyRef]]
-    eventData.getOrElse("me_total_time_spent_in_portal","") should be ("5")
-    eventData.getOrElse("me_total_time_spent_in_app","") should be ("10")
-    eventData.getOrElse("me_total_time_spent_in_desktop","") should be ("14")
-  }
-
 }
 
 
