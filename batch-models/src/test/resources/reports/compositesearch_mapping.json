@@ -1,1 +1,0 @@
-{"cs":{"properties":{"identifier":{"type":"text","fields":{"raw":{"type":"text","fielddata":true}},"index":"true"},"name":{"type":"text","fields":{"raw":{"type":"text","fielddata":true}},"index":"true"},"contentType":{"type":"text","fields":{"raw":{"type":"text","fielddata":true}},"index":"true"}}}}

@@ -23,9 +23,12 @@ object EventsReplayJob extends optional.Application with IJob {
     JobLogger.start(jobName + " Started executing", Option(Map("config" -> config, "model" -> name)))
     val totalEvents = process(jobConfig)
     JobLogger.end(jobName + " Completed successfully!", "SUCCESS", Option(Map("config" -> config, "model" -> name, "outputEvents" -> totalEvents)))
+    CommonUtil.closeSparkContext()
   }
 
   def getInputData(config: JobConfig)(implicit mf: Manifest[String], sc: SparkContext): RDD[String] = {
+
+    fc.inputEventsCount = sc.longAccumulator("InputEventsCount");
     DataFetcher.fetchBatchData[String](config.search).cache()
   }
 

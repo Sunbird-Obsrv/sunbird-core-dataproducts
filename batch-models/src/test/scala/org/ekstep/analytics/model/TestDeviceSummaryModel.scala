@@ -34,7 +34,7 @@ class TestDeviceSummaryModel extends SparkSpec(null) {
 
     val summary1 = JSONUtils.deserialize[DeviceSummary](JSONUtils.serialize(event1.edata.eks));
     summary1.content_downloads should be(1)
-    summary1.contents_played should be(2)
+    summary1.contents_played should be(3)
     summary1.total_ts should be(50.0)
     summary1.total_launches should be(1)
     summary1.unique_contents_played should be(2)
@@ -132,6 +132,34 @@ class TestDeviceSummaryModel extends SparkSpec(null) {
       }
 
     }
+  }
+
+  it should "generate DeviceSummary events from only raw data and only wfs data for 2 different devices" in {
+
+    val rdd = loadFile[String]("src/test/resources/device-summary/test_data2.log");
+    val me = DeviceSummaryModel.execute(rdd, None);
+    me.count() should be(2)
+
+    val event1 = me.filter(f => "7795E2A74EF10194CABF0A60D36B3528".equals(f.mid)).first
+
+    event1.eid should be("ME_DEVICE_SUMMARY");
+    event1.context.pdata.model.get should be("DeviceSummary");
+    event1.context.pdata.ver should be("1.0");
+    event1.context.granularity should be("DAY");
+    event1.context.date_range should not be null;
+    event1.dimensions.did.get should be("88edda82418a1e916e9906a2fd7942cb");
+    event1.dimensions.channel.get should be("b00bc992ef25f1a9a8d63291e20efc8d")
+
+    val summary1 = JSONUtils.deserialize[DeviceSummary](JSONUtils.serialize(event1.edata.eks));
+    summary1.content_downloads should be(1)
+    summary1.contents_played should be(0)
+    summary1.total_ts should be(0.0)
+    summary1.total_launches should be(0)
+    summary1.unique_contents_played should be(0)
+    summary1.dial_stats.total_count should be(0)
+    summary1.dial_stats.success_count should be(0)
+    summary1.dial_stats.failure_count should be(0)
+
   }
 
   override def afterAll(): Unit ={

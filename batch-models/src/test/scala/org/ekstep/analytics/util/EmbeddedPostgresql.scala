@@ -48,6 +48,28 @@ object EmbeddedPostgresql {
     execute(query)
   }
 
+  def createExperimentTable(): Boolean = {
+    val tableName: String = Constants.EXPERIMENT_DEFINITION_TABLE
+    val query =
+        s"""
+           |CREATE TABLE IF NOT EXISTS $tableName (
+           |exp_id VARCHAR(50),
+           |created_by VARCHAR(50),
+           |created_on TIMESTAMP,
+           |criteria VARCHAR(100),
+           |exp_data VARCHAR(300),
+           |exp_description VARCHAR(200),
+           |exp_name VARCHAR(50),
+           |stats VARCHAR(300),
+           |status VARCHAR(50),
+           |status_message VARCHAR(50),
+           |updated_by VARCHAR(50),
+           |updated_on TIMESTAMP,
+           |PRIMARY KEY(exp_id));
+         """.stripMargin
+    execute(query)
+  }
+
   def execute(sqlString: String): Boolean = {
     stmt.execute(sqlString)
   }

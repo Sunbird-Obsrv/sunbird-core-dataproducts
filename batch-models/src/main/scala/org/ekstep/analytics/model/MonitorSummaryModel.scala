@@ -10,9 +10,7 @@ import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.ekstep.analytics.framework.MeasuredEvent
 import org.ekstep.analytics.framework.Period._
 import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.framework.util.CommonUtil
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.framework.util.RestUtil
+import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -83,9 +81,9 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
                 val jobName = f.get("model").get.asInstanceOf[String]
                 val jobId = f.get("model_id").get.asInstanceOf[String]
                 val success = if("SUCCESS".equals(f.get("status").get.asInstanceOf[String])) 1 else 0
-                val inputCount = f.getOrElse("input_count", 0).asInstanceOf[Long]
-                val outputCount = f.getOrElse("output_count", 0).asInstanceOf[Long]
-                val timeSpent = f.getOrElse("time_taken", 0.0).asInstanceOf[Float]
+                val inputCount = f.get("input_count").get.asInstanceOf[Long]
+                val outputCount = f.get("output_count").get.asInstanceOf[Long]
+                val timeSpent = f.get("time_taken").get.asInstanceOf[Float]
                 val tag = f.get("tag").get.asInstanceOf[String]
                 MonitorMessage(jobName, jobId, success, inputCount, outputCount, timeSpent, "", tag)
             }.map(f => JSONUtils.serialize(f))
@@ -95,14 +93,11 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
 
         val messages = messageFormatToSlack(data.first(), config)
 
-        if ("true".equalsIgnoreCase(AppConf.getConfig("monitor.notification.slack"))) {
+        if ("true".equalsIgnoreCase(config.getOrElse("monitor.notification.slack", AppConf.getConfig("monitor.notification.slack")).asInstanceOf[String])) {
             for (message <- messages.split("\n\n")) {
                 val slackMessage = SlackMessage(AppConf.getConfig("monitor.notification.channel"), AppConf.getConfig("monitor.notification.name"), message);
-                try {
-                    RestUtil.post[String](AppConf.getConfig("monitor.notification.webhook_url"), JSONUtils.serialize(slackMessage));
-                } catch {
-                    case e: Exception => println("exception caught:", e.getMessage);
-                }
+                val response = RestUtil.post[String](AppConf.getConfig("monitor.notification.webhook_url"), JSONUtils.serialize(slackMessage));
+                JobLogger.log("Notification sent to slack with repsonse: " + response, None, Level.INFO)
             }
         } else {
             println(messages)
@@ -136,13 +131,11 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
 
         val modelMapping = config.get("model").get.asInstanceOf[List[AnyRef]].map { x => JSONUtils.deserialize[ModelMapping](JSONUtils.serialize(x)) }.toSet
         val consumptionJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Consumption")
-        val creationJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Creation")
-        val recommendationJobSummary = modelStats(jobSummaryCaseClass, modelMapping, "Recommendation")
         val date: String = DateTimeFormat.forPattern("yyyy-MM-dd").print(DateTime.now())
         val title = s"""*Jobs | Monitoring Report | $date*"""
         //total statistics regarding jobs
         val totalStats = s"""Number of Jobs Started: `$jobsStarted`\nNumber of Completed Jobs: `$jobsCompleted` \nNumber of Failed Jobs: `$jobsFailed` \nTotal time taken: `$totalTs`\nTotal events generated: `$totalEventsGenerated`"""
-        return title + "\n\n" + totalStats + "\n\n" + consumptionJobSummary + "\n\n" + creationJobSummary + "\n\n" + recommendationJobSummary
+        return title + "\n\n" + totalStats + "\n\n" + consumptionJobSummary
     }
 
     private def warningMessages(modelMapping: Map[String, String], models: Array[JobSummary]): String = {
@@ -173,25 +166,39 @@ object MonitorSummaryModel extends IBatchModelTemplate[V3Event, V3Event, JobMoni
     private def jobSummaryMessage(modelName: String, jobsFailed: Int, jobsCompleted: Int, warnings: String, models: String): String = {
         val header = "Model, " + "Input Events, " + "Output Events, " + "Total time(secs), " + "Status, " + "Day"
         if (jobsFailed > 0 && warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nError: ```Job Failed``` """
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nError: ```Job Failed``` """
         } else if (jobsFailed == 0 && warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\n Status: ```Job Run Completed Successfully```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\n Status: ```Job Run Completed Successfully```"""
         } else if (jobsFailed == 0 && !warnings.equals("")) {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nWarnings: ```$warnings```\nStatus: ```Job Run Completed Successfully```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nWarnings: ```$warnings```\nStatus: ```Job Run Completed Successfully```"""
         } else {
-            s"""*Number of $modelName Jobs Completed : * `$jobsCompleted` \n*Number of $modelName Jobs Failed: * `$jobsFailed`\n*Detailed Report: *\n$modelName Models:```$header\n$models```\nWarnings: ```$warnings```\n Error: ```Job Failed```"""
+            s"""*Detailed Report: *\nModels:```$header\n$models```\nWarnings: ```$warnings```\n Error: ```Job Failed```"""
         }
     }
 
+    private def jobVideoStreamingSummaryMessage(jobSummary: Array[JobSummary]): String = {
+        val header = "Model, " + "No of times started, " + "No of times completed, " + "No of times failed, " +  "Day"
+        val totalCount = jobSummary.length
+        val successCount = jobSummary.filter { x => x.status.equals("SUCCESS") }.size
+        val failedCount = jobSummary.filter { x => x.status.equals("FAILED") }.size
+        val models = ( jobSummary.head.model.trim + ", " + totalCount + ", " + successCount + ", " + failedCount + ", " + jobSummary.head.day + "\n" ).mkString("")
+        s"""* ${jobSummary.head.model} Detailed Report: *\nModels:```$header\n$models```"""
+    }
+
+
     private def modelStats(jobSummary: Array[JobSummary], modelMapping: Set[ModelMapping], category: String): String = {
-        val modelsCategoryFilter = modelMapping.filter { x => (x.category.equalsIgnoreCase(s"$category")) }
-        val modelsSet = modelsCategoryFilter.map { x => x.model }
-        val modelMappingWithInputDependency = modelsCategoryFilter.filter { x => !x.input_dependency.equals("None") }.map { x => (x.model, x.input_dependency) }.toMap
-        val filterModelsFromJobSummary = jobSummary.filter(item => modelsSet(item.model.trim()))
-        val modelsCompleted = filterModelsFromJobSummary.filter { x => x.status.equals("SUCCESS") }.size
-        val modelsFailed = filterModelsFromJobSummary.filter { x => x.status.equals("FAILED") }.size
-        val modelsWarnings = warningMessages(modelMappingWithInputDependency, filterModelsFromJobSummary)
-        val modelsString = filterModelsFromJobSummary.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
-        jobSummaryMessage(s"$category", modelsFailed, modelsCompleted, modelsWarnings, modelsString)
+        val modelMappingWithInputDependency = modelMapping.filter { x => !x.input_dependency.equals("None") }.map { x => (x.model, x.input_dependency) }.toMap
+        val videoStreamingJobs = jobSummary.filter{ f => f.model.equalsIgnoreCase("VideoStreamingJob")}
+        val otherJobs = jobSummary.filter{ f => !f.model.equalsIgnoreCase("VideoStreamingJob")}
+        val modelsCompleted = otherJobs.filter { x => x.status.equals("SUCCESS") }.size
+        val modelsFailed = otherJobs.filter { x => x.status.equals("FAILED") }.size
+        val modelsWarnings = warningMessages(modelMappingWithInputDependency, otherJobs)
+        val modelsString = otherJobs.map { x => x.model.trim() + ", " + x.input_count + ", " + x.output_count + ", " + CommonUtil.roundDouble((x.time_taken), 2) + ", " + x.status + ", " + x.day + "\n" }.mkString("")
+        val summaryMessage = jobSummaryMessage(s"$category", modelsFailed, modelsCompleted, modelsWarnings, modelsString)
+        if (videoStreamingJobs.length > 0) {
+            val videoStreamingMsg = jobVideoStreamingSummaryMessage(videoStreamingJobs)
+            s"""$summaryMessage\n\n$videoStreamingMsg"""
+        }
+        else summaryMessage
     }
 }

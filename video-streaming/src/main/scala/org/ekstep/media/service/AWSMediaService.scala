@@ -1,5 +1,6 @@
 package org.ekstep.media.service
 
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.{Date, TimeZone}
 
@@ -9,7 +10,6 @@ import org.ekstep.media.exception.MediaServiceException
 import org.ekstep.media.util.{AWSSignUtils, HttpRestUtil}
 
 import scala.collection.immutable.HashMap
-import scala.reflect.io.File
 
 /**
   *
