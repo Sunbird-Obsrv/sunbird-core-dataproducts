@@ -148,7 +148,7 @@
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
 			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>
-			<version>2.4.1</version>
+			<version>2.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.scalanlp</groupId>
@@ -193,7 +193,7 @@
 		<dependency>
 			<groupId>org.cassandraunit</groupId>
 			<artifactId>cassandra-unit</artifactId>
-			<version>3.1.1.0</version>
+			<version>4.3.1.0</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
