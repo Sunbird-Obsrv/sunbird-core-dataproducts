@@ -1,22 +1,33 @@
 package org.ekstep.analytics.job.batch
 
-import java.util.UUID
+import com.datastax.spark.connector._
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
-import org.ekstep.analytics.framework.{IJob, JobConfig, JobContext, Level}
-import org.ekstep.analytics.util.{Constants, JobRequest}
-import com.datastax.spark.connector._
+import org.ekstep.analytics.framework.{AlgoOutput, FrameworkContext, IJob, JobConfig, JobContext, Level}
+import org.ekstep.analytics.util.Constants
 import org.ekstep.media.common.{MediaRequest, MediaResponse}
 import org.ekstep.media.service.impl.MediaServiceFactory
+
+import java.text.SimpleDateFormat
+import java.util.{Date, UUID}
 import scala.collection.immutable.HashMap
-import org.ekstep.analytics.util.JobStage
-import scala.reflect.ManifestFactory.classType
-import scala.reflect.api.materializeTypeTag
-import org.ekstep.analytics.framework.FrameworkContext
+
+/* Job Request & Data Exhaust */
 
 object VideoStreamingJob extends optional.Application with IJob {
+
+  val formatter: SimpleDateFormat  = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+  val date: Date = new Date();
+  case class JobStage(request_id: String, client_key: String, stage: String, stage_status: String, status: String, err_message: String = "", dt_job_processing: Option[java.util.Date] = Option(date))
+
+  case class JobRequest(client_key: String, request_id: String, job_id: Option[String], status: String, request_data: String,
+                        location: Option[String], dt_file_created: Option[java.util.Date], dt_first_event: Option[java.util.Date], dt_last_event: Option[java.util.Date],
+                        dt_expiration: Option[java.util.Date], iteration: Option[Int], dt_job_submitted: java.util.Date, dt_job_processing: Option[java.util.Date],
+                        dt_job_completed: Option[java.util.Date], input_events: Option[Long], output_events: Option[Long], file_size: Option[Long], latency: Option[Int],
+                        execution_time: Option[Long], err_message: Option[String], stage: Option[String], stage_status: Option[String], job_name: Option[String] = None) extends AlgoOutput
+
 
   // $COVERAGE-OFF$ Disabling scoverage as the below code has no test cases
   implicit val className = "org.ekstep.analytics.job.VideoStreamingJob"
@@ -64,7 +75,11 @@ object VideoStreamingJob extends optional.Application with IJob {
             null;
           }
       } catch {
-          case t: Throwable => null;
+          case t: Throwable => {
+            t.printStackTrace()
+            JobLogger.log("Error while fetching request" + t.getMessage, None, Level.INFO)
+            null
+          };
       }
   }
 
