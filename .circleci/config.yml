@@ -1,7 +1,8 @@
 version: 2.1
 jobs:
   analytics-core-dp-build:
-    machine: true
+    machine:
+      image: ubuntu-2004:202008-01
     steps:
     - checkout
     - run:
@@ -18,7 +19,7 @@ jobs:
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
-    - run: cd sunbird-analytics-core && mvn install -DskipTests
+    - run: cd sunbird-analytics-core && export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && echo $(java -version) && mvn install -DskipTests
     - run:
         name: data-products-build
         command: mvn scoverage:report
@@ -28,6 +29,7 @@ jobs:
     - run:
         name: sonar
         command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
           mvn -X sonar:sonar -Dsonar.projectKey=project-sunbird_sunbird-core-dataproducts -Dsonar.organization=project-sunbird -Dsonar.exclusions=video-streaming/**,optional-master/**,batch-models/src/main/scala/org/ekstep/analytics/job/batch/VideoStreamingJob.scala -Dsonar.host.url=https://sonarcloud.io -Dsonar.scala.coverage.reportPaths=/home/circleci/project/target/scoverage.xml
 
 workflows:
