@@ -19,7 +19,12 @@ jobs:
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
-    - run: cd sunbird-analytics-core && export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && echo $(java -version) && mvn install -DskipTests
+    - run:
+        name: Build analytics-core dependency jar
+        command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          cd sunbird-analytics-core && mvn install -DskipTests
     - run:
         name: data-products-build
         command: |
