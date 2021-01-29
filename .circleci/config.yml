@@ -22,7 +22,10 @@ jobs:
     - run: cd sunbird-analytics-core && export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64 && export PATH=$JAVA_HOME/bin:$PATH && echo $(java -version) && mvn install -DskipTests
     - run:
         name: data-products-build
-        command: mvn scoverage:report
+        command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          mvn scoverage:report
     - save_cache:
         key: dp-dependency-cache-{{ checksum "pom.xml" }}
         paths: ~/.m2
