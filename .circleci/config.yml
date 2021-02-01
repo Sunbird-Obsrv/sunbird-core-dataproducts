@@ -29,9 +29,11 @@ jobs:
             branchExists=$(git branch --list $target_branch)
             echo $branchExists
             if [ -z ${branchExists} ]; then
+               echo "else-if"
                git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
             else
                git clone https://github.com/project-sunbird/sunbird-analytics-core.git
+               echo "else-else"
                latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
                echo $latest_branch
                cd sunbird-analytics-core && git checkout $latest_branch
