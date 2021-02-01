@@ -9,17 +9,28 @@ jobs:
         command: |
           if [ -z $CIRCLE_PR_NUMBER ]; then
             target_branch=$CIRCLE_BRANCH
-            git clone https://github.com/project-sunbird/sunbird-analytics-core.git
-            latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate refs/remotes --format='%(refname:short)' | head -1)
-            echo $latest_branch
-            cd sunbird-analytics-core && git checkout $latest_branch
+            branchExists=$(git branch --list $target_branch)
+            if [ -z ${branchExists} ]; then
+               git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
+            else
+               git clone https://github.com/project-sunbird/sunbird-analytics-core.git
+               latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
+               echo $latest_branch
+               cd sunbird-analytics-core && git checkout $latest_branch
+            fi
           else
             prdata=$(curl -X GET -u $GITHUB_USER_TOKEN:x-oauth-basic https://api.github.com/repos/project-sunbird/sunbird-core-dataproducts/pulls/$CIRCLE_PR_NUMBER)
             target_branch=$(echo "${prdata}" | jq -r '.base.ref')
-            git clone https://github.com/project-sunbird/sunbird-analytics-core.git
-            latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate refs/remotes --format='%(refname:short)' | head -1)
-            echo $latest_branch
-            cd sunbird-analytics-core && git checkout $latest_branch
+            branchExists=$(git branch --list $target_branch)
+            echo $branchExists
+            if [ -z ${branchExists} ]; then
+               git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
+            else
+               git clone https://github.com/project-sunbird/sunbird-analytics-core.git
+               latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
+               echo $latest_branch
+               cd sunbird-analytics-core && git checkout $latest_branch
+            fi
           fi
     - restore_cache:
         keys: 
