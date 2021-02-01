@@ -12,7 +12,7 @@ jobs:
             echo "if"
             echo $target_branch
             git clone https://github.com/project-sunbird/sunbird-analytics-core.git
-            branchExists=$(cd sunbird-analytics-core && git branch --list $target_branch)
+            branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
             echo $branchExists
             if [ -z ${branchExists} ]; then
                latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
@@ -27,7 +27,7 @@ jobs:
             echo "else"
             echo $target_branch
             git clone https://github.com/project-sunbird/sunbird-analytics-core.git
-            branchExists=$(cd sunbird-analytics-core && git branch --list $target_branch)
+            branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
             echo $branchExists
             if [ -z ${branchExists} ]; then
                echo "else-if"
