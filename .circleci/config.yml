@@ -26,8 +26,8 @@ jobs:
             target_branch=$(echo "${prdata}" | jq -r '.base.ref')
             echo "else"
             echo $target_branch
-            git branch --list $target_branch
-            branchExists=$(git branch --list $target_branch)
+            cd sunbird-analytics-core && git branch --list $target_branch
+            branchExists=$(cd sunbird-analytics-core && git branch --list $target_branch)
             echo $branchExists
             if [ -z ${branchExists} ]; then
                echo "else-if"
