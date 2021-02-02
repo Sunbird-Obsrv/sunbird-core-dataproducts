@@ -31,15 +31,7 @@ object DruidQueryUtil {
         import sqlContext.implicits._
         val locationUrl = AppConf.getConfig("location.search.url")
         val headers = Map("Authorization" -> AppConf.getConfig("location.search.token"))
-        val request =
-            s"""
-               |{
-               |  "request": {
-               |    "filters": {},
-               |    "limit": 10000
-               |  }
-               |}
-               """.stripMargin
+        val request = AppConf.getConfig("location.search.request")
         val response = restUtil.post[LocationResponse](locationUrl, request, Option(headers))
         val stateLookup = getStateLookup(restUtil)
         val masterDf = if (null != response && !stateLookup.isEmpty) {

@@ -3,7 +3,7 @@ package org.ekstep.analytics.util
 import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
+import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils, RestUtil}
 import org.ekstep.analytics.model.SparkSpec
 import org.scalamock.scalatest.MockFactory
 
@@ -14,15 +14,7 @@ class TestDruidQueryUtil extends SparkSpec with MockFactory {
 
     it should "test the valid locations" in {
         val mockRestUtil = mock[HTTPClient]
-        val request =
-            s"""
-               |{
-               |  "request": {
-               |    "filters": {},
-               |    "limit": 10000
-               |  }
-               |}
-               """.stripMargin
+        val request ="{\"request\": {\"filters\": {\"type\" :[\"state\",\"district\"]},\"limit\" : 10000}}"
         val response =
             s"""{
     "id": "api.location.search",
