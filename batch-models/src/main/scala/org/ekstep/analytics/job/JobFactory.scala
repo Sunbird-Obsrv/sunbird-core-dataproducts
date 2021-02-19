@@ -36,6 +36,8 @@ object JobFactory {
         EventsReplayJob
       case "summary-replay" =>
         EventsReplayJob
+      case "cassandra-migrator" =>
+        CassandraMigratorJob
       case "content-rating-updater" =>
         ContentRatingUpdater
       case "experiment" =>
