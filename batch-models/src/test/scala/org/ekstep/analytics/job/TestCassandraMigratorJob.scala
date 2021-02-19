@@ -8,7 +8,7 @@ class TestCassandraMigratorJob extends SparkSpec with Matchers {
 
   val config ="{\"search\":{\"type\":\"none\"},\"model\":\"org.ekstep.analytics.job.CassandraMigratorJob\",\"modelParams\":{\"cassandraDataHost\":\"127.0.0.1\",\"cassandraDataPort\":\"9142\",\"cassandraMigrateHost\":\"127.0.0.1\",\"cassandraMigratePort\":\"9142\",\"keyspace\":\"test_keyspace\",\"table\":\"user_enrolment_test\"},\"output\":[{\"to\":\"console\",\"params\":{\"printEvent\":false}}],\"parallelization\":10,\"appName\":\"Cassandra Migrator\",\"deviceMapping\":false}"
   override def beforeAll: Unit = {
-    EmbeddedCassandra.loadData("batch-models/src/test/resources/cassandra-migrator/data.cql") // Load test data in embedded cassandra server
+    EmbeddedCassandra.loadData("src/test/resources/cassandra-migrator/data.cql") // Load test data in embedded cassandra server
   }
   override def afterAll() {
     EmbeddedCassandra.close()
