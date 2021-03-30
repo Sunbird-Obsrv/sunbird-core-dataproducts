@@ -54,16 +54,16 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc));
     }
 
-    "DruidQueryProcessor" should "test cluster implementation" in {
+    "DruidQueryProcessor" should "test batch implementation" in {
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", Option("day"), Option(List(Aggregation(Option("total_scans"), "count", "count"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", Option("all"), Option(List(Aggregation(Option("total_sessions"), "count", "count"),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
         val reportConfig = ReportConfig("usage_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("all")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), collection.mutable.LinkedHashMap("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"))))
-        val modelParams = Map("mode"-> "cluster","modelName" -> "UsageMetrics", "reportConfig" -> reportConfig, "bucket" -> "test-container", "key" -> "druid-reports/", "filePath" -> "src/test/resources/")
+        val modelParams = Map("mode"-> "batch","modelName" -> "UsageMetrics", "reportConfig" -> reportConfig, "bucket" -> "test-container", "key" -> "druid-reports/", "filePath" -> "src/test/resources/")
         val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.model.DruidQueryProcessingModel", Option(modelParams), Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestDruidQueryProcessor"), Option(true))
         DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc))
     }
 
-    "DruidQueryProcessor" should "test cluster implementation with batch" in {
+    "DruidQueryProcessor" should "test batch implementation with batch" in {
         implicit val fc = mock[FrameworkContext]
         import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -87,7 +87,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
         val reportConfig = ReportConfig("consumption_usage_metrics", "groupBy", QueryDateRange(Option(QueryInterval("2020-01-01", "2020-01-07")), None, Option("day")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), LinkedHashMap("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans"), List("date"), List("id", "dims"))), Option(ReportMergeConfig(Some("local"),"DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
         val strConfig = JSONUtils.serialize(reportConfig)
-        val modelParams = Map("batchNumber"-> Some(1), "mode"-> "cluster","reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports_main/")
+        val modelParams = Map("batchNumber"-> Some(1), "mode"-> "batch","reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports_main/")
         val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.model.DruidQueryProcessingModel", Option(modelParams), Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestDruidQueryProcessor"), Option(true))
             val result =DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc),Option(fc));
 

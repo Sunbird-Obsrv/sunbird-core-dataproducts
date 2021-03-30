@@ -30,7 +30,7 @@ object DruidQueryProcessor  extends optional.Application with IJob {
         modelParams("mode") match {
             case "standalone" =>
                 JobDriver.run("batch", config, DruidQueryProcessingModel);
-            case "cluster" =>
+            case "batch" =>
                  val reportConfig = getReportConfigs(modelParams.get("batchNumber")).collect().map(f=>{
 
                      val config = JSONUtils.deserialize[Map[String,AnyRef]](f.config)
@@ -64,7 +64,7 @@ object DruidQueryProcessor  extends optional.Application with IJob {
             CommonUtil.getPostgresConnectionProps()).as[ReportRequest](encoder)
         val requestsDf = configDf.filter(report=> {
             report.report_schedule.toUpperCase() match {
-                    case "DAILY" => true
+                case "DAILY" => true
                 case "WEEKLY" => if(date.dayOfWeek().get() ==1) true else false
                 case "MONTHLY" => if(date.dayOfMonth().get() == 1) true else false
                 case "ONCE" => true

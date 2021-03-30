@@ -543,15 +543,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
   it should "test report output config " in {
     implicit val sqlContext = new SQLContext(sc)
     val mockRestUtil = mock[HTTPClient]
-    val request =
-      s"""
-         |{
-         |  "request": {
-         |    "filters": {},
-         |    "limit": 10000
-         |  }
-         |}
-               """.stripMargin
+    val request ="{\"request\": {\"filters\": {\"type\" :[\"state\",\"district\"]},\"limit\" : 10000}}"
     val response =
       s"""{
     "id": "api.location.search",
