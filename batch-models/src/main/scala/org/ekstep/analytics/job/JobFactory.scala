@@ -6,13 +6,11 @@ import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.exception.JobNotFoundException
 import org.ekstep.analytics.job.batch.VideoStreamingJob
 import org.ekstep.analytics.job.metrics.MetricsAuditJob
-import org.ekstep.analytics.job.summarizer.DeviceSummarizer
 import org.ekstep.analytics.job.summarizer.DruidQueryProcessor
 import org.ekstep.analytics.job.summarizer.ExperimentDefinitionJob
 import org.ekstep.analytics.job.summarizer.MonitorSummarizer
 import org.ekstep.analytics.job.summarizer.WorkFlowSummarizer
 import org.ekstep.analytics.job.updater.ContentRatingUpdater
-import org.ekstep.analytics.job.updater.DeviceProfileUpdater
 
 /**
  * @author Santhosh
