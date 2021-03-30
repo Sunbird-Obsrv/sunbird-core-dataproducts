@@ -24,10 +24,6 @@ object JobFactory {
         MonitorSummarizer
       case "wfs" =>
         WorkFlowSummarizer
-      case "ds" =>
-        DeviceSummarizer
-      case "dpu" =>
-        DeviceProfileUpdater
       case "video-streaming" =>
         VideoStreamingJob
       case "telemetry-replay" =>
@@ -38,14 +34,6 @@ object JobFactory {
         ContentRatingUpdater
       case "experiment" =>
         ExperimentDefinitionJob
-      case "daily-metrics" =>
-        DruidQueryProcessor
-      case "desktop-consumption-report" =>
-        DruidQueryProcessor
-      case "district-monthly" =>
-        DruidQueryProcessor
-      case "district-weekly" =>
-        DruidQueryProcessor
       case "audit-metrics-report" =>
         MetricsAuditJob
       case "druid_reports" =>
