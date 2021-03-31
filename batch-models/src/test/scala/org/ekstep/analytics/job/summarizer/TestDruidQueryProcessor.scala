@@ -41,7 +41,18 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
       ('district_monthly', '${new Date()}', 'District Weekly Description',
         'User1','Monthly' , '{"reportConfig":{"id":"district_monthly","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
         '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
-
+      EmbeddedPostgresql.execute(
+        s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
+      report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
+      ('report_once', '${new Date()}', 'District Weekly Description',
+        'User1','Once' , '{"reportConfig":{"id":"invalid_report","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
+      EmbeddedPostgresql.execute(
+        s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
+      report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
+      ('invalid_report', '${new Date()}', 'District Weekly Description',
+        'User1','Test' , '{"reportConfig":{"id":"invalid_report","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
     }
 
     override def afterAll(): Unit ={
@@ -100,9 +111,9 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
     val date =new time.DateTime("2021-03-20")
     implicit val sqlContext = new SQLContext(sc)
     val df = DruidQueryProcessor.getReportConfigs(None,date.withDayOfWeek(1))(sqlContext)
-    df.count() should be (2)
+    df.count() should be (3)
     val df1 = DruidQueryProcessor.getReportConfigs(None,date.withDayOfMonth(1))(sqlContext)
-    df1.count() should be (3)
+    df1.count() should be (4)
 
   }
 }
