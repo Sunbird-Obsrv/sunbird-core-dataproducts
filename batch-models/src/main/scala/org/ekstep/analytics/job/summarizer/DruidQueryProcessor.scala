@@ -13,7 +13,6 @@ import org.ekstep.analytics.util.Constants
 import org.joda.time
 import org.joda.time.DateTime
 
-import scala.collection.immutable.List
 
 
 case class ReportRequest(report_id: String, report_schedule: String, config: String, status: String)
@@ -24,6 +23,7 @@ object DruidQueryProcessor extends optional.Application with IJob {
   implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
 
   def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
+    val jobName= "DruidQueryProcessor"
     implicit val sparkContext: SparkContext = sc.getOrElse(CommonUtil.getSparkContext(200, "DruidReports"))
     implicit val frameworkContext: FrameworkContext = fc.getOrElse({
       val storageKey = "azure_storage_key"
@@ -31,13 +31,14 @@ object DruidQueryProcessor extends optional.Application with IJob {
       CommonUtil.getFrameworkContext(Option(Array((AppConf.getConfig("cloud_storage_type"), storageKey, storageSecret))))
     })
     implicit val sqlContext: SQLContext = new SQLContext(sparkContext)
-    JobLogger.start("Started executing Job")
     implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
     val modelParams = jobConfig.modelParams.getOrElse(Map[String, Option[AnyRef]]())
     modelParams("mode") match {
       case "standalone" =>
         JobDriver.run("batch", config, DruidQueryProcessingModel);
       case "batch" =>
+        JobLogger.init(jobName)
+        JobLogger.start(jobName + " Started executing")
         val result = CommonUtil.time(
           {
             val date = new time.DateTime()
@@ -45,20 +46,16 @@ object DruidQueryProcessor extends optional.Application with IJob {
               val config = JSONUtils.deserialize[Map[String, AnyRef]](f.config)
               (f.report_id, config)
             })
-            val status = reportConfig.map({ case (reportId, config) => {
+            val status = reportConfig.map({ case (reportId, config) =>
               try {
-                DruidQueryProcessingModel.preProcess(null, config)
-                val reportDf = DruidQueryProcessingModel.algorithm(null, config)
-                DruidQueryProcessingModel.postProcess(reportDf, config)
-                  ReportStatus(reportId,"Success")
+                DruidQueryProcessingModel.execute(null,Some(config))
+                ReportStatus(reportId,"Success")
               }
               catch {
                 case ex: Exception =>
                     JobLogger.log(reportId + " report Failed with error: " + ex.printStackTrace(), None, Level.INFO)
                     ReportStatus(reportId,"Failed")
               }
-            }
-
             })
             status
           }
@@ -71,8 +68,11 @@ object DruidQueryProcessor extends optional.Application with IJob {
           val metricEvent = getMetricJson("DruidReports", Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
           if (AppConf.getConfig("push.metrics.kafka").toBoolean)
               KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
+        JobLogger.end(jobName + " Completed successfully!", "SUCCESS", Option(Map("model" -> jobName,
+          "TotalRequests" -> finalStatus.length,
+          "SuccessRequests" -> finalStatus.count(x => x.status.toUpperCase() == "SUCCESS")),
+          "FailedRequests" -> finalStatus.count(x => x.status.toUpperCase() == "FAILED")))
     }
-    JobLogger.end("Job Completed.", "SUCCESS")
   }
 
   def getReportConfigs(batchNumber: Option[AnyRef], date: DateTime)(implicit sqlContext: SQLContext): Dataset[ReportRequest] = {

@@ -27,7 +27,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
             s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
       report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
       ('district_daily', '${new Date()}', 'District Weekly Description',
-        'User1','Daily' , '{"reportConfig":{"id":"district_daily","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        'User1','Daily' , '{"reportConfig":{"id":"district_daily","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports1/"}',
         '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
       EmbeddedPostgresql.execute(
         s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
@@ -104,7 +104,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         val strConfig = JSONUtils.serialize(reportConfig)
         val modelParams = Map("batchNumber"-> Some(1), "mode"-> "batch","reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports_main/")
         val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.model.DruidQueryProcessingModel", Option(modelParams), Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestDruidQueryProcessor"), Option(true))
-            val result =DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc),Option(fc));
+            DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc),Option(fc))
 
     }
   "DruidQueryProcessor" should "test the report conditions" in {
