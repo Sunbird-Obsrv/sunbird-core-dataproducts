@@ -16,71 +16,83 @@ import org.joda.time.DateTime
 import scala.collection.immutable.List
 
 
-case class ReportRequest( report_id:String, report_schedule: String ,config : String,status: String,batch_number: Int)
-object DruidQueryProcessor  extends optional.Application with IJob {
+case class ReportRequest(report_id: String, report_schedule: String, config: String, status: String)
+case class ReportStatus(reportId: String, status:String)
 
-    implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
+object DruidQueryProcessor extends optional.Application with IJob {
 
-    def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
-        implicit val sparkContext: SparkContext = sc.getOrElse(CommonUtil.getSparkContext(200,"DruidReports"))
-        implicit val frameworkContext : FrameworkContext = fc.getOrElse({
-            val storageKey =  "azure_storage_key"
-            val storageSecret = "azure_storage_secret"
-            CommonUtil.getFrameworkContext(Option(Array((AppConf.getConfig("cloud_storage_type"), storageKey, storageSecret))))
-        })
-        implicit val sqlContext: SQLContext = new SQLContext(sparkContext)
-        JobLogger.log("Started executing Job")
-        implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
-        val modelParams = jobConfig.modelParams.getOrElse(Map[String, Option[AnyRef]]())
-        modelParams("mode") match {
-            case "standalone" =>
-                JobDriver.run("batch", config, DruidQueryProcessingModel);
-            case "batch" =>
-                val date =new time.DateTime()
-                 val reportConfig = getReportConfigs(modelParams.get("batchNumber"),date).collect().map(f=>{
+  implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
 
-                     val config = JSONUtils.deserialize[Map[String,AnyRef]](f.config)
-                     DruidQueryProcessingModel.preProcess(null,config)
-                     (f.report_id,config)
-
-                 })
-                reportConfig.foreach({case (reportId, config)=>{
-                try {
-                    val reportDf = DruidQueryProcessingModel.algorithm(null,config)
-                    DruidQueryProcessingModel.postProcess(reportDf, config)
-                }
-                catch{
-                    case ex : Exception =>
-                        val metrics = List(Map("id" -> "Error", "value" -> ex.getMessage))
-                        val metricEvent = getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "FAILED", metrics)
-                        if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-                            KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
-                        JobLogger.log(reportId+" report Failed with error: " + ex.printStackTrace(), None, Level.INFO)
-                }
-            }})
-        }
-
-        JobLogger.log("Job Completed.")
-    }
-        def getReportConfigs(batchNumber: Option[AnyRef], date:DateTime)(implicit sqlContext:SQLContext): Dataset[ReportRequest] =
-    {
-        val encoder = Encoders.product[ReportRequest]
-
-        val url = String.format("%s%s", AppConf.getConfig("postgres.url") , AppConf.getConfig("postgres.db"))
-        val configDf= sqlContext.read.jdbc(url, Constants.DRUID_REPORT_CONFIGS_DEFINITION_TABLE,
-            CommonUtil.getPostgresConnectionProps()).as[ReportRequest](encoder)
-        val requestsDf = configDf.filter(report=> {
-            report.report_schedule.toUpperCase() match {
-                case "DAILY" => true
-                case "WEEKLY" => if(date.dayOfWeek().get() ==1) true else false
-                case "MONTHLY" => if(date.dayOfMonth().get() == 1) true else false
-                case "ONCE" => true
-                case _ => false
+  def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
+    implicit val sparkContext: SparkContext = sc.getOrElse(CommonUtil.getSparkContext(200, "DruidReports"))
+    implicit val frameworkContext: FrameworkContext = fc.getOrElse({
+      val storageKey = "azure_storage_key"
+      val storageSecret = "azure_storage_secret"
+      CommonUtil.getFrameworkContext(Option(Array((AppConf.getConfig("cloud_storage_type"), storageKey, storageSecret))))
+    })
+    implicit val sqlContext: SQLContext = new SQLContext(sparkContext)
+    JobLogger.start("Started executing Job")
+    implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
+    val modelParams = jobConfig.modelParams.getOrElse(Map[String, Option[AnyRef]]())
+    modelParams("mode") match {
+      case "standalone" =>
+        JobDriver.run("batch", config, DruidQueryProcessingModel);
+      case "batch" =>
+        val result = CommonUtil.time(
+          {
+            val date = new time.DateTime()
+            val reportConfig = getReportConfigs(modelParams.get("batchNumber"), date).collect().map(f => {
+              val config = JSONUtils.deserialize[Map[String, AnyRef]](f.config)
+              (f.report_id, config)
+            })
+            val status = reportConfig.map({ case (reportId, config) => {
+              try {
+                DruidQueryProcessingModel.preProcess(null, config)
+                val reportDf = DruidQueryProcessingModel.algorithm(null, config)
+                DruidQueryProcessingModel.postProcess(reportDf, config)
+                  ReportStatus(reportId,"Success")
+              }
+              catch {
+                case ex: Exception =>
+                    JobLogger.log(reportId + " report Failed with error: " + ex.printStackTrace(), None, Level.INFO)
+                    ReportStatus(reportId,"Failed")
+              }
             }
-        }).filter(f => f.status.toUpperCase.equalsIgnoreCase("ACTIVE"))
-        if(batchNumber.isDefined)
-            requestsDf.filter(col("batch_number").equalTo(batchNumber.get.asInstanceOf[Int]))
-        else
-            requestsDf
+
+            })
+            status
+          }
+        )
+          val finalStatus = result._2
+          val metrics = List(Map("id" -> "total-requests", "value" -> Some(finalStatus.length)),
+              Map("id" -> "success-requests", "value" -> Some(finalStatus.count(x => x.status.toUpperCase() == "SUCCESS"))),
+              Map("id" -> "failed-requests", "value" -> Some(finalStatus.count(x => x.status.toUpperCase() == "FAILED"))),
+              Map("id" -> "time-taken-secs", "value" -> Double.box(result._1 / 1000).asInstanceOf[AnyRef]))
+          val metricEvent = getMetricJson("DruidReports", Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
+          if (AppConf.getConfig("push.metrics.kafka").toBoolean)
+              KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
     }
+    JobLogger.end("Job Completed.", "SUCCESS")
+  }
+
+  def getReportConfigs(batchNumber: Option[AnyRef], date: DateTime)(implicit sqlContext: SQLContext): Dataset[ReportRequest] = {
+    val encoder = Encoders.product[ReportRequest]
+
+    val url = String.format("%s%s", AppConf.getConfig("postgres.url"), AppConf.getConfig("postgres.db"))
+    val configDf = sqlContext.read.jdbc(url, Constants.DRUID_REPORT_CONFIGS_DEFINITION_TABLE,
+      CommonUtil.getPostgresConnectionProps()).as[ReportRequest](encoder)
+    val requestsDf = configDf.filter(report => {
+      report.report_schedule.toUpperCase() match {
+        case "DAILY" => true
+        case "WEEKLY" => if (date.dayOfWeek().get() == 1) true else false
+        case "MONTHLY" => if (date.dayOfMonth().get() == 1) true else false
+        case "ONCE" => true
+        case _ => false
+      }
+    }).filter(f => f.status.toUpperCase.equalsIgnoreCase("ACTIVE"))
+    if (batchNumber.isDefined)
+      requestsDf.filter(col("batch_number").equalTo(batchNumber.get.asInstanceOf[Int]))
+    else
+      requestsDf
+  }
 }

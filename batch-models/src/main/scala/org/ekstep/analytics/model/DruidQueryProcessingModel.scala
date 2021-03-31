@@ -9,8 +9,6 @@ import org.apache.spark.util.LongAccumulator
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
-import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
-import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -129,10 +127,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
       //Using foreach as parallel execution might conflict with local file path
-      val accumulator = sc.longAccumulator("DruidReportCount")
+      val dataCount = sc.longAccumulator("DruidReportCount")
       reportConfig.output.foreach { f =>
-        val df = getReportDF(RestUtil,f,data,accumulator).na.fill(0)
-        if (accumulator.value > 0) {
+        val df = getReportDF(RestUtil,f,data,dataCount).na.fill(0)
+        if (dataCount.value > 0) {
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
@@ -140,29 +138,26 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
         saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`))
+          JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
           JobLogger.log("No data found from druid", None, Level.INFO)
         }
       }
-    val metrics = List(Map("id" -> "Total-Records", "value" -> accumulator.value))
-    val metricEvent = getMetricJson(reportConfig.id, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
-    if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
     data
     }
 
-  def getReportDF(restUtil: HTTPClient, config: OutputConfig, data: RDD[DruidOutput] , accumulator: LongAccumulator)(implicit sc:SparkContext, sqlContext: SQLContext): DataFrame =
+  def getReportDF(restUtil: HTTPClient, config: OutputConfig, data: RDD[DruidOutput] , dataCount: LongAccumulator)(implicit sc:SparkContext, sqlContext: SQLContext): DataFrame =
   {
     if (config.locationMapping.getOrElse(false)) {
       DruidQueryUtil.removeInvalidLocations(sqlContext.read.json(data.map(f => {
-        accumulator.add(1)
+        dataCount.add(1)
         JSONUtils.serialize(f)
       })),
         DruidQueryUtil.getValidLocations(restUtil), List("state", "district"))
     } else
       sqlContext.read.json(data.map(f => {
-        accumulator.add(1)
+        dataCount.add(1)
         JSONUtils.serialize(f)
       }))
   }
