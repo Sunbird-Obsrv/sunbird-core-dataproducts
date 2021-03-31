@@ -4,10 +4,12 @@ import ing.wbaa.druid.client.DruidClient
 import ing.wbaa.druid._
 import io.circe.Json
 import io.circe.parser._
+import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.model.{SparkSpec, _}
 import org.ekstep.analytics.util.EmbeddedPostgresql
+import org.joda.time
 import org.scalamock.scalatest.MockFactory
 
 import java.time.{ZoneOffset, ZonedDateTime}
@@ -24,8 +26,20 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         EmbeddedPostgresql.execute(
             s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
       report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
+      ('district_daily', '${new Date()}', 'District Weekly Description',
+        'User1','Daily' , '{"reportConfig":{"id":"district_daily","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
+      EmbeddedPostgresql.execute(
+        s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
+      report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
       ('district_weekly', '${new Date()}', 'District Weekly Description',
-        'User1','Daily' , '{"reportConfig":{"id":"district_weekly","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        'User1','Weekly' , '{"reportConfig":{"id":"district_weekly","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
+        '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
+      EmbeddedPostgresql.execute(
+        s"""insert into local_report_config (report_id, updated_on, report_description, requested_by,
+      report_schedule, config, created_on, submitted_on, status, status_msg,"batch_number") values
+      ('district_monthly', '${new Date()}', 'District Weekly Description',
+        'User1','Monthly' , '{"reportConfig":{"id":"district_monthly","queryType":"groupBy","dateRange":{"staticInterval":"LastMonth","granularity":"all"},"metrics":[{"metric":"totalUniqueDevices","label":"Total Unique Devices","druidQuery":{"queryType":"groupBy","dataSource":"telemetry-events","intervals":"LastMonth","aggregations":[{"name":"total_scans","type":"cardinality","fieldName":"context_did"}],"dimensions":[{"fieldName":"derived_loc_state","aliasName":"state"}],"filters":[{"type":"in","dimension":"context_pdata_id","values":["__producerEnv__.diksha.portal","__producerEnv__.diksha.app"]},{"type":"isnotnull","dimension":"derived_loc_state"},{"type":"isnotnull","dimension":"derived_loc_district"}],"descending":"false"}}],"labels":{"state":"State"},"output":[{"type":"csv","metrics":["total_scans"],"dims":["state"],"fileParameters":["id","dims"]}]},"store":"__store__","container":"__container__","key":"druid-reports/"}',
         '${new Date()}', '${new Date()}' ,'ACTIVE', 'Report Updated','1')""")
 
     }
@@ -92,4 +106,13 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
             val result =DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc),Option(fc));
 
     }
+  "DruidQueryProcessor" should "test the report conditions" in {
+    val date =new time.DateTime("2021-03-20")
+    implicit val sqlContext = new SQLContext(sc)
+    val df = DruidQueryProcessor.getReportConfigs(None,date.withDayOfWeek(1))(sqlContext)
+    df.count() should be (2)
+    val df1 = DruidQueryProcessor.getReportConfigs(None,date.withDayOfMonth(1))(sqlContext)
+    df1.count() should be (3)
+
+  }
 }

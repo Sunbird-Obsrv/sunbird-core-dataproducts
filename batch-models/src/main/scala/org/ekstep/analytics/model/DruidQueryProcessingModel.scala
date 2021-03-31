@@ -9,6 +9,8 @@ import org.apache.spark.util.LongAccumulator
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -16,6 +18,7 @@ import org.ekstep.analytics.framework.util._
 import org.ekstep.analytics.util.DruidQueryUtil
 import org.joda.time.{DateTime, DateTimeZone}
 
+import scala.collection.immutable.List
 import scala.collection.mutable.LinkedHashMap
 
 case class ReportMergeConfig(`type`:Option[String]=None, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
@@ -137,11 +140,15 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
         saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`))
-      }
+        }
         else {
           JobLogger.log("No data found from druid", None, Level.INFO)
         }
       }
+    val metrics = List(Map("id" -> "Total-Records", "value" -> accumulator.value))
+    val metricEvent = getMetricJson(reportConfig.id, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
+    if (AppConf.getConfig("push.metrics.kafka").toBoolean)
+      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
     data
     }
 
