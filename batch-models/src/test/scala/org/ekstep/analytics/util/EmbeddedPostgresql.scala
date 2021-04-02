@@ -70,6 +70,25 @@ object EmbeddedPostgresql {
     execute(query)
   }
 
+  def createReportConfigTable(): Boolean = {
+    val tableName: String = Constants.DRUID_REPORT_CONFIGS_DEFINITION_TABLE
+    val query=
+      s"""CREATE TABLE IF NOT EXISTS $tableName(
+         |report_id text,
+         |updated_on timestamptz,
+         |report_description text,
+         |requested_by text,
+         |report_schedule text,
+         |config json,
+         |created_on timestamptz,
+         |submitted_on timestamptz,
+         |status text,
+         |status_msg text,
+         |batch_number int,
+         |PRIMARY KEY(report_id))""".stripMargin
+         execute(query)
+  }
+
   def execute(sqlString: String): Boolean = {
     stmt.execute(sqlString)
   }
