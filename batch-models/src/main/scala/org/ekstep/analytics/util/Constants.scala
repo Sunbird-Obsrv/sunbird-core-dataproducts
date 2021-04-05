@@ -20,6 +20,7 @@ object Constants {
     val DEVICE_PROFILE_TABLE = env+"device_profile";
     val EXPERIMENT_DEFINITION_TABLE = env+"experiment_definition";
     val DIALCODE_USAGE_METRICS_TABLE = "dialcode_usage_metrics"
+    val DRUID_REPORT_CONFIGS_DEFINITION_TABLE = env+"report_config";
 
     val DEFAULT_APP_ID = "EkstepPortal";
 

@@ -1,34 +1,33 @@
 package org.ekstep.analytics.model
 
-import akka.actor.ActorSystem
+
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SQLContext}
-import org.ekstep.analytics.framework.Level.{ERROR, INFO}
+import org.apache.spark.util.LongAccumulator
+import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.dispatcher.ScriptDispatcher
+import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.exception.DruidConfigException
-import org.ekstep.analytics.framework.fetcher.{AkkaHttpUtil, DruidDataFetcher}
+import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.ekstep.analytics.framework.util.{JSONUtils, JobLogger, RestUtil}
+import org.ekstep.analytics.framework.util._
 import org.ekstep.analytics.util.DruidQueryUtil
 import org.joda.time.{DateTime, DateTimeZone}
-import org.sunbird.cloud.storage.conf.AppConf
-import collection.mutable.LinkedHashMap
 
+import scala.collection.immutable.List
+import scala.collection.mutable.LinkedHashMap
+
+case class ReportMergeConfig(`type`:Option[String]=None, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
+                       reportPath: String, postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: LinkedHashMap[String, String], output: List[OutputConfig],
-                        mergeConfig: Option[MergeConfig] = None, storageKey: Option[String] = Option(AppConf.getConfig("storage.key.config")),
+                        mergeConfig: Option[ReportMergeConfig] = None, storageKey: Option[String] = Option(AppConf.getConfig("storage.key.config")),
                         storageSecret: Option[String] = Option(AppConf.getConfig("storage.secret.config")))
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Int = 0)
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
 case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"), locationMapping: Option[Boolean] = Option(false))
-case class MergeConfig(frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                       reportPath: String, postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
-case class MergeScriptConfig(id: String, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                             merge: MergeFiles, container: String, postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
-case class MergeFiles(files: List[Map[String, String]], dims: List[String])
 
 
 
@@ -36,6 +35,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
   implicit val className: String = "org.ekstep.analytics.model.DruidQueryProcessingModel"
   override def name: String = "DruidQueryProcessingModel"
+
 
 
   override def preProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
@@ -117,7 +117,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
 
   override def postProcess(data: RDD[DruidOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
-    if (fc.inputEventsCount.value > 0) {
       val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
       val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap))
       val dimFields = reportConfig.metrics.flatMap { m =>
@@ -125,17 +124,13 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         else if(m.druidQuery.sqlDimensions.nonEmpty) m.druidQuery.sqlDimensions.get.map(f => f.fieldName)
         else List()
       }
-
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
-      import sqlContext.implicits._
       //Using foreach as parallel execution might conflict with local file path
-      val key = config.getOrElse("key", null).asInstanceOf[String]
+      val dataCount = sc.longAccumulator("DruidReportCount")
       reportConfig.output.foreach { f =>
-        val df = {if (f.locationMapping.getOrElse(false)) {
-          DruidQueryUtil.removeInvalidLocations(sqlContext.read.json(data.map(f => JSONUtils.serialize(f))),
-            DruidQueryUtil.getValidLocations(RestUtil),List("state", "district"))
-        } else sqlContext.read.json(data.map(f => JSONUtils.serialize(f)))}.na.fill(0)
+        val df = getReportDF(RestUtil,f,data,dataCount).na.fill(0)
+        if (dataCount.value > 0) {
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
@@ -143,11 +138,28 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
         saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`))
+          JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
+        }
+        else {
+          JobLogger.log("No data found from druid", None, Level.INFO)
+        }
       }
-    } else {
-      JobLogger.log("No data found from druid", None, Level.INFO)
-    }
     data
+    }
+
+  def getReportDF(restUtil: HTTPClient, config: OutputConfig, data: RDD[DruidOutput] , dataCount: LongAccumulator)(implicit sc:SparkContext, sqlContext: SQLContext): DataFrame =
+  {
+    if (config.locationMapping.getOrElse(false)) {
+      DruidQueryUtil.removeInvalidLocations(sqlContext.read.json(data.map(f => {
+        dataCount.add(1)
+        JSONUtils.serialize(f)
+      })),
+        DruidQueryUtil.getValidLocations(restUtil), List("state", "district"))
+    } else
+      sqlContext.read.json(data.map(f => {
+        dataCount.add(1)
+        JSONUtils.serialize(f)
+      }))
   }
 
   def getDateRange(interval: QueryInterval, intervalSlider: Integer = 0): String = {
@@ -161,7 +173,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     config.getOrElse(key, defaultValue).asInstanceOf[String]
   }
 
-  def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext): Unit = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext,fc:FrameworkContext): Unit = {
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
     val format = config.get("format").get.asInstanceOf[String]
@@ -200,34 +212,16 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
           Map("reportPath" -> finalReportPath, "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
         } else {
           val reportPrefix = f.substring(0, f.lastIndexOf("/")).split(reportId)(1)
-          Map("reportPath" -> (reportPrefix + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
+          Map("reportPath" -> (reportPrefix.substring(1) + "/" + reportPath), "deltaPath" -> f.substring(f.indexOf(storageConfig.fileName, 0)))
         }
       }
-      val mergeScriptConfig = MergeScriptConfig(reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
-        mergeConf.rollupAge, mergeConf.rollupCol, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer,
+      val mergeScriptConfig = MergeConfig(mergeConf.`type`,reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
+        mergeConf.rollupAge, mergeConf.rollupCol, None, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer,
         mergeConf.deltaFileAccess, mergeConf.reportFileAccess)
-      mergeReport(mergeScriptConfig)
+      new MergeUtil().mergeFile(mergeScriptConfig)
     }
     else {
       JobLogger.log(s"Merge report is not configured, hence skipping that step", None, INFO)
     }
   }
-
-  def mergeReport(mergeConfig: MergeScriptConfig, virtualEnvDir: Option[String] = Option("/mount/venv")): Unit = {
-    val mergeConfigStr = JSONUtils.serialize(mergeConfig)
-    val mergeReportCommand = Seq("bash", "-c",
-
-      s"source ${virtualEnvDir.get}/bin/activate; " +
-        s"dataproducts report_merger --report_config='$mergeConfigStr'")
-    JobLogger.log(s"Merge report script command:: $mergeReportCommand", None, INFO)
-    val mergeReportExitCode = ScriptDispatcher.dispatch(mergeReportCommand)
-    if (mergeReportExitCode == 0) {
-      JobLogger.log(s"Merge report script::Success", None, INFO)
-    } else {
-      JobLogger.log(s"Merge report script failed with exit code $mergeReportExitCode", None, ERROR)
-      throw new Exception(s"Merge report script failed with exit code $mergeReportExitCode")
-    }
-  }
-
-
 }
