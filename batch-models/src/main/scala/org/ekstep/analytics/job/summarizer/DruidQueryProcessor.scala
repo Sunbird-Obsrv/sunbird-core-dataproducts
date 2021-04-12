@@ -24,21 +24,21 @@ object DruidQueryProcessor extends optional.Application with IJob {
 
   def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
     val jobName= "DruidQueryProcessor"
-    implicit val sparkContext: SparkContext = sc.getOrElse(CommonUtil.getSparkContext(200, "DruidReports"))
-    implicit val frameworkContext: FrameworkContext = fc.getOrElse({
-      val storageKey = "azure_storage_key"
-      val storageSecret = "azure_storage_secret"
-      CommonUtil.getFrameworkContext(Option(Array((AppConf.getConfig("cloud_storage_type"), storageKey, storageSecret))))
-    })
-    implicit val sqlContext: SQLContext = new SQLContext(sparkContext)
     implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
     val modelParams = jobConfig.modelParams.getOrElse(Map[String, Option[AnyRef]]())
-    modelParams("mode") match {
+    modelParams.getOrElse("mode","standalone") match {
       case "standalone" =>
         JobDriver.run("batch", config, DruidQueryProcessingModel);
       case "batch" =>
         JobLogger.init(jobName)
         JobLogger.start(jobName + " Started executing")
+        implicit val sparkContext: SparkContext = sc.getOrElse(CommonUtil.getSparkContext(200, "DruidReports"))
+        implicit val frameworkContext: FrameworkContext = fc.getOrElse({
+          val storageKey = "azure_storage_key"
+          val storageSecret = "azure_storage_secret"
+          CommonUtil.getFrameworkContext(Option(Array((AppConf.getConfig("cloud_storage_type"), storageKey, storageSecret))))
+        })
+        implicit val sqlContext: SQLContext = new SQLContext(sparkContext)
         val result = CommonUtil.time(
           {
             val date = new time.DateTime()
