@@ -27,7 +27,8 @@ case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange
 case class QueryDateRange(interval: Option[QueryInterval], staticInterval: Option[String], granularity: Option[String], intervalSlider: Int = 0)
 case class QueryInterval(startDate: String, endDate: String)
 case class Metrics(metric: String, label: String, druidQuery: DruidQueryModel)
-case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"), locationMapping: Option[Boolean] = Option(false))
+case class OutputConfig(`type`: String, label: Option[String], metrics: List[String], dims: List[String] = List(), fileParameters: List[String] = List("id", "dims"),
+                        locationMapping: Option[Boolean] = Option(false),zip: Option[Boolean] = Option(false))
 
 
 
@@ -74,26 +75,33 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
     val interval = reportConfig.dateRange
     val granularity = interval.granularity
-    val queryInterval = if (interval.staticInterval.nonEmpty) {
+    var reportInterval = if (interval.staticInterval.nonEmpty) {
       interval.staticInterval.get
     } else if (interval.interval.nonEmpty) {
-      val dateRange = interval.interval.get
-      getDateRange(dateRange, interval.intervalSlider)
+      interval.interval.get
     } else {
       throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
     }
     if(exhaustQuery) {
-      val queryConfig = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(reportConfig.metrics.head.druidQuery)) ++
-          Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
+      val config = reportConfig.metrics.head.druidQuery
+      reportInterval = getDateRange(interval.interval.get, interval.intervalSlider, config.dataSource)
+      val queryConfig = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(config)) ++
+          Map("intervalSlider" -> interval.intervalSlider, "intervals" -> reportInterval, "granularity" -> granularity.get)
       DruidDataFetcher.executeSQLQuery(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), fc.getAkkaHttpUtil())
     }
     else {
       val metrics = reportConfig.metrics.map { f =>
+
+       val queryInterval = if (interval.staticInterval.isEmpty && interval.interval.nonEmpty) {
+          val dateRange = interval.interval.get
+          getDateRange(dateRange, interval.intervalSlider, f.druidQuery.dataSource)
+        } else
+         reportInterval
+
         val queryConfig = if (granularity.nonEmpty)
           JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval, "granularity" -> granularity.get)
         else
           JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider, "intervals" -> queryInterval)
-        val config = JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig))
         val data = if (streamQuery) {
           DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), true)
         }
@@ -126,6 +134,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       }
       val labelsLookup = reportConfig.labels ++ Map("date" -> "Date")
       implicit val sqlContext = new SQLContext(sc)
+      import sqlContext.implicits._
       //Using foreach as parallel execution might conflict with local file path
       val dataCount = sc.longAccumulator("DruidReportCount")
       reportConfig.output.foreach { f =>
@@ -137,7 +146,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
-        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`))
+        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`),f.zip)
           JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
@@ -162,8 +171,8 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       }))
   }
 
-  def getDateRange(interval: QueryInterval, intervalSlider: Integer = 0): String = {
-    val offset: Long = DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
+  def getDateRange(interval: QueryInterval, intervalSlider: Integer = 0, dataSource: String): String = {
+     val offset :Long = if(dataSource.contains("rollup") || dataSource.contains("distinct")) 0 else DateTimeZone.forID("Asia/Kolkata").getOffset(DateTime.now())
     val startDate = DateTime.parse(interval.startDate).withTimeAtStartOfDay().minusDays(intervalSlider).plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
     val endDate = DateTime.parse(interval.endDate).withTimeAtStartOfDay().minusDays(intervalSlider).plus(offset).toString("yyyy-MM-dd'T'HH:mm:ss")
     startDate + "/" + endDate
@@ -173,7 +182,9 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     config.getOrElse(key, defaultValue).asInstanceOf[String]
   }
 
-  def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext,fc:FrameworkContext): Unit = {
+
+  def saveReport(data: DataFrame, config: Map[String, AnyRef],zip: Option[Boolean])(implicit sc: SparkContext,fc:FrameworkContext): Unit = {
+    import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
     val format = config.get("format").get.asInstanceOf[String]
@@ -193,12 +204,22 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
 
       }
       if(quoteColumns.nonEmpty) {
-        import org.apache.spark.sql.functions.udf
         val quoteStr = udf((column: String) =>  "\'"+column+"\'")
         quoteColumns.map(column => {
           duplicateDimsDf = duplicateDimsDf.withColumn(column, quoteStr(col(column)))
         })
       }
+      if(zip.getOrElse(false)){
+        val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(config.getOrElse("reportConfig", Map()).asInstanceOf[Map[String, AnyRef]]))
+        storageConfig.store.toLowerCase match {
+          case "local" => duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),
+            None,zip)
+          case _ => duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),
+            Option(fc.getStorageService(storageConfig.store,
+              reportConfig.storageKey.getOrElse("azure_storage_key") , reportConfig.storageSecret.getOrElse("azure_storage_secret"))),zip)
+        }
+      }
+      else
       duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
