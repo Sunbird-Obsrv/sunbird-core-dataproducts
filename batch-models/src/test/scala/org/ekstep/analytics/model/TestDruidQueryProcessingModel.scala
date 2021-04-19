@@ -9,6 +9,7 @@ import ing.wbaa.druid._
 import ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
+import org.apache.hadoop.fs.azure.AzureException
 import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
@@ -18,6 +19,7 @@ import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
 import org.ekstep.analytics.util.{LocationResponse, StateLookup}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.sunbird.cloud.storage.BaseStorageService
 
 import java.time.{ZoneOffset, ZonedDateTime}
 import scala.collection.mutable.LinkedHashMap
@@ -349,12 +351,16 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
       it should "test for dateRange" in {
           val interval = QueryInterval("2020-05-02", "2020-05-06")
-          val result = DruidQueryProcessingModel.getDateRange(interval)
+          val result = DruidQueryProcessingModel.getDateRange(interval,0,"telemetry-events")
           result should be ("2020-05-02T05:30:00/2020-05-06T05:30:00")
 
           val slidingInterval = QueryInterval("2020-05-02", "2020-05-06")
-          val slidingIntervalResult = DruidQueryProcessingModel.getDateRange(slidingInterval, 2)
+          val slidingIntervalResult = DruidQueryProcessingModel.getDateRange(slidingInterval, 2,"telemetry-events")
           slidingIntervalResult should be ("2020-04-30T05:30:00/2020-05-04T05:30:00")
+
+        val slidingIntervalRollup = QueryInterval("2020-05-02", "2020-05-06")
+        val slidingIntervalResultRollup = DruidQueryProcessingModel.getDateRange(slidingIntervalRollup, 2,"summary-rollup-events")
+        slidingIntervalResultRollup should be ("2020-04-30T00:00:00/2020-05-04T00:00:00")
           }
 
       it should "test for setStorageConf method" in {
@@ -506,7 +512,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
       }
 
 
-      it should "exhaust query " in {
+      it should "test exhaust query " in {
           implicit val sqlContext = new SQLContext(sc)
 
           val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
@@ -538,6 +544,58 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports2/")
            DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
       }
+  it should "test exhaust query zip  " in {
+    implicit val sqlContext = new SQLContext(sc)
+
+    val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
+      None, None, None, None, None, None, Option(List(DruidSQLDimension("state", Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
+        DruidSQLDimension("dimensions_pdata_id", None))), None)
+
+    val mockAKkaUtil = mock[AkkaHttpClient]
+    val url = String.format("%s://%s:%s%s%s", "http", AppConf.getConfig("druid.rollup.host"),
+      AppConf.getConfig("druid.rollup.port"), AppConf.getConfig("druid.url"), "sql")
+    val request = HttpRequest(method = HttpMethods.POST,
+      uri = url,
+      entity = HttpEntity(ContentTypes.`application/json`, JSONUtils.serialize(DruidDataFetcher.getSQLDruidQuery(sqlQuery))))
+    val stripString =
+      """
+                {"dimensions_pdata_id":"dev.portal", "state":"10","date":"2020-09-12","total_count":11}
+                {"dimensions_pdata_id":"dev.app", "state":"5","date":"2020-09-12","total_count" :10}
+                {"dimensions_pdata_id":"dev.check", "state":"5","date":"2020-09-12","total_count" :9}
+              """.stripMargin
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
+    (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+    (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
+      .expects(request, mockDruidClient.actorSystem)
+      .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
+
+    (fc.getAkkaHttpUtil _).expects().returns(mockAKkaUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects("azure","azure_storage_key","azure_storage_secret")
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+
+
+    val reportConfig = ReportConfig("test_usage_metrics", "sql", QueryDateRange(Option(QueryInterval("2020-08-23", "2020-08-24")),
+      None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)),
+      LinkedHashMap(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(false), Some(true))),
+      None)
+    val strConfig = JSONUtils.serialize(reportConfig)
+    val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef],
+      "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig),
+      "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "exhaust-reports/")
+    DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
+    val reportConfig1 = ReportConfig("test_usage_metrics", "sql", QueryDateRange(Option(QueryInterval("2020-08-23", "2020-08-24")),
+      None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)),
+      LinkedHashMap(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(false), Some(true))),
+      None)
+    val strConfig1 = JSONUtils.serialize(reportConfig1)
+    val modelParams1 = Map("exhaustQuery" -> true.asInstanceOf[AnyRef],
+      "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig1),
+      "store" -> "azure", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "exhaust-reports/")
+    the[AzureException] thrownBy {
+      DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams1)).collect()
+    }
+  }
 
   it should "test report output config " in {
     implicit val sqlContext = new SQLContext(sc)
