@@ -84,9 +84,10 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
     }
     if(exhaustQuery) {
       val config = reportConfig.metrics.head.druidQuery
-      reportInterval = getDateRange(interval.interval.get, interval.intervalSlider, config.dataSource)
       val queryConfig = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(config)) ++
-          Map("intervalSlider" -> interval.intervalSlider, "intervals" -> reportInterval, "granularity" -> granularity.get)
+          Map("intervalSlider" -> interval.intervalSlider, "intervals" ->
+            (if (interval.staticInterval.isEmpty && interval.interval.nonEmpty) getDateRange(interval.interval.get,
+              interval.intervalSlider, config.dataSource) else reportInterval), "granularity" -> granularity.get)
       DruidDataFetcher.executeSQLQuery(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)), fc.getAkkaHttpUtil())
     }
     else {
