@@ -515,7 +515,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
       it should "test exhaust query with static interval " in {
           implicit val sqlContext = new SQLContext(sc)
 
-          val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2021-04-27T00:00:00+00:00/2021-04-28T00:00:00+00:00", Option("all"),
+          val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "LastDay" , Option("all"),
               None, None, None, None, None, None, Option(List(DruidSQLDimension("state",Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
                   DruidSQLDimension("dimensions_pdata_id",None))),None)
 
