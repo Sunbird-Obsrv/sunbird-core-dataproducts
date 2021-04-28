@@ -1,1 +1,0 @@
-{"keys":["state","dimensions_pdata_id","total_count","Date"],"tableData":[["10","dev.portal","11","2020-09-12"],["5","dev.app","10","2020-09-12"]],"data":[{"state":"10","dimensions_pdata_id":"dev.portal","total_count":"11","Date":"2020-09-12"},{"state":"5","dimensions_pdata_id":"dev.app","total_count":"10","Date":"2020-09-12"}]}
