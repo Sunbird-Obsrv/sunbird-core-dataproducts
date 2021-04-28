@@ -512,10 +512,10 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
       }
 
 
-      it should "test exhaust query " in {
+      it should "test exhaust query with static interval " in {
           implicit val sqlContext = new SQLContext(sc)
 
-          val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
+          val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2021-04-27T00:00:00+00:00/2021-04-28T00:00:00+00:00", Option("all"),
               None, None, None, None, None, None, Option(List(DruidSQLDimension("state",Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
                   DruidSQLDimension("dimensions_pdata_id",None))),None)
 
@@ -539,11 +539,43 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
 
           (fc.getAkkaHttpUtil _).expects().returns(mockAKkaUtil).once()
 
-            val reportConfig = ReportConfig("test_usage_metrics", "sql", QueryDateRange(Option(QueryInterval("2020-08-23", "2020-08-24")), None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)), LinkedHashMap(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(false))), Option(ReportMergeConfig(Some("local"),"DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
+            val reportConfig = ReportConfig("test_usage_metrics", "sql", QueryDateRange(None, Option("LastDay"), Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)), LinkedHashMap(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(false))), Option(ReportMergeConfig(Some("local"),"DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
           val strConfig = JSONUtils.serialize(reportConfig)
           val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports2/")
            DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
       }
+  it should "test exhaust query with interval range " in {
+    implicit val sqlContext = new SQLContext(sc)
+
+    val sqlQuery = DruidQueryModel("scan", "summary-rollup-syncts", "2020-08-23T00:00:00+00:00/2020-08-24T00:00:00+00:00", Option("all"),
+      None, None, None, None, None, None, Option(List(DruidSQLDimension("state",Option("LOOKUP(derived_loc_state, 'stateSlugLookup')")),
+        DruidSQLDimension("dimensions_pdata_id",None))),None)
+
+    val mockAKkaUtil = mock[AkkaHttpClient]
+    val url = String.format("%s://%s:%s%s%s", "http",AppConf.getConfig("druid.rollup.host"),
+      AppConf.getConfig("druid.rollup.port"),AppConf.getConfig("druid.url"),"sql")
+    val request = HttpRequest(method = HttpMethods.POST,
+      uri = url,
+      entity = HttpEntity(ContentTypes.`application/json`, JSONUtils.serialize(DruidDataFetcher.getSQLDruidQuery(sqlQuery))))
+    val stripString =
+      """
+                {"dimensions_pdata_id":"dev.portal", "state":"10","date":"2020-09-12","total_count":11}
+                {"dimensions_pdata_id":"dev.app", "state":"5","date":"2020-09-12","total_count" :10}
+              """.stripMargin
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
+    (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+    (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
+      .expects(request,mockDruidClient.actorSystem)
+      .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
+
+    (fc.getAkkaHttpUtil _).expects().returns(mockAKkaUtil).once()
+
+    val reportConfig = ReportConfig("test_usage_metrics", "sql", QueryDateRange(Option(QueryInterval("2020-08-23", "2020-08-24")), None, Option("day")), List(Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", sqlQuery)), LinkedHashMap(), List(OutputConfig("csv", None, List("total_count"), List("date"), List("id", "dims"), Some(false))), Option(ReportMergeConfig(Some("local"),"DAY", "", 1, Option("ACADEMIC_YEAR"), Option("Date"), Option(1), "daily_metrics.csv")))
+    val strConfig = JSONUtils.serialize(reportConfig)
+    val modelParams = Map("exhaustQuery" -> true.asInstanceOf[AnyRef], "reportConfig" -> JSONUtils.deserialize[Map[String, AnyRef]](strConfig), "store" -> "local", "container" -> "test-container", "filePath" -> "src/test/resources/druid-reports/", "key" -> "test-reports2/")
+    DruidQueryProcessingModel.execute(sc.emptyRDD, Option(modelParams)).collect()
+  }
   it should "test exhaust query zip  " in {
     implicit val sqlContext = new SQLContext(sc)
 
