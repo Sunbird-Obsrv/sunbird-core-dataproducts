@@ -19,8 +19,10 @@ import org.joda.time.{DateTime, DateTimeZone}
 import scala.collection.immutable.List
 import scala.collection.mutable.LinkedHashMap
 
-case class ReportMergeConfig(`type`:Option[String]=None, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None, rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,
-                       reportPath: String, postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true), reportFileAccess: Option[Boolean] = Option(true))
+case class ReportMergeConfig(`type`:Option[String]=None, frequency: String, basePath: String, rollup: Integer, rollupAge: Option[String] = None,
+                             rollupCol: Option[String] = None, rollupRange: Option[Integer] = None,reportPath: String,
+                             postContainer: Option[String] = None, deltaFileAccess: Option[Boolean] = Option(true),
+                             reportFileAccess: Option[Boolean] = Option(true),dateFieldRequired:Option[Boolean] = Option(true))
 case class ReportConfig(id: String, queryType: String, dateRange: QueryDateRange, metrics: List[Metrics], labels: LinkedHashMap[String, String], output: List[OutputConfig],
                         mergeConfig: Option[ReportMergeConfig] = None, storageKey: Option[String] = Option(AppConf.getConfig("storage.key.config")),
                         storageSecret: Option[String] = Option(AppConf.getConfig("storage.secret.config")))
@@ -141,13 +143,17 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       reportConfig.output.foreach { f =>
         val df = getReportDF(RestUtil,f,data,dataCount).na.fill(0)
         if (dataCount.value > 0) {
-        val metricFields = f.metrics
+        val metricFields = f.metrics.distinct
         val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
+        val metricsLabels=  metricFields.map(f=> labelsLookup.getOrElse(f,f)).distinct
+        val columnOrder = (List("Date") ++ dimFields.map(f=> labelsLookup.getOrElse(f,f))
+          .filter(f => !metricFields.contains(f)) ++ metricsLabels).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
         val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
-        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`),f.zip)
+        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "metricLabels" -> metricsLabels,
+          "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`),f.zip,columnOrder)
           JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
@@ -184,7 +190,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
   }
 
 
-  def saveReport(data: DataFrame, config: Map[String, AnyRef],zip: Option[Boolean])(implicit sc: SparkContext,fc:FrameworkContext): Unit = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef],zip: Option[Boolean],columnOrder: List[String])(implicit sc: SparkContext,fc:FrameworkContext): Unit = {
     import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
@@ -202,7 +208,6 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       var duplicateDimsDf = data
       dims.foreach { f =>
         duplicateDimsDf = duplicateDimsDf.withColumn(f.concat("Duplicate"), col(f))
-
       }
       if(quoteColumns.nonEmpty) {
         val quoteStr = udf((column: String) =>  "\'"+column+"\'")
@@ -221,7 +226,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         }
       }
       else
-      duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims))
+      duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),None,None,Some(columnOrder))
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
     }
@@ -239,7 +244,8 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       }
       val mergeScriptConfig = MergeConfig(mergeConf.`type`,reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, None, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer,
-        mergeConf.deltaFileAccess, mergeConf.reportFileAccess)
+        mergeConf.deltaFileAccess, mergeConf.reportFileAccess,mergeConf.dateFieldRequired,Some(columnOrder),
+        Some(config.get("metricLabels").get.asInstanceOf[List[String]]))
       new MergeUtil().mergeFile(mergeScriptConfig)
     }
     else {
