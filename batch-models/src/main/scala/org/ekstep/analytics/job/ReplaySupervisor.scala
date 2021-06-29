@@ -1,6 +1,5 @@
 package org.ekstep.analytics.job
 
-import optional.Application
 import org.apache.spark.SparkContext
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext}
 import org.ekstep.analytics.framework.Level._
@@ -8,7 +7,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.exception.{DataFetcherException, JobNotFoundException}
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger}
 
-object ReplaySupervisor extends Application {
+object ReplaySupervisor {
 
     implicit val className = "org.ekstep.analytics.job.ReplaySupervisor"
 
@@ -45,7 +44,7 @@ object ReplaySupervisor extends Application {
                 val jobConfig = config.replace("__endDate__", date)
                 val job = JobFactory.getJob(model);
                 JobLogger.log("### Executing replay for the date - " + date + " ###")
-                job.main(jobConfig)(Option(sc), Option(fc));
+                job.main(jobConfig)(Option(sc), Option(fc))
             } catch {
                 case ex: DataFetcherException => {
                     JobLogger.log(ex.getMessage, Option(Map("model_code" -> model, "date" -> date)), ERROR)

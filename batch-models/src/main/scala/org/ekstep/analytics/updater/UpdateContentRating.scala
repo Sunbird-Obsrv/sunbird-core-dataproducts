@@ -1,13 +1,13 @@
 package org.ekstep.analytics.updater
 
-import java.io.Serializable
-
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils, JobLogger, RestUtil}
 import org.joda.time.DateTime
+
+import java.io.Serializable
 
 case class Response(id: String, ver: String, ts: String, params: Params, responseCode: String, result: Map[String, AnyRef])
 

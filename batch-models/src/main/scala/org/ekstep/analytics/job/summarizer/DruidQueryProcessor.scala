@@ -14,11 +14,10 @@ import org.joda.time
 import org.joda.time.DateTime
 
 
-
 case class ReportRequest(report_id: String, report_schedule: String, config: String, status: String)
 case class ReportStatus(reportId: String, status:String)
 
-object DruidQueryProcessor extends optional.Application with IJob {
+object DruidQueryProcessor extends IJob {
 
   implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
 

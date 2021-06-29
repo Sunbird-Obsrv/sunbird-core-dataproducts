@@ -128,12 +128,13 @@
 			<version>1.1.0</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- -->
+		<!--
 		<dependency>
 			<groupId>optional</groupId>
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
+		-->
 		<!-- https://mvnrepository.com/artifact/com.datastax.cassandra/cassandra-driver-core -->
 		<!-- <dependency>
 			<groupId>org.sunbird</groupId>
@@ -142,8 +143,8 @@
 		</dependency> -->
 		<dependency>
 		    <groupId>org.sunbird</groupId>
-		    <artifactId>cloud-store-sdk</artifactId>
-		    <version>1.2.6</version>
+		    <artifactId>cloud-store-sdk_2.12</artifactId>
+		    <version>1.2.9</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
@@ -163,6 +164,16 @@
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-lang3</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		
 	</dependencies>
@@ -220,19 +231,19 @@
 			<plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.1.0</version>
-                <configuration>
-                		<transformers>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-	              			<resource>META-INF/services/org.jclouds.apis.ApiMetadata</resource>
-	            			</transformer>
-	            			<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-	              			<resource>META-INF/services/org.jclouds.providers.ProviderMetadata</resource>
-	            			</transformer>
-	            		</transformers>
-                    <descriptors>
-                        <descriptor>src/main/assembly/src.xml</descriptor>
-                    </descriptors>
-                </configuration>
+				<configuration>
+<!--					<transformers>-->
+<!--						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">-->
+<!--							<resource>META-INF/services/org.jclouds.apis.ApiMetadata</resource>-->
+<!--						</transformer>-->
+<!--						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">-->
+<!--							<resource>META-INF/services/org.jclouds.providers.ProviderMetadata</resource>-->
+<!--						</transformer>-->
+<!--					</transformers>-->
+					<descriptors>
+						<descriptor>src/main/assembly/src.xml</descriptor>
+					</descriptors>
+				</configuration>
                 <executions>
                     <execution>
                         <id>make-assembly</id>

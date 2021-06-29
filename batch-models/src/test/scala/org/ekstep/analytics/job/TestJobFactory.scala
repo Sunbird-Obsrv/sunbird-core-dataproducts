@@ -13,15 +13,15 @@ class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     "JobFactory" should "return a Model class for a model code" in {
 
-        val jobIds = List("monitor-job-summ", "wfs", "video-streaming", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "audit-metrics-report","druid_reports")
+        val jobIds = List("monitor-job-summ", "wfs", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "audit-metrics-report","druid_reports")
 
         val jobs = jobIds.map { f => JobFactory.getJob(f) }
 
         jobs(1) should be(WorkFlowSummarizer)
         jobs(1).isInstanceOf[IJob] should be(true)
 
-        jobs(6) should be(ExperimentDefinitionJob)
-        jobs(6).isInstanceOf[IJob] should be(true)
+        jobs(5) should be(ExperimentDefinitionJob)
+        jobs(5).isInstanceOf[IJob] should be(true)
 
     }
 

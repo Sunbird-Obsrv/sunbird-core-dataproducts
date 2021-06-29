@@ -11,7 +11,7 @@ class TestContentRatingUpdater extends SparkSpec(null) {
       val toDate = "2019-05-12"
 
       val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.job.ContentRatingUpdater", Option(Map("fromDate" ->  fromDate, "toDate" -> toDate)), Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestContentRatingUpdater"), Option(false))
-      ContentRatingUpdater.main(JSONUtils.serialize(config))(Option(sc));
+      ContentRatingUpdater.main(JSONUtils.serialize(config))(Option(sc))
   }
 
 }

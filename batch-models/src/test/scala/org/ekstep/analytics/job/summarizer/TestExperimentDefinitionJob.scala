@@ -9,6 +9,6 @@ class TestExperimentDefinitionJob extends SparkSpec(null) {
     "ExperimentDefinitionJob" should "execute ExperimentDefinitionJob job and won't throw any Exception" in {
 
         val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.model.ExperimentDefinitionModel", None, Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestExperimentDefinitionJob"))
-        ExperimentDefinitionJob.main(JSONUtils.serialize(config))(Option(sc));
+        ExperimentDefinitionJob.main(JSONUtils.serialize(config))(Option(sc))
     }
 }

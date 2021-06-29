@@ -57,7 +57,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
 
     override def afterAll(): Unit ={
         super.afterAll()
-        EmbeddedPostgresql.close
+        EmbeddedPostgresql.close()
     }
 
    "DruidQueryProcessor" should "execute multiple queries and generate csv reports on multiple dimensions" in {
@@ -66,7 +66,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         val reportConfig = ReportConfig("usage_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("all")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), collection.mutable.LinkedHashMap("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"))))
         val modelParams = Map("mode"-> "standalone" ,"modelName" -> "UsageMetrics", "reportConfig" -> reportConfig, "bucket" -> "test-container", "key" -> "druid-reports/", "filePath" -> "src/test/resources/")
         val config = JobConfig(Fetcher("none", None, None), null, null, "org.ekstep.analytics.model.DruidQueryProcessingModel", Option(modelParams), Option(Array(Dispatcher("console", Map("printEvent" -> false.asInstanceOf[AnyRef])))), Option(10), Option("TestDruidQueryProcessor"), Option(true))
-        DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc));
+        DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc))
     }
 
     "DruidQueryProcessor" should "test batch implementation" in {
