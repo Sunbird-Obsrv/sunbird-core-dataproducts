@@ -16,7 +16,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
 
 // object JobManager extends optional.Application {
-object JobManager extends App {
+object JobManager {
 
     implicit val className = "org.ekstep.analytics.job.JobManager";
     val storageType = AppConf.getConfig("cloud_storage_type")
