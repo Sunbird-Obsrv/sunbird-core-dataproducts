@@ -5,7 +5,7 @@ import org.ekstep.analytics.framework.FrameworkContext
 /**
  * @author Santhosh
  */
-object JobExecutor extends App {
+object JobExecutor {
 
     val className = "org.ekstep.analytics.job.JobExecutor"
 
@@ -17,7 +17,7 @@ object JobExecutor extends App {
 
 }
 
-object JobExecutorV2 extends App {
+object JobExecutorV2 {
 
     val className = "org.ekstep.analytics.job.JobExecutorV2"
 
