@@ -86,10 +86,10 @@
 					<groupId>io.dropwizard.metrics</groupId>
 					<artifactId>metrics-core</artifactId>
 				</exclusion>
-				<exclusion>
+				<!--<exclusion>
 					<groupId>org.apache.hadoop</groupId>
 					<artifactId>hadoop-client</artifactId>
-				</exclusion>
+				</exclusion>-->
 			</exclusions>
 		</dependency>
 
@@ -155,8 +155,16 @@
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
 				<exclusion>
+					<groupId>com.fasterxml.jackson.module</groupId>
+					<artifactId>jackson-module-scala_${scala.maj.version}.0-RC1</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.apache.httpcomponents</groupId>
 					<artifactId>httpclient</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
 				</exclusion>
         	</exclusions>
     	</dependency>
