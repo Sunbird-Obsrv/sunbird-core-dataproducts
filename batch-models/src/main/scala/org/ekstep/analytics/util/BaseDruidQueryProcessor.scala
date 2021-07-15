@@ -125,7 +125,7 @@ trait BaseDruidQueryProcessor {
     config.getOrElse(key, defaultValue).asInstanceOf[String]
   }
 
-  // saves report data as csv/zip file to specified path
+  // saves report data as csv/zip file to specified path and also has merge report logic
   def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: List[String])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
     import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
