@@ -15,7 +15,7 @@ import org.joda.time.DateTime
 
 
 
-case class ReportRequest(report_id: String, report_schedule: String, config: String, status: String)
+case class ReportRequest(report_id: String, report_schedule: Option[String], config: String, status: String)
 case class ReportStatus(reportId: String, status:String)
 
 object DruidQueryProcessor extends optional.Application with IJob {
@@ -49,6 +49,7 @@ object DruidQueryProcessor extends optional.Application with IJob {
             val status = reportConfig.map({ case (reportId, config) =>
               try {
                 DruidQueryProcessingModel.execute(null,Some(config))
+                JobLogger.log(reportId + " report got successfully created", None, Level.INFO)
                 ReportStatus(reportId,"Success")
               }
               catch {
@@ -82,7 +83,7 @@ object DruidQueryProcessor extends optional.Application with IJob {
     val configDf = sqlContext.read.jdbc(url, Constants.DRUID_REPORT_CONFIGS_DEFINITION_TABLE,
       CommonUtil.getPostgresConnectionProps()).as[ReportRequest](encoder)
     val requestsDf = configDf.filter(report => {
-      report.report_schedule.toUpperCase() match {
+      report.report_schedule.getOrElse("NA").toUpperCase() match {
         case "DAILY" => true
         case "WEEKLY" => if (date.dayOfWeek().get() == 1) true else false
         case "MONTHLY" => if (date.dayOfMonth().get() == 1) true else false
