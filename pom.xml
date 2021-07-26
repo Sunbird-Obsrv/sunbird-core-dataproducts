@@ -15,7 +15,7 @@
 		<scala.maj.version>2.12</scala.maj.version>
 		<scala.version>2.12.10</scala.version>
 		<spark.maj.version>3.0</spark.maj.version>
-		<spark.version>3.0.0</spark.version>
+		<spark.version>3.0.1</spark.version>
 	</properties>
 
 	<modules>
