@@ -96,7 +96,6 @@ object DruidQueryProcessor extends optional.Application with IJob {
     val configDf = sqlContext.read.jdbc(url, Constants.DRUID_REPORT_CONFIGS_DEFINITION_TABLE,
       CommonUtil.getPostgresConnectionProps()).as[ReportRequest](encoder)
     val requestsDf = configDf.filter(report => {
-      println("the report schedule" + report)
       report.report_schedule.getOrElse("NA").toUpperCase() match {
         case "DAILY" => true
         case "WEEKLY" => if (date.dayOfWeek().get() == 1) true else false
