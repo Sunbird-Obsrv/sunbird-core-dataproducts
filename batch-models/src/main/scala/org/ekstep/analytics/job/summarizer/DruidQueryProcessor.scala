@@ -79,7 +79,7 @@ object DruidQueryProcessor extends optional.Application with IJob {
           Map("id" -> "success-requests", "value" -> Some(finalStatus.count(x => x.status.toUpperCase() == "SUCCESS"))),
           Map("id" -> "failed-requests", "value" -> Some(finalStatus.count(x => x.status.toUpperCase() == "FAILED"))),
           Map("id" -> "time-taken-secs", "value" -> Double.box(result._1 / 1000).asInstanceOf[AnyRef]))
-        val metricEvent = getMetricJson("DruidReports" + modelParams.get("batchNumber").getOrElse("").asInstanceOf[String],
+        val metricEvent = getMetricJson("DruidReports_" + modelParams.get("batchNumber").getOrElse(1).asInstanceOf[Int],
           Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
         generateLogEvent(metricEvent)
         JobLogger.end(jobName + " Completed successfully!", "SUCCESS", Option(Map("model" -> jobName,
