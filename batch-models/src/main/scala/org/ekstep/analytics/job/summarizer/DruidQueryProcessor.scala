@@ -61,14 +61,14 @@ object DruidQueryProcessor extends optional.Application with IJob {
                 val metricEvent = getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
                 generateLogEvent(metricEvent)
                 JobLogger.log(reportId + " report got successfully created", None, Level.INFO)
-                status += ReportStatus(reportId, "Success")
+                status += ReportStatus(reportId, "SUCCESS")
               }
               catch {
                 case ex: Exception =>
                   JobLogger.log(reportId + " report Failed with error: " + ex.getMessage(), None, Level.INFO)
                   generateLogEvent(getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "FAILED",
                     List(Map("id" -> "input-events", "value" -> frameworkContext.inputEventsCount.value.asInstanceOf[AnyRef]))))
-                  status += ReportStatus(reportId, "Failed")
+                  status += ReportStatus(reportId, "FAILED")
               }
             })
             status
