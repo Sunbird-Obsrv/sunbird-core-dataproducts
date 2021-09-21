@@ -37,16 +37,10 @@ case class JobRequest(tag: String, request_id: String, job_id: String, var statu
 case class DatasetRequest(dataset_id: String, dataset_sub_id: String, druid_query: Option[String]) {
   def this() = this("", "", None)
 }
-//case class DatasetRequest(dataset_id: String, dataset_sub_id: String, dataset_config: Map[String, Any], visibility: String, dataset_type: String,
-//                          version: String , authorized_roles: List[String], available_from: Option[Long],
-//                          sample_request: Option[String], sample_response: Option[String], validation_json: Option[Map[String, Any]],
-//                          druid_query: Option[Map[String, Any]], limits: Option[Map[String, Any]], supported_formats: Option[List[String]],
-//                          exhaust_type: Option[String]) {
-//  def this() = this("", "", Map[String, Any](), "", "", "", List(""), None, None, None, None, None, None, None, None)
-//}
+
 case class RequestStatus(channel: String, batchLimit: Long, fileLimit: Long)
 
-trait OnDemandExhaustJob {
+trait OnDemandBaseExhaustJob {
 
   implicit val className: String = getClassName;
   val connProperties: Properties = CommonUtil.getPostgresConnectionProps()
@@ -154,22 +148,6 @@ trait OnDemandExhaustJob {
     updateRequests(zippedRequests)
   }
 
-  def saveRequestAsync(storageConfig: StorageConfig, request: JobRequest)(implicit conf: Configuration, fc: FrameworkContext): CompletableFuture[JobRequest] = {
-
-    CompletableFuture.supplyAsync(new Supplier[JobRequest]() {
-      override def get() : JobRequest =  {
-        val res = CommonUtil.time(saveRequest(storageConfig, request))
-        JobLogger.log("Request is zipped", Some(Map("requestId" -> request.request_id, "timeTakenForZip" -> res._1)), INFO)
-        request
-      }
-    })
-
-  }
-
-  def saveRequest(storageConfig: StorageConfig, request: JobRequest)(implicit conf: Configuration, fc: FrameworkContext): Boolean = {
-    updateRequest(processRequestEncryption(storageConfig, request))
-  }
-
   def processRequestEncryption(storageConfig: StorageConfig, request: JobRequest)(implicit conf: Configuration, fc: FrameworkContext): JobRequest = {
     val downloadURLs = CommonUtil.time(for (url <- request.download_urls.getOrElse(List())) yield {
       if (zipEnabled())
@@ -252,12 +230,6 @@ trait OnDemandExhaustJob {
     request.iteration = Option(request.iteration.getOrElse(0) + 1);
     request.err_message = Option(failedMsg);
     if (completed_Batches.nonEmpty) request.processed_batches = completed_Batches;
-    request
-  }
-
-  def markRequestAsSubmitted(request: JobRequest, completed_Batches: String): JobRequest = {
-    request.status = "SUBMITTED";
-    request.processed_batches = Option(completed_Batches);
     request
   }
 }

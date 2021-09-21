@@ -8,14 +8,6 @@ import org.sunbird.cloud.storage.conf.AppConf
 
 trait BaseReportsJob {
 
-  def loadData(settings: Map[String, String], url: String, schema: StructType)(implicit spark: SparkSession): DataFrame = {
-    if (schema.nonEmpty) {
-      spark.read.schema(schema).format(url).options(settings).load()
-    } else {
-      spark.read.format(url).options(settings).load()
-    }
-  }
-
   def getReportingFrameworkContext()(implicit fc: Option[FrameworkContext]): FrameworkContext = {
     fc match {
       case Some(value) => {
