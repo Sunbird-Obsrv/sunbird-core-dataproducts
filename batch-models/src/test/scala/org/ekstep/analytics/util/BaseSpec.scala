@@ -29,14 +29,6 @@ class BaseSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
     conf;
   }
 
-  override def beforeAll() {
-    EmbeddedCassandra.setup();
-  }
-
-  override def afterAll() {
-    EmbeddedCassandra.close();
-  }
-
   def getSparkSession() : SparkSession = {
     SparkSession.builder.config(getSparkConf()).getOrCreate()
   }

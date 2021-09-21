@@ -267,10 +267,8 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
             // TO:DO
             // Fetch report config from dataset_metadata table
             val datasetConf = getDataSetDetails(requestType)
-            val reportConfStr = if(datasetConf.druid_query.nonEmpty) datasetConf.druid_query.get
-              else AppConf.getConfig("druid_query." + requestType)
+            val reportConfStr = if(datasetConf.druid_query.nonEmpty) datasetConf.druid_query.get else AppConf.getConfig("druid_query." + requestType)
             val reportConfig = JSONUtils.deserialize[ReportConfig](reportConfStr)
-//            val reportConfig = JSONUtils.deserialize[ReportConfig](AppConf.getConfig("druid_query." + requestType))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
             val res = processRequest(request, reportConfig, storageConfig)

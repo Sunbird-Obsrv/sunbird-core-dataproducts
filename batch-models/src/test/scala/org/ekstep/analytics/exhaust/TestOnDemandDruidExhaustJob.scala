@@ -14,6 +14,7 @@ import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.JSONUtils
+import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
 import scala.concurrent.Future
@@ -90,6 +91,15 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
 
     var name = OnDemandDruidExhaustJob.name()
+
+    val submissionDate = DateTime.now().toString("yyyy-MM-dd")
+    val druidQueryConf = """{"id":"ml-task-detail-exhaust","queryType":"scan","dateRange":{"staticInterval":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","granularity":"all"},"metrics":[{"metric":"total_content_plays_on_portal","label":"total_content_plays_on_portal","druidQuery":{"queryType":"scan","dataSource":"sl-project","intervals":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","columns":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"filters":[{"type":"equals","dimension":"private_program","value":"false"},{"type":"equals","dimension":"sub_task_deleted_flag","value":"false"},{"type":"equals","dimension":"task_deleted_flag","value":"false"},{"type":"equals","dimension":"project_deleted_flag","value":"false"},{"type":"equals","dimension":"program_id","value":"$programId"},{"type":"equals","dimension":"solution_id","value":"$solutionId"}]}}],"labels":{"createdBy":"UUID","designation":"Role","state_name":"Declared State","district_name":"District","block_name":"Block","school_name":"School Name","school_externalId":"School ID","organisation_name":"Organisation Name","program_name":"Program Name","program_externalId":"Program ID","project_id":"Project ID","project_title_editable":"Project Title","project_description":"Project Objective","area_of_improvement":"Category","project_duration":"Project Duration","tasks":"Tasks","sub_task":"Sub-Tasks","task_evidence":"Evidence","task_remarks":"Remarks","status_of_project":"Project Status"},"output":[{"type":"csv","metrics":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"fileParameters":["id","dims"],"zip":false,"dims":["date"],"label":""}]}"""
+    EmbeddedPostgresql.execute(
+      s"""insert into dataset_metadata ("dataset_id", "dataset_sub_id", "dataset_config", "visibility", "dataset_type", "version",
+          "authorized_roles", "available_from", "sample_request", "sample_response", "druid_query")
+          values ('druid-dataset', 'ml-task-detail-exhaust', '{}',
+           'private', 'On-Demand', '1.0', '{"portal"}', '$submissionDate', '', '', '$druidQueryConf');""")
+
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
