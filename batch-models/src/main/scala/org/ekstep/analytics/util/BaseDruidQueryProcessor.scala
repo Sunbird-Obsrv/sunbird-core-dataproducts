@@ -126,7 +126,7 @@ trait BaseDruidQueryProcessor {
   }
 
   // saves report data as csv/zip file to specified path and also has merge report logic
-  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: List[String])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: Option[List[String]])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
     import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
@@ -162,7 +162,7 @@ trait BaseDruidQueryProcessor {
         }
       }
       else
-        duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),None,None,Some(columnOrder))
+        duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),None,None,columnOrder)
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
     }
@@ -180,7 +180,7 @@ trait BaseDruidQueryProcessor {
       }
       val mergeScriptConfig = MergeConfig(mergeConf.`type`,reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, None, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer,
-        mergeConf.deltaFileAccess, mergeConf.reportFileAccess,mergeConf.dateFieldRequired,Some(columnOrder),
+        mergeConf.deltaFileAccess, mergeConf.reportFileAccess,mergeConf.dateFieldRequired,columnOrder,
         Some(config.get("metricLabels").get.asInstanceOf[List[String]]))
       new MergeUtil().mergeFile(mergeScriptConfig)
     }
