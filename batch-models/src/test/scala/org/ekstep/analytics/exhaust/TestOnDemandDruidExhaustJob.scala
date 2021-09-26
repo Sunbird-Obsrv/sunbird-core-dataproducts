@@ -2,18 +2,21 @@ package org.ekstep.analytics.exhaust
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
-import org.ekstep.analytics.framework.{DruidFilter, DruidQueryModel, FrameworkContext, JobConfig, StorageConfig}
-import org.ekstep.analytics.framework.util.HadoopFileUtil
-import org.ekstep.analytics.util.{BaseSpec, EmbeddedPostgresql}
+import org.ekstep.analytics.framework.{DruidFilter, DruidQueryModel, FrameworkContext, IJob, JobConfig, JobContext, StorageConfig}
+import org.ekstep.analytics.framework.util.{CommonUtil, HadoopFileUtil, JSONUtils, JobLogger}
+import org.ekstep.analytics.util.{BaseDruidQueryProcessor, BaseSpec, EmbeddedPostgresql}
 import cats.syntax.either._
 import ing.wbaa.druid._
 import ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
 import org.apache.spark.sql.SQLContext
+import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob.execute
+import org.ekstep.analytics.framework.Level.ERROR
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
-import org.ekstep.analytics.framework.util.JSONUtils
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
@@ -23,6 +26,7 @@ import org.sunbird.cloud.storage.BaseStorageService
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import scala.collection.immutable.{List, Map}
 
 class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndAfterAll with MockFactory with BaseReportsJob {
   val jobRequestTable = "job_request"
@@ -650,5 +654,93 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
 
     val updatedJobRequest = OnDemandDruidExhaustJob.processRequestEncryption(storageConfig, jobRequest)
     updatedJobRequest.download_urls.get should be(List(""))
+
+    // coverage for canZipExceptionBeIgnored = false
+    val updatedJobRequest1 = OnDemandDruidExhaustTestJob.processRequestEncryption(storageConfig, jobRequest)
+    updatedJobRequest1.status should be ("FAILED")
+    updatedJobRequest1.err_message.get should be("Zip, encrypt and upload failed")
+
+    // coverage for zipEnabled = false
+    val jobRequest2 = JobRequest("126796199493140000", "888700F9A860E7A42DA968FBECDF3F22", "druid-dataset", "SUBMITTED", "{\"type\": \"ml-task-detail-exhaust\"," +
+      "\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}",
+      "36b84ff5-2212-4219-bfed-24886969d890", "ORG_001", System.currentTimeMillis(), Option(List("")), None, None, Option(0), Option("") ,Option(0),Option("test@123"))
+
+    val updatedJobRequest2 = OnDemandDruidExhaustTestJob2.processRequestEncryption(storageConfig, jobRequest2)
+    updatedJobRequest2.download_urls.get should be(List(""))
+    updatedJobRequest2.status should be ("SUBMITTED")
+  }
+}
+
+// Test object with canZipExceptionBeIgnored = false
+object OnDemandDruidExhaustTestJob extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+  implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob"
+
+  val jobId: String = "druid-dataset"
+  val jobName: String = "OnDemandDruidExhaustTestJob"
+
+  def name(): String = "OnDemandDruidExhaustTestJob"
+
+  def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
+    implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
+    implicit val spark: SparkSession = openSparkSession(jobConfig)
+    implicit val sc: SparkContext = spark.sparkContext
+    JobContext.parallelization = CommonUtil.getParallelization(jobConfig)
+
+    implicit val frameworkContext: FrameworkContext = getReportingFrameworkContext()
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    try {
+      val res = CommonUtil.time(execute());
+      JobLogger.end(s"OnDemandDruidExhaustTestJob completed execution", "SUCCESS", Option(Map("timeTaken" -> res._1)));
+    } catch {
+      case ex: Exception =>
+        JobLogger.log(ex.getMessage, None, ERROR);
+    } finally {
+      frameworkContext.closeContext();
+      spark.close()
+      cleanUp()
+    }
+  }
+
+  override def canZipExceptionBeIgnored(): Boolean = false
+
+  def execute()(implicit spark: SparkSession, fc: FrameworkContext, config: JobConfig, sc: SparkContext): String = {
+    ""
+  }
+}
+
+// Test object with zipEnabled = false
+object OnDemandDruidExhaustTestJob2 extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+  implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob2"
+
+  val jobId: String = "druid-dataset"
+  val jobName: String = "OnDemandDruidExhaustTestJob2"
+
+  def name(): String = "OnDemandDruidExhaustTestJob2"
+
+  def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {
+    implicit val jobConfig = JSONUtils.deserialize[JobConfig](config)
+    implicit val spark: SparkSession = openSparkSession(jobConfig)
+    implicit val sc: SparkContext = spark.sparkContext
+    JobContext.parallelization = CommonUtil.getParallelization(jobConfig)
+
+    implicit val frameworkContext: FrameworkContext = getReportingFrameworkContext()
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    try {
+      val res = CommonUtil.time(execute());
+      JobLogger.end(s"OnDemandDruidExhaustTestJob2 completed execution", "SUCCESS", Option(Map("timeTaken" -> res._1)));
+    } catch {
+      case ex: Exception =>
+        JobLogger.log(ex.getMessage, None, ERROR);
+    } finally {
+      frameworkContext.closeContext();
+      spark.close()
+      cleanUp()
+    }
+  }
+
+  override def zipEnabled(): Boolean = false
+
+  def execute()(implicit spark: SparkSession, fc: FrameworkContext, config: JobConfig, sc: SparkContext): String = {
+    ""
   }
 }
