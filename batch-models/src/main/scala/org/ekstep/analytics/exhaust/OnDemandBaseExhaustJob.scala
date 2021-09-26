@@ -42,7 +42,7 @@ case class RequestStatus(channel: String, batchLimit: Long, fileLimit: Long)
 
 trait OnDemandBaseExhaustJob {
 
-  implicit val className: String = getClassName;
+  implicit val className: String = "org.ekstep.analytics.exhaust.OnDemandBaseExhaustJob"
   val connProperties: Properties = CommonUtil.getPostgresConnectionProps()
   val db: String = AppConf.getConfig("postgres.db")
   val url: String = AppConf.getConfig("postgres.url") + s"$db"
@@ -52,8 +52,6 @@ trait OnDemandBaseExhaustJob {
   val maxIterations = 3;
   val dbc: Connection = DriverManager.getConnection(url, connProperties.getProperty("user"), connProperties.getProperty("password"));
   dbc.setAutoCommit(true);
-
-  def getClassName(): String;
 
   def cleanUp() {
     dbc.close();

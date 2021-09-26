@@ -37,7 +37,7 @@ trait BaseDruidQueryProcessor {
   }
 
   // Fetches data from druid and return back RDD
-  def fetchDruidData(reportConfig: ReportConfig, streamQuery: Boolean = false, exhaustQuery: Boolean = false)(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
+  def fetchDruidData(reportConfig: ReportConfig, streamQuery: Boolean = false, exhaustQuery: Boolean = false, foldByKey: Boolean = true)(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
 
     val queryDims = reportConfig.metrics.map { f =>
       f.druidQuery.dimensions.getOrElse(List()).map(f => f.aliasName.getOrElse(f.fieldName))
@@ -89,7 +89,7 @@ trait BaseDruidQueryProcessor {
         }
 
       }
-      val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+      val finalResult = if (foldByKey) metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _) else metrics.fold(sc.emptyRDD)(_ union _)
       finalResult.map { f =>
         DruidOutput(f._2)
       }

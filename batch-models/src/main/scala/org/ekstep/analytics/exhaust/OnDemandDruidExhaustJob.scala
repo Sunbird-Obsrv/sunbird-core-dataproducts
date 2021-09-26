@@ -7,17 +7,15 @@ import org.apache.spark.sql.functions.{col, when}
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
-import org.ekstep.analytics.framework.{DruidQueryModel, FrameworkContext, JobConfig, JobContext, StorageConfig, _}
+import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext, StorageConfig, _}
 import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.{List, Map}
-import org.ekstep.analytics.framework.exception.DruidConfigException
-import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.ekstep.analytics.model.DruidQueryProcessingModel.{getDateRange, getReportDF}
 import org.apache.hadoop.conf.Configuration
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
+import org.ekstep.analytics.util.BaseDruidQueryProcessor
 import org.joda.time.DateTime
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -29,8 +27,8 @@ case class RequestBody(`type`: String,`params`: Map[String,AnyRef])
 case class OnDemandDruidResponse(file: List[String], status: String, statusMsg: String, execTime: Long)
 case class Metrics(totalRequests: Option[Int], failedRequests: Option[Int], successRequests: Option[Int])
 
-object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob {
-  override def getClassName(): String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob"
+object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+  implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob"
 
   val jobId: String = "druid-dataset"
   val jobName: String = "OnDemandDruidExhaustJob"
@@ -89,55 +87,6 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
   def markRequestAsProcessing(request: JobRequest): Boolean = {
     request.status = "PROCESSING";
     updateStatus(request);
-  }
-
-  def getStringProperty(config: Map[String, AnyRef], key: String, defaultValue: String): String = {
-    config.getOrElse(key, defaultValue).asInstanceOf[String]
-  }
-
-  def druidAlgorithm(reportConfig: ReportConfig)(implicit spark: SparkSession, fc: FrameworkContext, sc: SparkContext, config: JobConfig): RDD[DruidOutput] = {
-    val queryDims = reportConfig.metrics.map { f =>
-      f.druidQuery.dimensions.getOrElse(List()).map(f => f.aliasName.getOrElse(f.fieldName))
-    }.distinct
-
-    if (queryDims.length > 1) throw new DruidConfigException("Query dimensions are not matching")
-
-    val interval = reportConfig.dateRange
-    val granularity = interval.granularity
-    val reportInterval = if (interval.staticInterval.nonEmpty) {
-      interval.staticInterval.get
-    } else if (interval.interval.nonEmpty) {
-      interval.interval.get
-    } else {
-      throw new DruidConfigException("Both staticInterval and interval cannot be missing. Either of them should be specified")
-    }
-    val metrics = reportConfig.metrics.map { f =>
-
-      val queryInterval = if (interval.staticInterval.isEmpty && interval.interval.nonEmpty) {
-        val dateRange = interval.interval.get
-        getDateRange(dateRange, interval.intervalSlider, f.druidQuery.dataSource)
-      } else
-        reportInterval
-
-      val queryConfig = if (granularity.nonEmpty)
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider,
-          "intervals" -> queryInterval, "granularity" -> granularity.get)
-      else
-        JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f.druidQuery)) ++ Map("intervalSlider" -> interval.intervalSlider,
-          "intervals" -> queryInterval)
-      val data = DruidDataFetcher.getDruidData(JSONUtils.deserialize[DruidQueryModel](JSONUtils.serialize(queryConfig)))
-
-      data.map { x =>
-        val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](x)
-        val key = dataMap.filter(m => (queryDims.flatten).contains(m._1)).values.map(f => f.toString).toList.sorted(Ordering.String.reverse).mkString(",")
-        (key, dataMap)
-
-      }
-    }
-    val finalResult = metrics.fold(sc.emptyRDD)(_ union _)
-    finalResult.map { f =>
-      DruidOutput(f._2)
-    }
   }
 
   def druidPostProcess(data: RDD[DruidOutput], request_id: String, reportConfig: ReportConfig, storageConfig: StorageConfig)(implicit spark: SparkSession, sqlContext: SQLContext, fc: FrameworkContext, sc: SparkContext, config: JobConfig): OnDemandDruidResponse = {
@@ -214,7 +163,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     })
 
     val finalReportConfig = JSONUtils.deserialize[ReportConfig](finalConfig)
-    val druidData: RDD[DruidOutput] = druidAlgorithm(finalReportConfig)
+    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, false, false, false)
     val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
