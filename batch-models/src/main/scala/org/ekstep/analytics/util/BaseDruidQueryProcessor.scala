@@ -135,7 +135,7 @@ trait BaseDruidQueryProcessor {
     val key = config.getOrElse("key", null).asInstanceOf[String]
     val reportId = config.get("reportId").get.asInstanceOf[String]
     val fileParameters = config.get("fileParameters").get.asInstanceOf[List[String]]
-    val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
+    val configMap = config.getOrElse("reportConfig", Map()).asInstanceOf[Map[String, AnyRef]]
     val reportMergeConfig = if(configMap.nonEmpty) JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig else None
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
     val quoteColumns =config.get("quoteColumns").getOrElse(List()).asInstanceOf[List[String]]
