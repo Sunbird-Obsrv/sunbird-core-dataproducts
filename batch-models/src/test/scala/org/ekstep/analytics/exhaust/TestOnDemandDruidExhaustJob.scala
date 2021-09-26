@@ -622,8 +622,8 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
 
   }
 
-  // Coverage for BaseReportJob
-  it should "execute setReportsStorageConfiguration method" in {
+  // Coverage improvement
+  it should "execute to cover exceptional methods" in {
 
     val s3Config =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"s3","container":"test-container",
@@ -634,5 +634,21 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
         |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
     OnDemandDruidExhaustJob.setReportsStorageConfiguration(JSONUtils.deserialize[JobConfig](azureConfig))
 
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+
+    val jobRequest = JobRequest("126796199493140000", "888700F9A860E7A42DA968FBECDF3F22", "druid-dataset", "SUBMITTED", "{\"type\": \"ml-task-detail-exhaust\"," +
+      "\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}",
+      "36b84ff5-2212-4219-bfed-24886969d890", "ORG_001", System.currentTimeMillis(), Option(List("")), None, None, Option(0), Option("") ,Option(0),Option("test@123"))
+    val storageConfig = StorageConfig("local", "", outputLocation)
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+
+    val updatedJobRequest = OnDemandDruidExhaustJob.processRequestEncryption(storageConfig, jobRequest)
+    updatedJobRequest.download_urls.get should be(List(""))
   }
 }

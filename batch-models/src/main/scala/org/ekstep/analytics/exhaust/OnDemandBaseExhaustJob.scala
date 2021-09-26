@@ -158,7 +158,6 @@ trait OnDemandBaseExhaustJob {
               markRequestAsFailed(request, "Zip, encrypt and upload failed")
               ""
             }
-
         }
       else
         url

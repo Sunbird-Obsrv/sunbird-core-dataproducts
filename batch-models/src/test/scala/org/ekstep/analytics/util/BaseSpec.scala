@@ -5,9 +5,6 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.ekstep.analytics.framework.conf.AppConf
 import org.scalatest._
 
-/**
- * @author Santhosh
- */
 class BaseSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
   def getSparkContext(): SparkContext = {

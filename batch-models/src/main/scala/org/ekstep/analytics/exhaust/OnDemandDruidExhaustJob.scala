@@ -126,25 +126,6 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     }
   }
 
-//  def saveReport(data: DataFrame, config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): List[String] = {
-//    val container = getStringProperty(config, "container", "test-container")
-//    val storageConfig = StorageConfig(getStringProperty(config, "store", "local"), container, getStringProperty(config, "key",
-//      "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
-//    val format = config.get("format").get.asInstanceOf[String]
-//    val reportId = config.get("reportId").get.asInstanceOf[String]
-//    val quoteColumns = config.get("quoteColumns").getOrElse(List()).asInstanceOf[List[String]]
-//    var duplicateDimsDf = data
-//    if (quoteColumns.nonEmpty) {
-//      import org.apache.spark.sql.functions.udf
-//      val quoteStr = udf((column: String) => "\'" + column + "\'")
-//      quoteColumns.map(column => {
-//        duplicateDimsDf = duplicateDimsDf.withColumn(column, quoteStr(col(column)))
-//      })
-//    }
-//    val deltaFiles = duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
-//    deltaFiles
-//  }
-
   def getDate(pattern: String): SimpleDateFormat = {
     new SimpleDateFormat(pattern)
   }
