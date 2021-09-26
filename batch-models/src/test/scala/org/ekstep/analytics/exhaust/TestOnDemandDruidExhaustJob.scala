@@ -621,4 +621,18 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     OnDemandDruidExhaustJob.main(strConfig)
 
   }
+
+  // Coverage for BaseReportJob
+  it should "execute setReportsStorageConfiguration method" in {
+
+    val s3Config =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"s3","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    OnDemandDruidExhaustJob.setReportsStorageConfiguration(JSONUtils.deserialize[JobConfig](s3Config))
+    val azureConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"azure","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    OnDemandDruidExhaustJob.setReportsStorageConfiguration(JSONUtils.deserialize[JobConfig](azureConfig))
+
+  }
 }

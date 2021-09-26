@@ -170,15 +170,10 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
         JobLogger.log("No data found from druid", None, Level.INFO)
       }
     }
-    try {
-      if (fileSavedToBlob.length > 0) {
-        OnDemandDruidResponse(fileSavedToBlob, "SUCCESS", "", System.currentTimeMillis())
-      } else {
-        OnDemandDruidResponse(List(), "FAILED", "No data found from druid", System.currentTimeMillis())
-      }
-    }
-    catch {
-      case ex: Exception => ex.printStackTrace(); OnDemandDruidResponse(List(), "FAILED", ex.getMessage, 0);
+    if (fileSavedToBlob.length > 0) {
+      OnDemandDruidResponse(fileSavedToBlob, "SUCCESS", "", System.currentTimeMillis())
+    } else {
+      OnDemandDruidResponse(List(), "FAILED", "No data found from druid", System.currentTimeMillis())
     }
   }
 
