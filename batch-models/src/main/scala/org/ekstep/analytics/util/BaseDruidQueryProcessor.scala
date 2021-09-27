@@ -37,7 +37,7 @@ trait BaseDruidQueryProcessor {
   }
 
   // Fetches data from druid and return back RDD
-  def fetchDruidData(reportConfig: ReportConfig, streamQuery: Boolean = false, exhaustQuery: Boolean = false)(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
+  def fetchDruidData(reportConfig: ReportConfig, streamQuery: Boolean = false, exhaustQuery: Boolean = false, foldByKey: Boolean = true)(implicit sc: SparkContext, fc: FrameworkContext): RDD[DruidOutput] = {
 
     val queryDims = reportConfig.metrics.map { f =>
       f.druidQuery.dimensions.getOrElse(List()).map(f => f.aliasName.getOrElse(f.fieldName))
@@ -89,7 +89,7 @@ trait BaseDruidQueryProcessor {
         }
 
       }
-      val finalResult = metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _)
+      val finalResult = if (foldByKey) metrics.fold(sc.emptyRDD)(_ union _).foldByKey(Map())(_ ++ _) else metrics.fold(sc.emptyRDD)(_ union _)
       finalResult.map { f =>
         DruidOutput(f._2)
       }
@@ -126,7 +126,7 @@ trait BaseDruidQueryProcessor {
   }
 
   // saves report data as csv/zip file to specified path and also has merge report logic
-  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: List[String])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: Option[List[String]])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
     import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
@@ -135,8 +135,8 @@ trait BaseDruidQueryProcessor {
     val key = config.getOrElse("key", null).asInstanceOf[String]
     val reportId = config.get("reportId").get.asInstanceOf[String]
     val fileParameters = config.get("fileParameters").get.asInstanceOf[List[String]]
-    val configMap = config("reportConfig").asInstanceOf[Map[String, AnyRef]]
-    val reportMergeConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig
+    val configMap = config.getOrElse("reportConfig", Map()).asInstanceOf[Map[String, AnyRef]]
+    val reportMergeConfig = if(configMap.nonEmpty) JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(configMap)).mergeConfig else None
     val dims = if (fileParameters.nonEmpty && fileParameters.contains("date")) config.get("dims").get.asInstanceOf[List[String]] ++ List("Date") else config.get("dims").get.asInstanceOf[List[String]]
     val quoteColumns =config.get("quoteColumns").getOrElse(List()).asInstanceOf[List[String]]
     val deltaFiles = if (dims.nonEmpty) {
@@ -162,7 +162,7 @@ trait BaseDruidQueryProcessor {
         }
       }
       else
-        duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),None,None,Some(columnOrder))
+        duplicateDimsDf.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), Option(duplicateDims),None,None,columnOrder)
     } else {
       data.saveToBlobStore(storageConfig, format, reportId, Option(Map("header" -> "true")), None)
     }
@@ -180,7 +180,7 @@ trait BaseDruidQueryProcessor {
       }
       val mergeScriptConfig = MergeConfig(mergeConf.`type`,reportId, mergeConf.frequency, mergeConf.basePath, mergeConf.rollup,
         mergeConf.rollupAge, mergeConf.rollupCol, None, mergeConf.rollupRange, MergeFiles(filesList, List("Date")), container, mergeConf.postContainer,
-        mergeConf.deltaFileAccess, mergeConf.reportFileAccess,mergeConf.dateFieldRequired,Some(columnOrder),
+        mergeConf.deltaFileAccess, mergeConf.reportFileAccess,mergeConf.dateFieldRequired,columnOrder,
         Some(config.get("metricLabels").get.asInstanceOf[List[String]]))
       new MergeUtil().mergeFile(mergeScriptConfig)
     }
