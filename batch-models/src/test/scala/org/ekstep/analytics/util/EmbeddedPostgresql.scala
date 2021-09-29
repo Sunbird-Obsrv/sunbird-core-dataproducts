@@ -89,57 +89,6 @@ object EmbeddedPostgresql {
          execute(query)
   }
 
-  def createJobRequestTable(): Unit = {
-    val tableName: String = "job_request"
-    val query =
-      s"""
-         |CREATE TABLE IF NOT EXISTS $tableName (
-         |   tag TEXT,
-         |   request_id TEXT PRIMARY KEY,
-         |   job_id TEXT,
-         |   status TEXT,
-         |   request_data json,
-         |   requested_by TEXT,
-         |   requested_channel TEXT,
-         |   dt_job_submitted TIMESTAMP,
-         |   download_urls TEXT[],
-         |   dt_file_created TIMESTAMP,
-         |   dt_job_completed TIMESTAMP,
-         |   execution_time bigint,
-         |   err_message TEXT,
-         |   iteration int,
-         |   encryption_key TEXT,
-         |   processed_batches TEXT
-         |)
-      """.stripMargin
-    execute(query)
-  }
-
-  def createDatasetMetadataTable(): Unit = {
-    val tableName: String = "dataset_metadata"
-    val query =
-      s"""
-         |CREATE TABLE IF NOT EXISTS $tableName(
-         |  dataset_id VARCHAR(50) PRIMARY KEY,
-         |  dataset_sub_id VARCHAR(50),
-         |  dataset_config json,
-         |  visibility VARCHAR(50),
-         |  dataset_type VARCHAR(50),
-         |  version VARCHAR(10),
-         |  authorized_roles text[],
-         |  available_from TIMESTAMP,
-         |  sample_request VARCHAR(300),
-         |  sample_response VARCHAR(500),
-         |  validation_json json,
-         |  druid_query json,
-         |  limits json,
-         |  supported_formats text[],
-         |  exhaust_type VARCHAR(50)
-         |)
-      """.stripMargin
-    execute(query)
-  }
-
   def execute(sqlString: String): Boolean = {
     stmt.execute(sqlString)
   }
