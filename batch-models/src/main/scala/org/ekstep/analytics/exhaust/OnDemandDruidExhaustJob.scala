@@ -100,6 +100,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
       (df.columns).map(f1 => {
         df = df.withColumn(f1, when((col(f1) === "unknown") || (col(f1) === "<NULL>"), "Null").otherwise(col(f1)))
       })
+      df = df.dropDuplicates()
       if (dataCount.value > 0) {
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields).distinct
