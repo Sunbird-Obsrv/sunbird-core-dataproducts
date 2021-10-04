@@ -85,7 +85,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
         val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
         val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
         saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "metricLabels" -> metricsLabels,
-          "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`),f.zip,columnOrder)
+          "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`), f.zip, Option(columnOrder))
           JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
