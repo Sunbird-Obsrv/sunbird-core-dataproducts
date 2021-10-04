@@ -12,20 +12,9 @@ import org.scalatest.BeforeAndAfterAll
 
 class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
 
-    override def beforeAll(): Unit = {
-        super.beforeAll()
-        EmbeddedPostgresql.start()
-        EmbeddedPostgresql.createJobRequestTable()
-        EmbeddedPostgresql.createDatasetMetadataTable()
-    }
-
-    override def afterAll() : Unit = {
-        super.afterAll()
-        EmbeddedPostgresql.close()
-    }
     "JobFactory" should "return a Model class for a model code" in {
 
-        val jobIds = List("monitor-job-summ", "wfs", "video-streaming", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "audit-metrics-report", "druid_reports", "druid-dataset")
+        val jobIds = List("monitor-job-summ", "wfs", "video-streaming", "telemetry-replay", "summary-replay", "content-rating-updater", "experiment", "audit-metrics-report", "druid_reports")
 
         val jobs = jobIds.map { f => JobFactory.getJob(f) }
 
@@ -34,7 +23,7 @@ class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
 
         jobs(6) should be(ExperimentDefinitionJob)
         jobs(6).isInstanceOf[IJob] should be(true)
-
+        
     }
 
     it should "return JobNotFoundException" in {
@@ -42,6 +31,13 @@ class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
         the[JobNotFoundException] thrownBy {
             JobFactory.getJob("test-model")
         } should have message "Unknown job type found"
+    }
+
+    it should "return PostgresException" in {
+
+        the[ExceptionInInitializerError] thrownBy {
+            JobFactory.getJob("druid-dataset")
+        } should have message null
     }
 
 }
