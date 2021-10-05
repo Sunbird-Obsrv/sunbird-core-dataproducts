@@ -23,7 +23,7 @@ class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
 
         jobs(6) should be(ExperimentDefinitionJob)
         jobs(6).isInstanceOf[IJob] should be(true)
-        
+
     }
 
     it should "return JobNotFoundException" in {
@@ -31,13 +31,6 @@ class TestJobFactory extends FlatSpec with Matchers with BeforeAndAfterAll {
         the[JobNotFoundException] thrownBy {
             JobFactory.getJob("test-model")
         } should have message "Unknown job type found"
-    }
-
-    it should "return PostgresException" in {
-
-        the[ExceptionInInitializerError] thrownBy {
-            JobFactory.getJob("druid-dataset")
-        } should have message null
     }
 
 }

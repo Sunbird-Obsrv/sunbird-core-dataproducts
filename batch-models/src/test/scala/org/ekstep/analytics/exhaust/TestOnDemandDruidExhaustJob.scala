@@ -17,6 +17,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
+import org.ekstep.analytics.job.JobFactory
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
@@ -58,6 +59,14 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     new SimpleDateFormat(pattern)
   }
   val reportDate = getDate("yyyyMMdd").format(Calendar.getInstance().getTime())
+
+  it should "return PostgresException" in {
+
+    val job = JobFactory.getJob("druid-dataset")
+    job should be(OnDemandDruidExhaustJob)
+    job.isInstanceOf[IJob] should be(true)
+  }
+
   "TestOnDemandDruidExhaustJob" should "generate report with correct values" in {
     val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
