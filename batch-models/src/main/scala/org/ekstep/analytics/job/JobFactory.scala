@@ -1,7 +1,6 @@
 package org.ekstep.analytics.job
 
 import scala.reflect.runtime.universe
-
 import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.exception.JobNotFoundException
 import org.ekstep.analytics.job.batch.VideoStreamingJob
@@ -11,6 +10,7 @@ import org.ekstep.analytics.job.summarizer.ExperimentDefinitionJob
 import org.ekstep.analytics.job.summarizer.MonitorSummarizer
 import org.ekstep.analytics.job.summarizer.WorkFlowSummarizer
 import org.ekstep.analytics.job.updater.ContentRatingUpdater
+import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob
 
 /**
  * @author Santhosh
@@ -38,6 +38,8 @@ object JobFactory {
         MetricsAuditJob
       case "druid_reports" =>
         DruidQueryProcessor
+      case "druid-dataset" =>
+        OnDemandDruidExhaustJob
       case _ =>
         reflectModule(jobType);
     }
