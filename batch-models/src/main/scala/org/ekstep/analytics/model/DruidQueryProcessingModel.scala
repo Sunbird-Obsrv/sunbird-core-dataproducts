@@ -6,9 +6,11 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.util.LongAccumulator
+import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob.sendMetricsEventToKafka
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -75,17 +77,20 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
       reportConfig.output.foreach { f =>
         val df = getReportDF(RestUtil,f,data,dataCount).na.fill(0)
         if (dataCount.value > 0) {
-        val metricFields = f.metrics.distinct
-        val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
-        val metricsLabels=  metricFields.map(f=> labelsLookup.getOrElse(f,f)).distinct
-        val columnOrder = (List("Date") ++ dimFields.map(f=> labelsLookup.getOrElse(f,f))
-          .filter(f => !metricFields.contains(f)) ++ metricsLabels).distinct
-        val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
-        val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
-        val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
-        val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
-        saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "metricLabels" -> metricsLabels,
+          val metricFields = f.metrics.distinct
+          val fieldsList = (dimFields ++ metricFields ++ List("date")).distinct
+          val metricsLabels=  metricFields.map(f=> labelsLookup.getOrElse(f,f)).distinct
+          val columnOrder = (List("Date") ++ dimFields.map(f=> labelsLookup.getOrElse(f,f))
+            .filter(f => !metricFields.contains(f)) ++ metricsLabels).distinct
+          val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
+          val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
+          val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
+          val reportFinalId = if (f.label.nonEmpty && f.label.get.nonEmpty) reportConfig.id + "/" + f.label.get else reportConfig.id
+          val filesWithSize = saveReport(renamedDf, config ++ Map("dims" -> dimsLabels, "metricLabels" -> metricsLabels,
           "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`), f.zip, Option(columnOrder))
+          val totalFileSize = filesWithSize.map(f => f._2).sum
+          sendMetricsEventToKafka(getMetricJson(reportFinalId, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS",
+            List(Map("id" -> "output-file-size", "value" -> totalFileSize))))
           JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
