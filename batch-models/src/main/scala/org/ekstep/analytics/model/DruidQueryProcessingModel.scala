@@ -90,7 +90,7 @@ object DruidQueryProcessingModel extends IBatchModelTemplate[DruidOutput, DruidO
           "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`), f.zip, Option(columnOrder))
           val totalFileSize = filesWithSize.map(f => f._2).sum
           sendMetricsEventToKafka(getMetricJson(reportFinalId, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS",
-            List(Map("id" -> "output-file-size", "value" -> totalFileSize))))
+            List(Map("id" -> "output-file-size", "value" -> totalFileSize.asInstanceOf[AnyRef]))))
           JobLogger.log(reportConfig.id + "Total Records :"+ dataCount.value , None, Level.INFO)
         }
         else {
