@@ -15,7 +15,7 @@ import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.{AkkaHttpClient, DruidDataFetcher}
-import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
+import org.ekstep.analytics.framework.util.{HTTPClient, HadoopFileUtil, JSONUtils}
 import org.ekstep.analytics.util.{LocationResponse, StateLookup}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers}
@@ -26,7 +26,8 @@ import scala.collection.mutable.LinkedHashMap
 import scala.concurrent.Future
 
 class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with BeforeAndAfterAll with MockFactory {
-  implicit val fc = mock[FrameworkContext]
+    implicit val fc = mock[FrameworkContext]
+    val hadoopFileUtil = new HadoopFileUtil()
 
     it should "execute multiple queries and generate csv reports on multiple dimensions with dynamic interval" in {
         //        implicit val sc = CommonUtil.getSparkContext(2, "TestDruidQueryProcessingModel", None, None);
@@ -48,6 +49,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
         val mockDruidClient = mock[DruidClient]
         (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+        (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -150,6 +152,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
           val scansQuery1 = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", None), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
           val contentPlaysQuery1 = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", None), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -340,6 +343,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
           val scansQuery2 = DruidQueryModel("timeSeries", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), None, Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
           val contentPlaysQuery2 = DruidQueryModel("timeSeries", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), None, Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -389,6 +393,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
           val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
           val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -418,6 +423,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
           val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
           val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -450,6 +456,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
           val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("derived_loc_state", Option("state")), DruidDimension("derived_loc_district", Option("district"),Option("Extraction"), Option("STRING"),
               Option(List(ExtractFn("registeredLookup","districtLookup"),ExtractFn("javascript", "function(str){return str == null ? null: str.toLowerCase().trim().split(' ').map(function(t){return t.substring(0,1).toUpperCase()+t.substring(1,t.length)}).join(' ')}")))))),
               Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.diksha.app", "prod.diksha.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -482,6 +489,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           (mockDruidClient.doQueryAsStream(_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Source(results)).anyNumberOfTimes();
           (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
           (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
           val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""), Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("derived_loc_state", Option("state")), DruidDimension("derived_loc_district", Option("district"), Option("Extraction"), Option("STRING"),
               Option(List(ExtractFn("registeredLookup", "districtLookup"), ExtractFn("javascript", "function(str){return str == null ? null: str.toLowerCase().trim().split(' ').map(function(t){return t.substring(0,1).toUpperCase()+t.substring(1,t.length)}).join(' ')}")))))),
               Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.diksha.app", "prod.diksha.portal"))), DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
@@ -533,6 +541,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
           val mockDruidClient = mock[DruidClient]
           (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
           (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+          (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
           (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
             .expects(request,mockDruidClient.actorSystem)
             .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
@@ -565,6 +574,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     val mockDruidClient = mock[DruidClient]
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
     (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
     (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
       .expects(request,mockDruidClient.actorSystem)
       .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
@@ -598,6 +608,7 @@ class TestDruidQueryProcessingModel extends SparkSpec(null) with Matchers with B
     val mockDruidClient = mock[DruidClient]
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("TestQuery")).anyNumberOfTimes()
     (fc.getDruidRollUpClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
     (mockAKkaUtil.sendRequest(_: HttpRequest)(_: ActorSystem))
       .expects(request, mockDruidClient.actorSystem)
       .returns(Future.successful(HttpResponse(entity = HttpEntity(ByteString(stripString))))).anyNumberOfTimes();
