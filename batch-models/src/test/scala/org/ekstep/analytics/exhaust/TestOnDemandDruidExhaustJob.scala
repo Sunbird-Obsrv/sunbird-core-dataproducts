@@ -61,7 +61,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
   val reportDate = getDate("yyyyMMdd").format(Calendar.getInstance().getTime())
 
-  ignore should "return PostgresException" in {
+  it should "return PostgresException" in {
 
     val job = JobFactory.getJob("druid-dataset")
     job should be(OnDemandDruidExhaustJob)

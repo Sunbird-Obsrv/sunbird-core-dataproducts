@@ -57,7 +57,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
 
     override def afterAll(): Unit ={
         super.afterAll()
-        EmbeddedPostgresql.close
+//        EmbeddedPostgresql.close
     }
 
    "DruidQueryProcessor" should "execute multiple queries and generate csv reports on multiple dimensions" in {
