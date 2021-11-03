@@ -8,6 +8,7 @@ import org.apache.spark.util.LongAccumulator
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -126,7 +127,7 @@ trait BaseDruidQueryProcessor {
   }
 
   // saves report data as csv/zip file to specified path and also has merge report logic
-  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: Option[List[String]])(implicit sc: SparkContext, fc:FrameworkContext): List[String] = {
+  def saveReport(data: DataFrame, config: Map[String, AnyRef], zip: Option[Boolean], columnOrder: Option[List[String]])(implicit sc: SparkContext, fc:FrameworkContext): List[(String, Long)] = {
     import org.apache.spark.sql.functions.udf
     val container =  getStringProperty(config, "container", "test-container")
     val storageConfig = StorageConfig(getStringProperty(config, "store", "local"),container, getStringProperty(config, "key", "/tmp/druid-reports"), config.get("accountKey").asInstanceOf[Option[String]]);
@@ -187,8 +188,17 @@ trait BaseDruidQueryProcessor {
     else {
       JobLogger.log(s"Merge report is not configured, hence skipping that step", None, INFO)
     }
+    val filesWithSize = deltaFiles.map{f =>
+      val fileSize = fc.getHadoopFileUtil().size(f, sc.hadoopConfiguration)
+      (f, fileSize)
+    }
+    filesWithSize
+  }
 
-    deltaFiles
+  // $COVERAGE-OFF$
+  def sendMetricsEventToKafka(metricEvent: String)(implicit  fc: FrameworkContext):Unit = {
+    if (AppConf.getConfig("push.metrics.kafka").toBoolean)
+      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
   }
 
 }

@@ -37,6 +37,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   implicit var sqlContext : SQLContext = _
   import scala.concurrent.ExecutionContext.Implicits.global
   implicit val fc = mock[FrameworkContext]
+  val hadoopFileUtil = new HadoopFileUtil()
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -102,6 +103,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     var name = OnDemandDruidExhaustJob.name()
 
@@ -159,6 +161,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Future.apply[DruidResponse](DruidScanResponse.apply(List()))).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -199,6 +202,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Future.apply[DruidResponse](DruidScanResponse.apply(List()))).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -239,6 +243,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Future.apply[DruidResponse](DruidScanResponse.apply(List()))).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -296,6 +301,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -353,6 +359,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -426,6 +433,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -486,6 +494,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -538,6 +547,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Future.apply[DruidResponse](DruidScanResponse.apply(List()))).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     OnDemandDruidExhaustJob.execute()
     val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
@@ -595,6 +605,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
@@ -654,6 +665,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
       .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
     val jobRequest = JobRequest("126796199493140000", "888700F9A860E7A42DA968FBECDF3F22", "druid-dataset", "SUBMITTED", "{\"type\": \"ml-task-detail-exhaust\"," +
       "\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}",

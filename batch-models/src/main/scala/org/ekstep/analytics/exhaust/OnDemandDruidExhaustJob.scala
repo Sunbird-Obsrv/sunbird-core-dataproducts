@@ -110,6 +110,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
         val reportFinalId = reportConfig.id + "/" + request_id + "_" + reportDate
         fileSavedToBlob = saveReport(renamedDf, JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(config.modelParams.get)) ++
           Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`), None, None)
+          .map(f => f._1)
         JobLogger.log(reportConfig.id + "Total Records :" + dataCount.value, None, Level.INFO)
       }
       else {
