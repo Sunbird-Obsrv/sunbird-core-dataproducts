@@ -6,7 +6,7 @@ import io.circe.Json
 import io.circe.parser._
 import org.apache.spark.sql.SQLContext
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.util.JSONUtils
+import org.ekstep.analytics.framework.util.{HadoopFileUtil, JSONUtils}
 import org.ekstep.analytics.model.{SparkSpec, _}
 import org.ekstep.analytics.util.EmbeddedPostgresql
 import org.joda.time
@@ -80,6 +80,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
 
     "DruidQueryProcessor" should "test batch implementation with batch" in {
         implicit val fc = mock[FrameworkContext]
+        val hadoopFileUtil = new HadoopFileUtil()
         import scala.concurrent.ExecutionContext.Implicits.global
 
         val json: String = """
@@ -93,10 +94,10 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         val results = List(DruidResult.apply(Some(ZonedDateTime.of(2019, 11, 28, 17, 0, 0, 0, ZoneOffset.UTC)), doc));
         val druidResponse = DruidResponseTimeseriesImpl.apply(results, QueryType.GroupBy)
 
-        implicit val mockDruidConfig = DruidConfig.DefaultConfig
         val mockDruidClient = mock[DruidClient]
-        (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, mockDruidConfig).returns(Future(druidResponse)).anyNumberOfTimes();
+        (mockDruidClient.doQuery[DruidResponse](_: DruidQuery)(_: DruidConfig)).expects(*, *).returns(Future(druidResponse)).anyNumberOfTimes();
         (fc.getDruidClient _).expects().returns(mockDruidClient).anyNumberOfTimes();
+        (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
 
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", None, Option(List(Aggregation(Option("total_scans"), "count", ""))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", None, Option(List(Aggregation(Option("total_sessions"), "count", ""),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
