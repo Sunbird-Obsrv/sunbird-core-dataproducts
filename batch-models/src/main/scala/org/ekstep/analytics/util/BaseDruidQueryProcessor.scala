@@ -9,10 +9,11 @@ import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.framework.exception.DruidConfigException
 import org.ekstep.analytics.framework.fetcher.DruidDataFetcher
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
-import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils, JobLogger, MergeUtil}
+import org.ekstep.analytics.framework.util.{CommonUtil, HTTPClient, JSONUtils, JobLogger, MergeUtil}
 import org.ekstep.analytics.model.{OutputConfig, QueryInterval, ReportConfig}
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -190,6 +191,8 @@ trait BaseDruidQueryProcessor {
     }
     val filesWithSize = deltaFiles.map{f =>
       val fileSize = fc.getHadoopFileUtil().size(f, sc.hadoopConfiguration)
+      sendMetricsEventToKafka(getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS",
+        List(Map("id" -> "output-file-path", "value" -> f.asInstanceOf[AnyRef]),Map("id" -> "output-file-size", "value" -> fileSize.asInstanceOf[AnyRef]))))
       (f, fileSize)
     }
     filesWithSize
