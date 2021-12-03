@@ -142,7 +142,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     })
 
     val finalReportConfig = JSONUtils.deserialize[ReportConfig](finalConfig)
-    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, false, false, false)
+    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, true, false, false)
     val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
