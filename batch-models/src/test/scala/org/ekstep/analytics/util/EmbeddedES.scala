@@ -39,6 +39,11 @@ object EmbeddedES {
     esServer.index(JavaConverters.bufferAsJavaListConverter(docs).asJava);
   }
 
+  def index(indexName: String, indexType: String, data: String, id: String) = {
+    val doc = new IndexRequest.IndexRequestBuilder(indexName, indexType, data).withId(id).build()
+    esServer.index(JavaConverters.bufferAsJavaListConverter(Buffer(doc)).asJava);
+  }
+
   def getAllDocuments(index: String): Buffer[String] = {
     esServer.fetchAllDocuments(index).asScala;
   }

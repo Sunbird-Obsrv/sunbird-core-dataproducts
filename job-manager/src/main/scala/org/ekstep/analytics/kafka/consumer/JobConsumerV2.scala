@@ -36,8 +36,8 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
         try
             iterator.hasNext()
         catch {
-            case timeOutEx: ConsumerTimeoutException =>
-                false
+//            case timeOutEx: ConsumerTimeoutException =>
+//                false
             case ex: Exception =>
                 JobLogger.log("Getting error when reading message", Option(Map("err" -> ex.getMessage)), ERROR);
                 false
@@ -50,13 +50,13 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 object JobConsumerV2Config {
 
     // Simple helper to create properties from the above. Note that we don't cache the lookup, as it may always change.
-    def makeProps(zookeeperConnect: String = "localhost:2181", consumerGroup: String = "dev.job-consumer") = {
+    def makeProps(zookeeperConnect: String = "localhost:2181", consumerGroup: String = "dev.job-consumer", consumerTimeoutMs: String = "120000") = {
         val props = new Properties()
         props.put("group.id", consumerGroup)
         props.put("zookeeper.connect", zookeeperConnect)
         props.put("auto.offset.reset", "smallest")
         //2 minute consumer timeout
-        props.put("consumer.timeout.ms", "120000")
+        props.put("consumer.timeout.ms", consumerTimeoutMs)
         //commit after each 10 second
         props.put("auto.commit.interval.ms", "10000")
         props

@@ -2,17 +2,19 @@ package org.ekstep.analytics.model
 
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.sql.{BatchUpdateException, DriverManager, Timestamp}
 
 import com.datastax.spark.connector._
 import com.datastax.spark.connector.types.TimestampFormatter
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{Encoders, SQLContext}
+import org.apache.spark.sql.{Encoders, SQLContext, SaveMode}
 import org.ekstep.analytics.framework.Level.ERROR
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.framework.{IBatchModelTemplate, _}
 import org.ekstep.analytics.util.Constants
+import org.joda.time.DateTime
 
 import scala.collection.mutable.ListBuffer
 
@@ -31,31 +33,29 @@ case class ExperimentDefinition(exp_id: String, exp_name: String, criteria: Stri
 
 case class ExperimentData(startDate: String, endDate: String, key: String, client: String, modulus: Option[Int])
 
-
-case class ExperimentDefinitionMetadata(exp_id: String, status: String, status_message: String, updated_on: String, stats: Map[String, Long], updated_by: String)
-
+case class ExperimentDefinitionMetadata(exp_id: String, status: String, status_message: String, updated_on: Timestamp, stats: String, updated_by: String)
 
 object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDefinition, ExperimentDefinitionOutput, ExperimentDefinitionOutput] with Serializable {
 
     implicit val className: String = "org.ekstep.analytics.model.ExperimentDefinitionModel"
 
     override def name: String = "ExperimentDefinitionModel"
+    implicit val utils: ExperimentDataUtils = new ExperimentDataUtils
 
     override def preProcess(data: RDD[Empty], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ExperimentDefinition] = {
 
-        val experiments = sc.cassandraTable[ExperimentDefinition](Constants.PLATFORM_KEY_SPACE_NAME, Constants.EXPERIMENT_DEFINITION_TABLE)
+        // Get experiments from postgres
+        val experiments = utils.getExprimentData(Constants.EXPERIMENT_DEFINITION_TABLE)
           .filter(metadata => metadata.status.equalsIgnoreCase("SUBMITTED"))
-
         experiments
     }
 
     override def algorithm(experiments: RDD[ExperimentDefinition], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[ExperimentDefinitionOutput] = {
 
         val metadata: ListBuffer[ExperimentDefinitionMetadata] = ListBuffer()
-        implicit val utils: ExperimentDataUtils = new ExperimentDataUtils
         val result = algorithmProcess(experiments, metadata)
-        sc.makeRDD(metadata).saveToCassandra(Constants.PLATFORM_KEY_SPACE_NAME,
-            Constants.EXPERIMENT_DEFINITION_TABLE, SomeColumns("exp_id", "status", "status_message", "updated_on", "updated_by", "stats"))
+        // save to postgres
+        utils.saveExperimentMetaData(Constants.EXPERIMENT_DEFINITION_TABLE, sc.parallelize(metadata))
         result.fold(sc.emptyRDD[ExperimentDefinitionOutput])(_ ++ _)
 
     }
@@ -78,14 +78,13 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
                 filterType match {
                     case "user" | "user_mod" =>
                         val userResponse = util.getUserDetails(JSONUtils.serialize(criteria.filters))
-
                         if (null != userResponse && !userResponse.responseCode.isEmpty && userResponse.responseCode.equalsIgnoreCase("OK")) {
                             userResponse.result.get("response").map { userResult =>
                                 metadata ++= Seq(populateExperimentMetadata(exp, userResult.content.size, filterType,
                                     "ACTIVE", "Experiment Mapped Sucessfully"))
                                 sc.parallelize(userResult.content.map(user =>
                                     populateExperimentMapping(user.get("id").asInstanceOf[Option[String]], exp, filterType)))
-                            }.getOrElse(sc.emptyRDD[ExperimentDefinitionOutput])
+                            }.get
                         } else {
                             metadata ++= Seq(populateExperimentMetadata(exp, 0, filterType, "FAILED",
                                 "Experiment Failed, Please Check the criteria"))
@@ -134,8 +133,7 @@ object ExperimentDefinitionModel extends IBatchModelTemplate[Empty, ExperimentDe
 
     private def populateExperimentMetadata(exp: ExperimentDefinition, mappedCount: Long, expType: String, status: String, status_msg: String): ExperimentDefinitionMetadata = {
         val stats = Map(expType + "Matched" -> mappedCount)
-        ExperimentDefinitionMetadata(exp.exp_id, status, status_msg, TimestampFormatter.format(new Date), stats, "ExperimentDataProduct")
-
+        ExperimentDefinitionMetadata(exp.exp_id, status, status_msg, new Timestamp(System.currentTimeMillis()), JSONUtils.serialize(stats), "ExperimentDataProduct")
     }
 }
 
@@ -163,5 +161,45 @@ class ExperimentDataUtils {
         implicit val sqlContext = new SQLContext(sc)
         val encoder = Encoders.product[DeviceProfileModel]
         sqlContext.sparkSession.read.jdbc(url, table, CommonUtil.getPostgresConnectionProps()).as[DeviceProfileModel](encoder).rdd
+    }
+
+    def saveExperimentMetaData(table: String, data: RDD[ExperimentDefinitionMetadata])(implicit sc: SparkContext): Unit = {
+        val queries = data.map{f =>
+            val dataMap = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(f))
+            val filteredDataMap = dataMap.--(List("updated_on"))
+            val finalDataMap = filteredDataMap ++ Map("updated_on" -> f.updated_on)
+            val columns = finalDataMap.keySet.mkString(",")
+            val values = finalDataMap.values.mkString("','")
+            s"""INSERT INTO $table ($columns) VALUES ('$values') ON CONFLICT (exp_id) DO UPDATE SET ($columns) = ('$values')"""
+        }
+        dispatchEventsToPostgres(queries);
+    }
+
+    def dispatchEventsToPostgres(queries: RDD[String]): Unit = {
+        val connProperties = CommonUtil.getPostgresConnectionProps
+        val user = connProperties.getProperty("user")
+        val pass = connProperties.getProperty("password")
+        val db = AppConf.getConfig("postgres.db")
+        val url = AppConf.getConfig("postgres.url") + s"$db"
+
+        queries
+          .foreachPartition { (rddpartition: Iterator[String]) =>
+              val connection = DriverManager.getConnection(url, user, pass)
+              var statement = connection.createStatement()
+              rddpartition.foreach { (row: String) =>
+                  statement.addBatch(row)
+              }
+              statement.executeBatch()
+              statement.close()
+              connection.close()
+          }
+    }
+
+    def getExprimentData(table: String)(implicit sc: SparkContext): RDD[ExperimentDefinition] = {
+        val db = AppConf.getConfig("postgres.db")
+        val url = AppConf.getConfig("postgres.url") + s"$db"
+        implicit val sqlContext = new SQLContext(sc)
+        val encoder = Encoders.product[ExperimentDefinition]
+        sqlContext.sparkSession.read.jdbc(url, table, CommonUtil.getPostgresConnectionProps()).as[ExperimentDefinition](encoder).rdd
     }
 }

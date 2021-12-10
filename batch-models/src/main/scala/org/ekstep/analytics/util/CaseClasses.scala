@@ -41,17 +41,10 @@ class MEEdata(val eks: Eks) extends Serializable;
 case class WorkFlowSummaryIndex(d_period: Int, d_channel: String, d_app_id: String, d_tag: String, d_type: String, d_mode: String, d_device_id: String, d_content_id: String, d_user_id: String) extends Output
 case class WorkFlowUsageSummaryFact(d_period: Int, d_channel: String, d_app_id: String, d_tag: String, d_type: String, d_mode: String, d_device_id: String, d_content_id: String, d_user_id: String, m_publish_date: DateTime, m_last_sync_date: DateTime, m_last_gen_date: DateTime, m_total_ts: Double, m_total_sessions: Long, m_avg_ts_session: Double, m_total_interactions: Long, m_avg_interactions_min: Double, m_total_pageviews_count: Long, m_avg_pageviews: Double, m_total_users_count: Long, m_total_content_count: Long, m_total_devices_count: Long, m_unique_users: Array[Byte], m_device_ids: Array[Byte], m_contents: Array[Byte], m_content_type: Option[String], m_updated_date: Option[DateTime] = Option(DateTime.now())) extends AlgoOutput with CassandraTable
 
-/* Job Request & Data Exhaust */
-case class JobRequest(client_key: String, request_id: String, job_id: Option[String], status: String, request_data: String,
-                      location: Option[String], dt_file_created: Option[DateTime], dt_first_event: Option[DateTime], dt_last_event: Option[DateTime],
-                      dt_expiration: Option[DateTime], iteration: Option[Int], dt_job_submitted: DateTime, dt_job_processing: Option[DateTime],
-                      dt_job_completed: Option[DateTime], input_events: Option[Long], output_events: Option[Long], file_size: Option[Long], latency: Option[Int],
-                      execution_time: Option[Long], err_message: Option[String], stage: Option[String], stage_status: Option[String], job_name: Option[String] = None) extends AlgoOutput
-
 case class RequestFilter(start_date: String, end_date: String, tags: Option[List[String]], events: Option[List[String]], app_id: Option[String], channel: Option[String]);
 case class RequestConfig(filter: RequestFilter, dataset_id: Option[String] = Option("eks-consumption-raw"), output_format: Option[String] = None);
 case class RequestOutput(request_id: String, output_events: Int)
 case class DataExhaustJobInput(eventDate: Long, event: String, eid: String) extends AlgoInput;
 case class JobResponse(client_key: String, request_id: String, job_id: String, output_events: Long, bucket: String, prefix: String, first_event_date: Long, last_event_date: Long);
-case class JobStage(request_id: String, client_key: String, stage: String, stage_status: String, status: String, err_message: String = "", dt_job_processing: Option[DateTime] = Option(new DateTime()))
+
 case class RequestDetails(client_key: String, request_id: String, status: String, dt_job_submitted: String, input_events: Option[Long], output_events: Option[Long], execution_time: Option[Long])

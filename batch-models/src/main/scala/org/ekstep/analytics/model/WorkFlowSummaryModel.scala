@@ -1,12 +1,16 @@
 package org.ekstep.analytics.model
 
+import java.io.Serializable
+
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+
 import scala.collection.mutable.Buffer
 import org.apache.spark.HashPartitioner
 import org.ekstep.analytics.framework.JobContext
 import org.apache.commons.lang3.StringUtils
+import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework.util.CommonUtil
 import org.ekstep.analytics.util.Constants
@@ -14,26 +18,42 @@ import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework._
 
-case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[V3Event]) extends AlgoInput
+@scala.beans.BeanInfo
+class WFSInputEvent(val eid: String, val ets: Long, val `@timestamp`: String, val ver: String, val mid: String, val actor: Actor, val context: V3Context, val `object`: Option[V3Object], val edata: WFSInputEData, val tags: List[AnyRef] = null) extends AlgoInput with Input {}
+@scala.beans.BeanInfo
+class WFSInputEData(val `type`: String, val mode: String, val duration: Long, val pageid: String, val item: Question,
+                    val resvalues: Array[Map[String, AnyRef]], val pass: String, val score: Int) extends Serializable {}
+
+case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[String]) extends AlgoInput
 case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
 case class WorkflowIndex(did: String, channel: String, pdataId: String)
+case class WorkFlowIndexEvent(eid: String, context: V3Context)
 
-object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
+object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
 
     implicit val className = "org.ekstep.analytics.model.WorkFlowSummaryModel"
     override def name: String = "WorkFlowSummaryModel"
     val serverEvents = Array("LOG", "AUDIT", "SEARCH");
 
-    override def preProcess(data: RDD[V3Event], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
+    override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
 
         val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
         val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val partitionedData = data.filter(f => !serverEvents.contains(f.eid)).map { x => (WorkflowIndex(x.context.did.getOrElse(""), x.context.channel, x.context.pdata.getOrElse(defaultPDataId).id), Buffer(x)) }
+        val indexedData = data.map{f =>
+                try {
+                    (JSONUtils.deserialize[WorkFlowIndexEvent](f), f)
+                }
+                catch {
+                    case ex: Exception =>
+                        JobLogger.log(ex.getMessage, None, INFO)
+                        (null.asInstanceOf[WorkFlowIndexEvent], "")
+                }
+        }.filter(f => null != f._1)
+        val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
             .partitionBy(new HashPartitioner(parallelization))
             .reduceByKey((a, b) => a ++ b);
-        
+
         partitionedData.map { x => WorkflowInput(x._1, x._2) }
-            
     }
     
     override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
@@ -41,13 +61,25 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
         
         val idleTime = config.getOrElse("idleTime", 600).asInstanceOf[Int];
         val sessionBreakTime = config.getOrElse("sessionBreakTime", 30).asInstanceOf[Int];
-
+        
+        val outputEventsCount = fc.outputEventsCount;
+        
         data.map({ f =>
             var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val sortedEvents = f.events.sortBy { x => x.ets }
+            val events = f.events.map{f =>
+                try {
+                    JSONUtils.deserialize[WFSInputEvent](f)
+                }
+                catch {
+                    case ex: Exception =>
+                        JobLogger.log(ex.getMessage, None, INFO)
+                        null.asInstanceOf[WFSInputEvent]
+                }
+            }.filter(f => null != f)
+            val sortedEvents = events.sortBy { x => x.ets }
             var rootSummary: org.ekstep.analytics.util.Summary = null
             var currSummary: org.ekstep.analytics.util.Summary = null
-            var prevEvent: V3Event = sortedEvents.head
+            var prevEvent: WFSInputEvent = sortedEvents.head
             
             sortedEvents.foreach{ x =>
 
@@ -59,8 +91,9 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                         summEvents ++= clonedRootSummary.summaryEvents
                         clonedRootSummary.clearAll()
                         rootSummary = clonedRootSummary
-                        currSummary.clearSummary()//clonedRootSummary.getLeafSummary
+                        currSummary.clearSummary()
                     }
+                    else {}
                 }
                 prevEvent = x
                 (x.eid) match {
@@ -76,18 +109,20 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                                 currSummary.addParent(rootSummary, idleTime)
                             }
                             else {
-                                if(currSummary != null && !currSummary.isClosed){
-                                    currSummary.close(summEvents, config);
-                                    summEvents ++= currSummary.summaryEvents;
-                                }
+//                                if(currSummary != null && !currSummary.isClosed){
+//                                    println("Inside first missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                                    currSummary.close(summEvents, config);
+//                                    summEvents ++= currSummary.summaryEvents;
+//                                }
                                 rootSummary = new org.ekstep.analytics.util.Summary(x)
                                 currSummary = rootSummary
                             } 
                         }
-                        else if (currSummary == null || currSummary.isClosed) {
-                            currSummary = new org.ekstep.analytics.util.Summary(x)
-                            if (!currSummary.checkSimilarity(rootSummary)) rootSummary.addChild(currSummary)
-                        }
+//                        else if (currSummary == null || currSummary.isClosed) {
+//                            println("Inside second missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                            currSummary = new org.ekstep.analytics.util.Summary(x)
+//                            if (!currSummary.checkSimilarity(rootSummary)) rootSummary.addChild(currSummary)
+//                        }
                         else {
                             val tempSummary = currSummary.checkStart(x.edata.`type`, Option(x.edata.mode), currSummary.summaryEvents, config)
                             if (tempSummary == null) {
@@ -102,12 +137,13 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                                 if(tempSummary.PARENT != null && tempSummary.isClosed) {
                                      summEvents ++= tempSummary.summaryEvents
                                      val newSumm = new org.ekstep.analytics.util.Summary(x)
-                                     if (!currSummary.isClosed) {
-                                        currSummary.addChild(newSumm)
-                                        newSumm.addParent(currSummary, idleTime)
-                                     }
+//                                     if (!currSummary.isClosed) {
+//                                         println("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
+//                                        JobLogger.log("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode, None, INFO)
+//                                        currSummary.addChild(newSumm)
+//                                        newSumm.addParent(currSummary, idleTime)
+//                                     }
                                      currSummary = newSumm
-                                     //currSummary = new org.ekstep.analytics.util.Summary(x)
                                      tempSummary.PARENT.addChild(currSummary)
                                      currSummary.addParent(tempSummary.PARENT, idleTime)
                                 }
@@ -164,6 +200,7 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                               currSummary = parentSummary
                             }
                         }
+                        else {}
                     case _ =>
                         if (currSummary != null && !currSummary.isClosed) {
                             currSummary.add(x, idleTime)
@@ -171,7 +208,8 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                         else{
                             currSummary = new org.ekstep.analytics.util.Summary(x)
                             currSummary.updateType("app")
-                            if(rootSummary == null || rootSummary.isClosed) rootSummary = currSummary
+                            if(rootSummary == null || rootSummary.isClosed)
+                                rootSummary = currSummary
                         }
                 }
             }
@@ -183,11 +221,14 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[V3Event, WorkflowInput, 
                     summEvents ++= rootSummary.summaryEvents
                 }
             }
-            summEvents;
+            else {}
+            val out = summEvents.distinct;
+            outputEventsCount.add(out.size);
+            out;
         }).flatMap(f => f.map(f => f));
         
     }
     override def postProcess(data: RDD[MeasuredEvent], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
-        data.distinct()
+        data
     }
 }

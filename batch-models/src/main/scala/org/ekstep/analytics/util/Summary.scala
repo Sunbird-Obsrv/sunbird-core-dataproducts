@@ -1,19 +1,21 @@
 package org.ekstep.analytics.util
 
 import org.ekstep.analytics.framework._
+
 import scala.collection.mutable.Buffer
 import org.apache.commons.lang3.StringUtils
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.CommonUtil
+import org.ekstep.analytics.model.WFSInputEvent
 
 case class Item(itemId: String, timeSpent: Option[Double], res: Option[Array[String]], resValues: Option[Array[AnyRef]], mc: Option[AnyRef], mmc: Option[AnyRef], score: Int, time_stamp: Long, maxScore: Option[AnyRef], pass: String, qtitle: Option[String], qdesc: Option[String]);
 
-class Summary(val firstEvent: V3Event) {
+class Summary(val firstEvent: WFSInputEvent) {
 
     val defaultPData = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
     val interactTypes = List("touch", "drag", "drop", "pinch", "zoom", "shake", "rotate", "speak", "listen", "write", "draw", "start", "end", "choose", "activate", "scroll", "click", "edit", "submit", "search", "dnd", "added", "removed", "selected")
     val sid: String = firstEvent.context.sid.getOrElse("")
-    val uid: String = if (firstEvent.actor.id == null) "" else firstEvent.actor.id
+    val uid: String = if (firstEvent.actor == null || firstEvent.actor.id == null) "" else firstEvent.actor.id
     val `object`: Option[V3Object] = if (firstEvent.`object`.isDefined) firstEvent.`object` else None;
     val telemetryVersion: String = firstEvent.ver
     val tags: Option[List[AnyRef]] = Option(firstEvent.tags)
@@ -28,7 +30,7 @@ class Summary(val firstEvent: V3Event) {
     var interactEventsCount: Long = if(StringUtils.equals("INTERACT", firstEvent.eid) && interactTypes.contains(firstEvent.edata.`type`.toLowerCase)) 1l else 0l
     var `type`: String = if (null == firstEvent.edata.`type`) "app" else StringUtils.lowerCase(firstEvent.edata.`type`)
     var mode: Option[String] = if (firstEvent.edata.mode == null) Option("") else Option(firstEvent.edata.mode)
-    var lastEvent: V3Event = null
+    var lastEvent: WFSInputEvent = null
     var itemResponses: Buffer[Item] = Buffer[Item]()
     var endTime: Long = 0l
     var timeSpent: Double = 0.0
@@ -37,8 +39,8 @@ class Summary(val firstEvent: V3Event) {
     var eventsSummary: Map[String, Long] = Map(firstEvent.eid -> 1)
     var pageSummary: Iterable[PageSummary] = Iterable[PageSummary]()
     var prevEventEts: Long = startTime
-    var lastImpression: V3Event = null
-    var impressionMap: Map[V3Event, Double] = Map()
+    var lastImpression: WFSInputEvent = null
+    var impressionMap: Map[WFSInputEvent, Double] = Map()
     var summaryEvents: Buffer[MeasuredEvent] = Buffer()
 
     var CHILDREN: Buffer[Summary] = Buffer()
@@ -52,15 +54,6 @@ class Summary(val firstEvent: V3Event) {
     
     def resetMode() {
         this.mode = Option("");
-    }
-
-    def getLeafSummary(): Summary = {
-        if(this.CHILDREN.size > 0) {
-            this.CHILDREN.map { summ =>
-                summ.getLeafSummary()
-            }.last
-        }
-        else this
     }
 
     def ckeckTypeMode(`type`: String, mode: String): Boolean = {
@@ -115,7 +108,7 @@ class Summary(val firstEvent: V3Event) {
         this.isClosed = false
     }
 
-    def add(event: V3Event, idleTime: Int) {
+    def add(event: WFSInputEvent, idleTime: Int) {
         if(this.startTime == 0l) this.startTime = event.ets
         val ts = CommonUtil.getTimeDiff(prevEventEts, event.ets).get
         prevEventEts = event.ets
@@ -145,7 +138,7 @@ class Summary(val firstEvent: V3Event) {
         this.envSummary = getEnvSummaries();
 
         if (StringUtils.equals(event.eid, "ASSESS")) {
-            val resValues = if (null == event.edata.resvalues) Option(Array[Map[String, AnyRef]]().map(f => f.asInstanceOf[AnyRef])) else Option(event.edata.resvalues.map(f => f.asInstanceOf[AnyRef]))
+            val resValues = if (null == event.edata.resvalues) Option(Array[AnyRef]()) else Option(event.edata.resvalues.map(f => f.asInstanceOf[AnyRef]))
             val res = if (null == event.edata.resvalues) Option(Array[String]()); else Option(event.edata.resvalues.flatten.map { x => (x._1 + ":" + x._2.toString) });
             val item = event.edata.item
             this.itemResponses += org.ekstep.analytics.util.Item(item.id, Option(event.edata.duration), res, resValues, Option(item.mc), Option(item.mmc), event.edata.score, event.ets, Option(item.maxscore.asInstanceOf[AnyRef]), event.edata.pass, Option(item.title), Option(item.desc));
@@ -164,10 +157,6 @@ class Summary(val firstEvent: V3Event) {
         this.PARENT.add(this.firstEvent, idleTime)
     }
 
-    def getParent(): Summary = {
-        return this.PARENT;
-    }
-
     def checkStart(`type`: String, mode: Option[String], summEvents: Buffer[MeasuredEvent], config: Map[String, AnyRef]): Summary = {
         if(StringUtils.equalsIgnoreCase(this.`type`, `type`) && StringUtils.equals(this.mode.get, mode.getOrElse(""))) {
             this.close(summEvents, config);
@@ -182,7 +171,7 @@ class Summary(val firstEvent: V3Event) {
         }
     }
 
-    def checkEnd(event: V3Event, idleTime: Int, config: Map[String, AnyRef]): Summary = {
+    def checkEnd(event: WFSInputEvent, idleTime: Int, config: Map[String, AnyRef]): Summary = {
         val mode = if(event.edata.mode == null) "" else event.edata.mode
         if(StringUtils.equalsIgnoreCase(this.`type`, event.edata.`type`) && StringUtils.equals(this.mode.get, mode)) {
             if(this.PARENT == null) return this else return PARENT;
@@ -191,13 +180,13 @@ class Summary(val firstEvent: V3Event) {
             return this;
         }
         val summ = PARENT.checkEnd(event, idleTime, config)
-        if (summ == null) {
-            return this;
-        }
+//        if (summ == null) {
+//            return this;
+//        }
         return summ;
     }
     
-    def getSimilarEndSummary(event: V3Event): Summary = {
+    def getSimilarEndSummary(event: WFSInputEvent): Summary = {
         val mode = if(event.edata.mode == null) "" else event.edata.mode
         if(StringUtils.equalsIgnoreCase(this.`type`, event.edata.`type`) && StringUtils.equals(this.mode.get, mode)) {
             return this;
@@ -233,7 +222,7 @@ class Summary(val firstEvent: V3Event) {
         val interactEventsPerMin: Double = if (this.interactEventsCount == 0 || this.timeSpent == 0) 0d
         else if (this.timeSpent < 60.0) this.interactEventsCount.toDouble
         else BigDecimal(this.interactEventsCount / (this.timeSpent / 60)).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble;
-        val syncts = CommonUtil.getEventSyncTS(if(this.lastEvent == null) this.firstEvent else this.lastEvent)
+        val syncts = getEventSyncTS(if(this.lastEvent == null) this.firstEvent else this.lastEvent)
         val eventsSummary = this.eventsSummary.map(f => EventSummary(f._1, f._2.toInt))
         val measures = Map("start_time" -> this.startTime,
             "end_time" -> this.endTime,
@@ -278,6 +267,11 @@ class Summary(val firstEvent: V3Event) {
                 EnvSummary(f._1, timeSpent, count)
             }
         } else Iterable[EnvSummary]()
+    }
+
+    def getEventSyncTS(event: WFSInputEvent): Long = {
+        val timeInString = event.`@timestamp`;
+        CommonUtil.getEventSyncTS(timeInString);
     }
 
 }

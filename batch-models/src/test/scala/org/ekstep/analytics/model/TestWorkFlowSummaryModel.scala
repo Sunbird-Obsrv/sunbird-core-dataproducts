@@ -1,28 +1,28 @@
 package org.ekstep.analytics.model
 
-import org.ekstep.analytics.framework.V3Event
-import scala.collection.mutable.Buffer
-import org.ekstep.analytics.framework.V3PData
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.framework.OutputDispatcher
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.util.Constants
-import org.apache.commons.lang3.StringUtils
+import org.ekstep.analytics.framework.util.JSONUtils
+
+import scala.collection.mutable.Buffer
+import org.scalatest.Matchers
 
 case class WorkflowDataRead(did: Option[String], sid: String, uid: String, pdata: PData, channel: String, content_id: Option[String], session_type: String, syncts: Long, dt_range: DtRange, mode: Option[String], item_responses: Option[Buffer[ItemResponse]],
-                          start_time: Long, end_time: Long, time_spent: Double, time_diff: Double, interact_events_count: Long, interact_events_per_min: Double, telemetry_version: String,
-                          env_summary: Option[Iterable[EnvSummary]], events_summary: Option[Iterable[EventSummary]],
-                          page_summary: Option[Iterable[PageSummary]], etags: Option[ETags])
+                            start_time: Long, end_time: Long, time_spent: Double, time_diff: Double, interact_events_count: Long, interact_events_per_min: Double, telemetry_version: String,
+                            env_summary: Option[Iterable[EnvSummary]], events_summary: Option[Iterable[EventSummary]],
+                            page_summary: Option[Iterable[PageSummary]], etags: Option[ETags])
 
-class TestWorkFlowSummaryModel extends SparkSpec {
-  
+class TestWorkFlowSummaryModel extends SparkFlatSpec with Matchers {
+
     implicit val fc = new FrameworkContext();
-  
+
     it should "generate 6 workflow summary with 1 default app summary" in {
-      
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data2.log")
+
+        fc.outputEventsCount = sc.longAccumulator("OutputEventsCount");
+        fc.inputEventsCount = sc.longAccumulator("InputEventsCount");
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data2.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(8)
+        fc.outputEventsCount.value should be(8)
 
         val me = out.collect();
         val appSummaryEvent1 = me.filter { x => x.dimensions.`type`.get.equals("app") }
@@ -41,10 +41,13 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         event1.`object`.get.ver.get should be("1.0")
         event1.`object`.get.`type` should be("Content")
         event1.`object`.get.rollup.get.l1 should be("do_3124020553502310402803")
+        fc.inputEventsCount.reset()
+        fc.outputEventsCount.reset();
     }
 
     it should "generate 3 workflow summary" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data3.log")
+      
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data3.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(3)
 
@@ -53,14 +56,14 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         val sessionSummaryEvent1 = me.filter { x => x.dimensions.`type`.get.equals("session") }
         val playerSummaryEvent1 = me.filter { x => x.dimensions.`type`.get.equals("player") }
         val editorSummaryEvent1 = me.filter { x => x.dimensions.`type`.get.equals("editor") }
-        
+
         appSummaryEvent1.size should be(2)
         sessionSummaryEvent1.size should be(1)
         playerSummaryEvent1.size should be(0)
         editorSummaryEvent1.size should be(0)
 
-        val event1 = appSummaryEvent1.filter(f => f.mid.equals("871C7971EAE4142CF94EB8BE79AFDA0E")).last
-        
+        val event1 = appSummaryEvent1.filter(f => f.mid.equals("47377F637676DDE217BAFA1DF95E6FF1")).last
+
         // Validate for event envelope
         event1.eid should be("ME_WORKFLOW_SUMMARY");
         event1.context.pdata.model.get should be("WorkflowSummarizer");
@@ -84,7 +87,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         summary1.env_summary.get.size should be(0);
         summary1.events_summary.get.size should be(2);
         summary1.telemetry_version should be("3.0");
-        
+
         val esList1 = summary1.events_summary.get
         esList1.size should be(2);
         val esMap1 = esList1.map { x => (x.id, x.count) }.toMap
@@ -92,7 +95,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         esMap1.get("START").get should be(2);
 
         val event2 = sessionSummaryEvent1.head
-        
+
         // Validate for event envelope
         event2.eid should be("ME_WORKFLOW_SUMMARY");
         event2.context.pdata.model.get should be("WorkflowSummarizer");
@@ -116,7 +119,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         summary2.env_summary.get.size should be(0);
         summary2.events_summary.get.size should be(2);
         summary2.telemetry_version should be("3.0");
-        
+
         val esList2 = summary2.events_summary.get
         esList2.size should be(2);
         val esMap2 = esList2.map { x => (x.id, x.count) }.toMap
@@ -125,7 +128,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
     }
 
     it should "generate workflow summary with breaking session logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data4.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data4.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(7)
 
@@ -140,7 +143,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         playerSummaryEvent1.size should be(2)
         editorSummaryEvent1.size should be(0)
 
-        val event1 = playerSummaryEvent1.filter(f => f.mid.equals("F12DB24FEE7385ED1F824D689BA2B220")).last
+        val event1 = playerSummaryEvent1.filter(f => f.mid.equals("B30D043CA457042F71E73C24404737BE")).last
 
         event1.eid should be("ME_WORKFLOW_SUMMARY");
         event1.context.pdata.model.get should be("WorkflowSummarizer");
@@ -173,9 +176,9 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         esMap1.get("ASSESS").get should be(1);
         esMap1.get("END").get should be(1);
     }
-  
+
     it should "generate workflow summary with proper root summary setting logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data5.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data5.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(19)
 
@@ -190,7 +193,7 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         playerSummaryEvents.size should be(5)
         editorSummaryEvents.size should be(0)
 
-        val event1 = appSummaryEvents.filter(f => f.mid.equals("09515D6F681F264D073AD3D5A9B7941B")).last
+        val event1 = appSummaryEvents.filter(f => f.mid.equals("5AFA0438BAE767D64A535FF814108D17")).last
 
         event1.eid should be("ME_WORKFLOW_SUMMARY");
         event1.context.pdata.model.get should be("WorkflowSummarizer");
@@ -215,17 +218,18 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         summary1.events_summary.get.size should be(5);
         summary1.telemetry_version should be("3.0");
     }
-    
+
     it should "generate workflow summary with default app summary for events starting with other start events" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data1.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data1.log")
         val out = WorkFlowSummaryModel.execute(data, None)
+
         out.count() should be(9)
 
         val me = out.collect();
         val appSummaryEvents = me.filter { x => x.dimensions.`type`.get.equals("app") }
         appSummaryEvents.size should be(3)
-        
-        val event1 = appSummaryEvents.filter(f => f.mid.equals("28970116BDDF8B80CC8E090E1FC4C1CA")).last
+
+        val event1 = appSummaryEvents.filter(f => f.mid.equals("B151E935C1F3E9D7D30A4A6EB96E2AE2")).last
 
         event1.eid should be("ME_WORKFLOW_SUMMARY");
         event1.context.pdata.model.get should be("WorkflowSummarizer");
@@ -250,17 +254,17 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         summary1.events_summary.get.size should be(3);
         summary1.telemetry_version should be("3.0");
     }
-    
+
     it should "generate workflow summary with proper root summary closing logic" in {
-        val data = loadFile[V3Event]("src/test/resources/workflow-summary/test-data6.log")
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data6.log")
         val out = WorkFlowSummaryModel.execute(data, None)
         out.count() should be(15)
 
         val me = out.collect();
         val appSummaryEvents = me.filter { x => x.dimensions.`type`.get.equals("app") }
         appSummaryEvents.size should be(2)
-        
-        val event1 = appSummaryEvents.filter(f => f.mid.equals("2D8FABBFB0384B7A0320B7477C4688E8")).last
+
+        val event1 = appSummaryEvents.filter(f => f.mid.equals("D0E7F723AB0CBE295ED757AB608D1EBF")).last
 
         event1.eid should be("ME_WORKFLOW_SUMMARY");
         event1.context.pdata.model.get should be("WorkflowSummarizer");
@@ -285,4 +289,45 @@ class TestWorkFlowSummaryModel extends SparkSpec {
         summary1.events_summary.get.size should be(5);
         summary1.telemetry_version should be("3.0");
     }
+
+    it should "generate workflow summary to test for END case scenarios" in {
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data7.log")
+        val out = WorkFlowSummaryModel.execute(data, None)
+
+        out.count() should be(6)
+
+        val event1 = out.collect().filter(f => f.mid.equals("2D2E6508F9F24B6B15DCC9F43B82E9D8")).last
+
+        event1.eid should be("ME_WORKFLOW_SUMMARY");
+        event1.context.pdata.model.get should be("WorkflowSummarizer");
+        event1.context.pdata.ver should be("1.0");
+        event1.context.granularity should be("SESSION");
+        event1.context.date_range should not be null;
+        event1.dimensions.`type`.get should be("content");
+        event1.dimensions.mode.get should be("play");
+        event1.dimensions.did.get should be("af53a718911fc1703461bbfe5880cb1585cf54ae");
+        event1.dimensions.sid.get should be("d05c1bc5-2f03-4524-9c1f-981e7e701e10");
+        event1.dimensions.channel.get should be("505c7c48ac6dc1edc9b08f21db5a571d")
+
+        val summary1 = JSONUtils.deserialize[WorkflowDataRead](JSONUtils.serialize(event1.edata.eks));
+        summary1.interact_events_per_min should be(0);
+        summary1.start_time should be(1583031769407L);
+        summary1.interact_events_count should be(0);
+        summary1.end_time should be(1583031850824L);
+        summary1.time_diff should be(81.42);
+        summary1.time_spent should be(81.41);
+        summary1.item_responses.get.size should be(0);
+        summary1.page_summary.get.size should be(0);
+        summary1.env_summary.get.size should be(0);
+        summary1.events_summary.get.size should be(2);
+        summary1.telemetry_version should be("3.0");
+    }
+
+    it should "generate workflow summary to test else case for session breaking logic" in {
+        val data = loadFile[String]("src/test/resources/workflow-summary/test-data8.log")
+        val out = WorkFlowSummaryModel.execute(data, None)
+        out.count() should be(1)
+    }
+
+    
 }

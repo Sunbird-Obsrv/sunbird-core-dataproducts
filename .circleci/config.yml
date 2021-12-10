@@ -1,35 +1,52 @@
 version: 2.1
 jobs:
   analytics-core-dp-build:
-    machine: true
+    machine:
+      image: ubuntu-2004:202008-01
     steps:
     - checkout
-
     - run:
         name: clone analytics core
         command: |
           if [ -z $CIRCLE_PR_NUMBER ]; then
-          target_branch=$CIRCLE_BRANCH
-          git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
+              target_branch=$CIRCLE_BRANCH
           else
-          prdata=$(curl -X GET -u $GITHUB_USER_TOKEN:x-oauth-basic https://api.github.com/repos/project-sunbird/sunbird-core-dataproducts/pulls/$CIRCLE_PR_NUMBER)
-          target_branch=$(echo "${prdata}" | jq -r '.base.ref')
-          git clone https://github.com/project-sunbird/sunbird-analytics-core.git -b $target_branch
+              prdata=$(curl -X GET -u $GITHUB_USER_TOKEN:x-oauth-basic https://api.github.com/repos/project-sunbird/sunbird-core-dataproducts/pulls/$CIRCLE_PR_NUMBER)
+              target_branch=$(echo "${prdata}" | jq -r '.base.ref')
           fi
-          
+          echo $target_branch
+          git clone https://github.com/project-sunbird/sunbird-analytics-core.git
+          branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
+          echo $branchExists
+          if [ -z ${branchExists} ]; then
+              latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
+              echo $latest_branch
+              cd sunbird-analytics-core && git checkout $latest_branch
+          else
+              cd sunbird-analytics-core && git checkout $target_branch
+          fi
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
-    - run: cd sunbird-analytics-core && mvn install -DskipTests
+    - run:
+        name: Build analytics-core dependency jar
+        command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          cd sunbird-analytics-core && mvn install -DskipTests
     - run:
         name: data-products-build
-        command: mvn scoverage:report
+        command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          mvn scoverage:report
     - save_cache:
         key: dp-dependency-cache-{{ checksum "pom.xml" }}
         paths: ~/.m2
     - run:
         name: sonar
         command: |
+          export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
           mvn -X sonar:sonar -Dsonar.projectKey=project-sunbird_sunbird-core-dataproducts -Dsonar.organization=project-sunbird -Dsonar.exclusions=video-streaming/**,optional-master/**,batch-models/src/main/scala/org/ekstep/analytics/job/batch/VideoStreamingJob.scala -Dsonar.host.url=https://sonarcloud.io -Dsonar.scala.coverage.reportPaths=/home/circleci/project/target/scoverage.xml
 
 workflows:

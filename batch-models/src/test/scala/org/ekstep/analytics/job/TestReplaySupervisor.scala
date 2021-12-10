@@ -1,15 +1,9 @@
 package org.ekstep.analytics.job
 
-import org.ekstep.analytics.framework.JobConfig
-import org.ekstep.analytics.framework.Fetcher
-import org.ekstep.analytics.framework.Query
-import org.ekstep.analytics.framework.Filter
-import org.ekstep.analytics.framework.Dispatcher
-import org.ekstep.analytics.framework.util.JSONUtils
-import org.ekstep.analytics.model.BaseSpec
-import org.ekstep.analytics.framework.exception.DataFetcherException
-import org.ekstep.analytics.framework.exception.DataFetcherException
 import org.ekstep.analytics.framework.exception.JobNotFoundException
+import org.ekstep.analytics.framework.util.JSONUtils
+import org.ekstep.analytics.framework._
+import org.ekstep.analytics.model.BaseSpec
 
 class TestReplaySupervisor extends BaseSpec {
 
@@ -28,6 +22,7 @@ class TestReplaySupervisor extends BaseSpec {
     ReplaySupervisor.main("wfs", "2015-09-02", "2015-09-02", JSONUtils.serialize(config));
 
     implicit val sc = getSparkContext();
+    implicit val fc = new FrameworkContext()
     ReplaySupervisor.execute("Test", "2016-02-21", "2016-02-22", null);
   }
 
