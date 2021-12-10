@@ -1,5 +1,7 @@
 package org.ekstep.analytics.exhaust
 
+import akka.actor.ActorSystem
+import akka.stream.scaladsl.Source
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
 import org.ekstep.analytics.framework.{DruidFilter, DruidQueryModel, FrameworkContext, IJob, JobConfig, JobContext, StorageConfig}
@@ -96,9 +98,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
-      .returns(Future(druidResponse)).anyNumberOfTimes()
+//    (mockDruidClient.doQuery[DruidResponse](_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+//      .returns(Future(druidResponse)).anyNumberOfTimes()
+    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
     (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
       .returns(new HadoopFileUtil).anyNumberOfTimes()
     (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
