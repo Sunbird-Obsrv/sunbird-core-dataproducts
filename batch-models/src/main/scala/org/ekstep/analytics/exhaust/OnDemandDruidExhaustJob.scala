@@ -142,7 +142,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     })
 
     val finalReportConfig = JSONUtils.deserialize[ReportConfig](finalConfig)
-    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, false, false, false)
+    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, true, false, false)
     val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
@@ -187,7 +187,8 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
             val res = processRequest(request, reportConfig, storageConfig)
-            print(request, reportConfig, storageConfig)
+            JobLogger.log("Request is ",Some(request),INFO)
+            JobLogger.log("Report Config is ",Some(reportConfig),INFO)
             JobLogger.log("The Request is processed. Pending zipping", Some(Map("requestId" -> request.request_id, "timeTaken" -> res.execution_time,
               "remainingRequest" -> totalRequests.getAndDecrement())), INFO)
             res
