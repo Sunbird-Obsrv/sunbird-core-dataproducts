@@ -69,7 +69,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc));
     }
 
-    "DruidQueryProcessor" should "test batch implementation" in {
+    ignore should "test batch implementation" in {
         val scansQuery = DruidQueryModel("groupBy", "telemetry-events", "LastDay", Option("day"), Option(List(Aggregation(Option("total_scans"), "count", "count"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("context_pdata_id", Option("producer_id")))), Option(List(DruidFilter("greaterThan", "edata_size", Option(0.asInstanceOf[AnyRef])),DruidFilter("equals", "eid", Option("SEARCH")))))
         val contentPlaysQuery = DruidQueryModel("groupBy", "summary-events", "LastDay", Option("all"), Option(List(Aggregation(Option("total_sessions"), "count", "count"),Aggregation(Option("total_ts"), "doubleSum", "edata_time_spent"))), Option(List(DruidDimension("device_loc_state", Option("state")), DruidDimension("dimensions_pdata_id", Option("producer_id")))), Option(List(DruidFilter("in", "dimensions_pdata_id", None, Option(List("prod.sunbird.app", "prod.sunbird.portal"))),DruidFilter("in", "dimensions_type", None, Option(List("content", "app"))))))
         val reportConfig = ReportConfig("usage_metrics", "groupBy", QueryDateRange(None, Option("LastDay"), Option("all")), List(Metrics("totalSuccessfulScans", "Total Scans", scansQuery), Metrics("totalSessions/totalContentPlays", "Total ContentPlay Sessions", contentPlaysQuery)), collection.mutable.LinkedHashMap("state" -> "State", "producer_id" -> "Producer", "total_scans" -> "Number of Successful QR Scans", "total_sessions" -> "Number of Content Plays", "total_ts" -> "Content Play Time"), List(OutputConfig("csv", None, List("total_scans", "total_sessions", "total_ts"), List("state", "producer_id"))))
@@ -78,7 +78,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
         DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc))
     }
 
-    "DruidQueryProcessor" should "test batch implementation with batch" in {
+   ignore should "test batch implementation with batch" in {
         implicit val fc = mock[FrameworkContext]
         val hadoopFileUtil = new HadoopFileUtil()
         import scala.concurrent.ExecutionContext.Implicits.global
@@ -108,7 +108,7 @@ class TestDruidQueryProcessor extends SparkSpec(null) with MockFactory {
             DruidQueryProcessor.main(JSONUtils.serialize(config))(Option(sc),Option(fc))
 
     }
-  "DruidQueryProcessor" should "test the report conditions" in {
+  ignore should "test the report conditions" in {
     val date =new time.DateTime("2021-03-20")
     implicit val sqlContext = new SQLContext(sc)
     val df = DruidQueryProcessor.getReportConfigs(None,date.withDayOfWeek(1))(sqlContext)
