@@ -189,7 +189,6 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
             val res = processRequest(request, reportConfig, storageConfig)
             JobLogger.log("Request is ",Some(request),INFO)
             JobLogger.log("Report Config is ",Some(reportConfig),INFO)
-            JobLogger.log("Storage Config is ",Some(storageConfig),INFO)
             JobLogger.log("The Request is processed. Pending zipping", Some(Map("requestId" -> request.request_id, "timeTaken" -> res.execution_time,
               "remainingRequest" -> totalRequests.getAndDecrement())), INFO)
             res
