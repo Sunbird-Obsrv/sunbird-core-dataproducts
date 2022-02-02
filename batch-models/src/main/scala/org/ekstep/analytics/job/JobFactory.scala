@@ -24,8 +24,6 @@ object JobFactory {
         MonitorSummarizer
       case "wfs" =>
         WorkFlowSummarizer
-      case "video-streaming" =>
-        VideoStreamingJob
       case "telemetry-replay" =>
         EventsReplayJob
       case "summary-replay" =>
