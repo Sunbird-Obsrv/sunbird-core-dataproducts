@@ -31,14 +31,12 @@ jobs:
     - run:
         name: Build analytics-core dependency jar
         command: |
-          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
-          export PATH=$JAVA_HOME/bin:$PATH
+          java -version
           cd sunbird-analytics-core && mvn install -DskipTests
     - run:
         name: data-products-build
         command: |
-          export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64
-          export PATH=$JAVA_HOME/bin:$PATH
+          java -version
           mvn scoverage:report
     - save_cache:
         key: dp-dependency-cache-{{ checksum "pom.xml" }}
