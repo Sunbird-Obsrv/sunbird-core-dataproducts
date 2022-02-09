@@ -85,7 +85,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     updateStatus(request);
   }
 
-  def druidPostProcess(data: RDD[DruidOutput], request_id: String, reportConfig: ReportConfig, storageConfig: StorageConfig)(implicit spark: SparkSession, sqlContext: SQLContext, fc: FrameworkContext, sc: SparkContext, config: JobConfig): OnDemandDruidResponse = {
+  def druidPostProcess(data: RDD[DruidOutput], request_id: String, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: List[String])(implicit spark: SparkSession, sqlContext: SQLContext, fc: FrameworkContext, sc: SparkContext, config: JobConfig): OnDemandDruidResponse = {
     val labelsLookup = reportConfig.labels
     val dimFields = reportConfig.metrics.flatMap { m =>
       if (m.druidQuery.dimensions.nonEmpty) m.druidQuery.dimensions.get.map(f => f.aliasName.getOrElse(f.fieldName))
@@ -100,6 +100,9 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
       (df.columns).map(f1 => {
         df = df.withColumn(f1, when((col(f1) === "unknown") || (col(f1) === "<NULL>"), "Null").otherwise(col(f1)))
       })
+      if (sortDfColNames != null) {
+        df = df.sort(sortDfColNames.head, sortDfColNames.tail: _*)
+      }
       df = df.dropDuplicates()
       if (dataCount.value > 0) {
         val metricFields = f.metrics
@@ -128,7 +131,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
     new SimpleDateFormat(pattern)
   }
 
-  def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig)(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
+  def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: List[String])(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
     markRequestAsProcessing(request)
     val requestBody = JSONUtils.deserialize[RequestBody](request.request_data)
     val requestParamsBody = requestBody.`params`
@@ -143,7 +146,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
 
     val finalReportConfig = JSONUtils.deserialize[ReportConfig](finalConfig)
     val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, true, false, false)
-    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig))
+    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig, sortDfColNames))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
     if (failedOnDemandDruidRes) {
@@ -183,10 +186,11 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
             // Fetch report config from dataset_metadata table
             val datasetConf = getDataSetDetails(requestType)
             val reportConfStr = if(datasetConf.druid_query.nonEmpty) datasetConf.druid_query.get else AppConf.getConfig("druid_query." + requestType)
+            val sortDfColNames = JSONUtils.deserialize[Map[String,AnyRef]](reportConfStr).getOrElse("sort",null).asInstanceOf[List[String]]
             val reportConfig = JSONUtils.deserialize[ReportConfig](reportConfStr)
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
-            val res = processRequest(request, reportConfig, storageConfig)
+            val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
             JobLogger.log("Request is ",Some(request),INFO)
             JobLogger.log("Report Config is ",Some(reportConfig),INFO)
             JobLogger.log("The Request is processed. Pending zipping", Some(Map("requestId" -> request.request_id, "timeTaken" -> res.execution_time,

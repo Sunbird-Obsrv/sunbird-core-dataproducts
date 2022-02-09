@@ -571,9 +571,10 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   it should "generate report with other generic query" in {
     val query = DruidQueryModel("scan", "sl-observation", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","isAPrivateProgram",Option("false"),None),
+        DruidFilter("equals","solution_type",Option("observation_with_out_rubric"),None),
         DruidFilter("equals","programId",Option("60549338acf1c71f0b2409c3"),None),
         DruidFilter("equals","solutionId",Option("605c934eda9dea6400302afc"),None))),None, None,
-      Option(List("__time","createdBy","role_title","user_stateName","user_districtName","user_blockName","user_schoolName","user_schoolUDISE_code",
+      Option(List("__time","createdBy","role_title","user_stateName","user_districtName","user_blockName","user_schoolUDISE_code","user_schoolName",
         "organisation_name","programName","programExternalId","solutionName","solutionExternalId","observationSubmissionId","questionExternalId","questionName",
         "questionResponseLabel","minScore","evidences","remarks")), None, None,None,None,None,0)
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
@@ -604,7 +605,87 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
                        """.stripMargin
     val doc1: Json = parse(json1).getOrElse(Json.Null);
 
-    val events = List(DruidScanResult.apply(doc),DruidScanResult.apply(doc1))
+    val json2: String = """{"questionName":"No of toilets in the school","user_districtName":"ANANTAPUR",
+                          |"evidences":"<NULL>","questionResponseLabel":"2","solutionExternalId":
+                          |"96e4f796-8d6c-11eb-abd8-441ca8998ea1-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,
+                          |"minScore":"<NULL>","programName":"3.8.0 testing program","date":"2021-07-09",
+                          |"questionExternalId":"P1_1616678305996-1616679757967",
+                          |"organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea5191a","remarks":"<NULL>",
+                          |"user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI",
+                          |"programExternalId":"PGM-3542-3.8.0_testing_program","user_stateName":"Andhra Pradesh",
+                          |"observationSubmissionId":"60e848e9f1252714cff1c1a4"}""".stripMargin
+    val doc2: Json = parse(json2).getOrElse(Json.Null);
+
+    val json3: String = """{"questionName":"No of boys in the school","user_districtName":"ANANTAPUR",
+                          |"evidences":"<NULL>","questionResponseLabel":"50","solutionExternalId":
+                          |"96e4f796-8d6c-11eb-abd8-441ca8998ea1-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,
+                          |"minScore":"<NULL>","programName":"3.8.0 testing program","date":"2021-07-09",
+                          |"questionExternalId":"P1_1616678305996-1616679757967",
+                          |"organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea5191a","remarks":"<NULL>",
+                          |"user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI",
+                          |"programExternalId":"PGM-3542-3.8.0_testing_program","user_stateName":"Andhra Pradesh",
+                          |"observationSubmissionId":"60e848e9f1252714cff1c1a4"}""".stripMargin
+    val doc3: Json = parse(json3).getOrElse(Json.Null);
+
+    val json4: String = """{"questionName":"No of girls in the school","user_districtName":"ANANTAPUR",
+                          |"evidences":"<NULL>","questionResponseLabel":"100","solutionExternalId":
+                          |"96e4f796-8d6c-11eb-abd8-441ca8998ea1-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,
+                          |"minScore":"<NULL>","programName":"3.8.0 testing program","date":"2021-07-09",
+                          |"questionExternalId":"P3_1616678305996-1616679757967",
+                          |"organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea5191a","remarks":"<NULL>",
+                          |"user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI",
+                          |"programExternalId":"PGM-3542-3.8.0_testing_program","user_stateName":"Andhra Pradesh",
+                          |"observationSubmissionId":"60e848e9f1252714cff1c1a4"}""".stripMargin
+    val doc4: Json = parse(json4).getOrElse(Json.Null)
+
+    val json5: String = """{"questionName":"No of toilets in the school","user_districtName":"ANANTAPUR","evidences":"<NULL>",
+                          |"questionResponseLabel":"1","solutionExternalId":"96e4f796-8d6c-11eb-abd8-441ca9966jhgj-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,"minScore":"<NULL>","programName":"3.8.0 testing program",
+                          |"date":"2021-07-09","questionExternalId":"P3_1616678305996-1616679757968","organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea123sd","remarks":"<NULL>","user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI","programExternalId":"PGM-3542-4.0.0_testing_program",
+                          |"user_stateName":"Andhra Pradesh","observationSubmissionId":"60e848e9f1252714cff1c1a5"}""".stripMargin
+    val doc5: Json = parse(json5).getOrElse(Json.Null)
+
+    val json6: String = """{"questionName":"Tick the following which are available:","user_districtName":"ANANTAPUR","evidences":"<NULL>",
+                          |"questionResponseLabel":"Newspaper Stands","solutionExternalId":"96e4f796-8d6c-11eb-abd8-441ca9966jhgj-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,"minScore":"<NULL>","programName":"3.8.0 testing program",
+                          |"date":"2021-07-09","questionExternalId":"P47_1616678305996-1616679757968","organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea123sd","remarks":"<NULL>","user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI","programExternalId":"PGM-3542-4.0.0_testing_program",
+                          |"user_stateName":"Andhra Pradesh","observationSubmissionId":"60e848e9f1252714cff1c1a5"}""".stripMargin
+    val doc6: Json = parse(json6).getOrElse(Json.Null)
+
+    val json7: String = """{"questionName":"No of girls in the school","user_districtName":"ANANTAPUR","evidences":"<NULL>",
+                          |"questionResponseLabel":"10","solutionExternalId":"96e4f796-8d6c-11eb-abd8-441ca9966jhgj-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,"minScore":"<NULL>","programName":"3.8.0 testing program",
+                          |"date":"2021-07-09","questionExternalId":"P1_1616678305996-1616679757968","organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea123sd","remarks":"<NULL>","user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI","programExternalId":"PGM-3542-4.0.0_testing_program",
+                          |"user_stateName":"Andhra Pradesh","observationSubmissionId":"60e848e9f1252714cff1c1a5"}""".stripMargin
+    val doc7: Json = parse(json7).getOrElse(Json.Null)
+
+    val json8: String = """{"questionName":"No of boys in the school","user_districtName":"ANANTAPUR","evidences":"<NULL>",
+                          |"questionResponseLabel":"5","solutionExternalId":"96e4f796-8d6c-11eb-abd8-441ca9966jhgj-OBSERVATION-TEMPLATE_CHILD_V2",
+                          |"user_schoolUDISE_code":"28226200815","role_title":"hm","__time":1.6258464E12,"minScore":"<NULL>","programName":"3.8.0 testing program",
+                          |"date":"2021-07-09","questionExternalId":"P2_1616678305996-1616679757968","organisation_name":"Staging Custodian Organization",
+                          |"createdBy":"7a8fa12b-75a7-41c5-9180-538f5ea123sd","remarks":"<NULL>","user_blockName":"AGALI",
+                          |"solutionName":"School Needs Assessment - Primary","user_schoolName":"APMS AGALI","programExternalId":"PGM-3542-4.0.0_testing_program",
+                          |"user_stateName":"Andhra Pradesh","observationSubmissionId":"60e848e9f1252714cff1c1a5"}""".stripMargin
+    val doc8: Json = parse(json8).getOrElse(Json.Null)
+
+    val events = List(DruidScanResult.apply(doc),DruidScanResult.apply(doc5),DruidScanResult.apply(doc1),
+      DruidScanResult.apply(doc6),DruidScanResult.apply(doc2),DruidScanResult.apply(doc7),
+      DruidScanResult.apply(doc3),DruidScanResult.apply(doc4),DruidScanResult.apply(doc8))
     val results = DruidScanResults.apply("sl-observation_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
