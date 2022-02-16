@@ -56,7 +56,7 @@ object JobConsumerV2Config {
         props.put("bootstrap.servers", brokerConnect)
         props.put("key.deserializer", classOf[StringDeserializer])
         props.put("value.deserializer", classOf[StringDeserializer])
-        props.put("auto.offset.reset", "earliest")
+        props.put("auto.offset.reset", "latest")
         //2 minute consumer timeout
         props.put("consumer.timeout.ms", consumerTimeoutMs)
         //commit after each 10 second
