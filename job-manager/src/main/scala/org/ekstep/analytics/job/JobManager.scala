@@ -56,7 +56,7 @@ object JobManager extends optional.Application {
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
         JobLogger.log("Initializing the job consumer", None, INFO);
-        val props = JobConsumerV2Config.makeProps(config.zookeeperConnect, config.consumerGroup)
+        val props = JobConsumerV2Config.makeProps(config.bootStrapServer, config.consumerGroup)
         val consumer = new JobConsumerV2(config.topic, props);
         consumer;
     }
@@ -87,7 +87,7 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                 JobLogger.log("Starting execution of " + record, None, INFO);
                 executeJob(record.get);
                 if (record.get.contains("monitor-job-summ"))
-                    stop();
+                    stop()
             } else {
                 // $COVERAGE-OFF$ Code is unreachable
                 Thread.sleep(10 * 1000); // Sleep for 10 seconds
