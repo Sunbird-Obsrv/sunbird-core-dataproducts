@@ -5,6 +5,8 @@ import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.util.JobLogger
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
+import scala.collection.JavaConverters._
+
 
 class JobConsumerV2(topic: String, consumerProps: Properties) {
 
@@ -13,9 +15,9 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
 //    private val filterSpec = new Whitelist(topic)
-    private val streams = connector.poll(5000)
+    private val streams = connector.poll(5000).asScala
 
-    lazy val iterator = streams.iterator()
+    lazy val iterator = streams.iterator
 
     def read(): Option[String] =
         try {
@@ -36,9 +38,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 
     private def hasNext(): Boolean =
         try {
-            connector.listTopics()
-            JobLogger.log("connector config: " + connector.listTopics(), None, INFO);
-            iterator.hasNext()
+            iterator.hasNext
         } catch {
 //            case timeOutEx: ConsumerTimeoutException =>
 //                false
