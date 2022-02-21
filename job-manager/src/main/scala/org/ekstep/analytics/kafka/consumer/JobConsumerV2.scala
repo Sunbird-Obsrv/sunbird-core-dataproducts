@@ -24,21 +24,26 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
                 val message = iterator.next().value()
                 Some(new String(message))
             } else {
+                JobLogger.log("Waiting for message from queue", None, INFO);
                 None
             }
         } catch {
             case ex: Exception =>
                 ex.printStackTrace()
+                JobLogger.log("Exception reading message from queue: " + ex.getMessage, None, INFO);
                 None
         }
 
     private def hasNext(): Boolean =
-        try
+        try {
+            connector.listTopics()
+            JobLogger.log("connector config: " + connector.listTopics(), None, INFO);
             iterator.hasNext()
-        catch {
+        } catch {
 //            case timeOutEx: ConsumerTimeoutException =>
 //                false
             case ex: Exception =>
+                JobLogger.log("Exception reading message from queue: " + ex.getMessage, None, INFO);
                 JobLogger.log("Getting error when reading message", Option(Map("err" -> ex.getMessage)), ERROR);
                 false
         }

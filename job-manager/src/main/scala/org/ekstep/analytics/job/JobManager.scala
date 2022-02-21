@@ -90,6 +90,7 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                     stop()
             } else {
                 // $COVERAGE-OFF$ Code is unreachable
+                JobLogger.log("Inside Thread sleep. Record: " + record, None, INFO);
                 Thread.sleep(10 * 1000); // Sleep for 10 seconds
                 // $COVERAGE-ON$
             }
