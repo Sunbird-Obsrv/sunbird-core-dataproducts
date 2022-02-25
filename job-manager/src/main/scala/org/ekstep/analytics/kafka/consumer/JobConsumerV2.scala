@@ -12,10 +12,8 @@ import scala.collection.JavaConverters._
 class JobConsumerV2(topic: String, consumerProps: Properties) {
 
     implicit val className = "org.ekstep.analytics.kafka.consumer.JobConsumerV2"
-//    private val config = new ConsumerConfig(consumerProps)
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
-//    private val filterSpec = new Whitelist(topic)
     private var iterator: Iterator[ConsumerRecord[String, String]] = Iterator.empty
 
     def pollConsumer() ={
@@ -75,7 +73,7 @@ object JobConsumerV2Config {
         props.put("consumer.timeout.ms", consumerTimeoutMs)
         //commit after each 10 second
         props.put("auto.commit.interval.ms", "10000")
-        props.put("enable.auto.commit", true)
+        props.put("enable.auto.commit", "true")
         props
     }
 }
