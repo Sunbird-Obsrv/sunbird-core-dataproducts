@@ -15,15 +15,15 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
 //    private val filterSpec = new Whitelist(topic)
-    private val streams = connector.poll(5000).asScala
+    private val streams = connector.poll(60).asScala
 
-    lazy val iterator = streams.iterator
+    lazy val iterator = streams.toIterator
 
     def read(): Option[String] =
         try {
-            JobLogger.log("Consumer details: " + consumerProps + "topics: " + connector.listTopics(), None, INFO);
+            JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator + " streams: " + streams, None, INFO);
             if (hasNext) {
-                JobLogger.log("Getting message from queue. Iterator: " + iterator, None, INFO);
+                JobLogger.log("Getting message from queue.", None, INFO);
                 val message = iterator.next().value()
                 Some(new String(message))
             } else {
@@ -62,7 +62,7 @@ object JobConsumerV2Config {
         val props = new Properties()
         props.put("group.id", consumerGroup)
         props.put("bootstrap.servers", brokerConnect)
-        props.put("zookeeper.connect", zookeeperConnect)
+//        props.put("zookeeper.connect", zookeeperConnect)
         props.put("key.deserializer", classOf[StringDeserializer])
         props.put("value.deserializer", classOf[StringDeserializer])
         props.put("auto.offset.reset", "earliest")
