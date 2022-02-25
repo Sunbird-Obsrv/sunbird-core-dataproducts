@@ -80,6 +80,8 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
+        // poll consumer to get records
+        consumer.pollConsumer();
 
         while(running.get()) {
             val record = consumer.read;

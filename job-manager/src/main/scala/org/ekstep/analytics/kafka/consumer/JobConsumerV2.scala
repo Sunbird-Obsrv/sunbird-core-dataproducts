@@ -18,9 +18,9 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 //    private val filterSpec = new Whitelist(topic)
     private var iterator = connector.poll(600).asScala.toIterator;
 
-//    def initConsumer() ={
-//        iterator = connector.poll(600).asScala.toIterator
-//    }
+    def pollConsumer() ={
+        iterator = connector.poll(600).asScala.toIterator
+    }
 
     def read(): Option[String] =
         try {
