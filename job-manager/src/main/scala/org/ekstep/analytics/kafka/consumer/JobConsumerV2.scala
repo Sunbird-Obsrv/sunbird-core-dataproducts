@@ -3,8 +3,9 @@ package org.ekstep.analytics.kafka.consumer
 import java.util.Properties
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.util.JobLogger
-import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
 import org.apache.kafka.common.serialization.StringDeserializer
+
 import scala.collection.JavaConverters._
 
 
@@ -15,15 +16,15 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
 //    private val filterSpec = new Whitelist(topic)
-    private var streams = connector.poll(60).asScala
+    private var iterator = connector.poll(600).asScala.toIterator;
 
-    var iterator = streams.toIterator
+//    def initConsumer() ={
+//        iterator = connector.poll(600).asScala.toIterator
+//    }
 
     def read(): Option[String] =
         try {
-            streams = connector.poll(60).asScala
-            iterator = streams.toIterator
-            JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator + " streams: " + streams, None, INFO);
+            JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator, None, INFO);
             if (hasNext) {
                 JobLogger.log("Getting message from queue.", None, INFO);
                 val message = iterator.next().value()
