@@ -15,12 +15,14 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
 //    private val filterSpec = new Whitelist(topic)
-    private val streams = connector.poll(60).asScala
+    private var streams = connector.poll(60).asScala
 
-    lazy val iterator = streams.toIterator
+    var iterator = streams.toIterator
 
     def read(): Option[String] =
         try {
+            streams = connector.poll(60).asScala
+            iterator = streams.toIterator
             JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator + " streams: " + streams, None, INFO);
             if (hasNext) {
                 JobLogger.log("Getting message from queue.", None, INFO);
