@@ -16,7 +16,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
 //    private val filterSpec = new Whitelist(topic)
-    private var iterator = connector.poll(600).asScala.toIterator;
+    private var iterator: Iterator[ConsumerRecord[String, String]] = Iterator.empty
 
     def pollConsumer() ={
         iterator = connector.poll(600).asScala.toIterator
