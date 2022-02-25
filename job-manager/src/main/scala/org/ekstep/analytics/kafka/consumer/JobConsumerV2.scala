@@ -54,7 +54,9 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
                 false
         }
 
-    def close(): Unit = connector.close()
+    def close(): Unit = {
+        connector.close()
+    }
 
 }
 
@@ -73,6 +75,7 @@ object JobConsumerV2Config {
         props.put("consumer.timeout.ms", consumerTimeoutMs)
         //commit after each 10 second
         props.put("auto.commit.interval.ms", "10000")
+        props.put("enable.auto.commit", true)
         props
     }
 }
