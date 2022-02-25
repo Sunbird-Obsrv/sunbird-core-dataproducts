@@ -14,7 +14,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     implicit val className = "org.ekstep.analytics.kafka.consumer.JobConsumerV2"
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
-    private var iterator: Iterator[ConsumerRecord[String, String]] = Iterator.empty
+    private var iterator = connector.poll(600).asScala.toIterator;
 
     def pollConsumer() ={
         iterator = connector.poll(600).asScala.toIterator
@@ -52,20 +52,17 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
                 false
         }
 
-    def close(): Unit = {
-        connector.close()
-    }
+    def close(): Unit = connector.close()
 
 }
 
 object JobConsumerV2Config {
 
     // Simple helper to create properties from the above. Note that we don't cache the lookup, as it may always change.
-    def makeProps(brokerConnect: String = "localhost:9092", zookeeperConnect: String = "localhost:2181", consumerGroup: String = "dev.job-consumer", consumerTimeoutMs: String = "120000") = {
+    def makeProps(brokerConnect: String = "localhost:9092", consumerGroup: String = "dev.job-consumer", consumerTimeoutMs: String = "120000") = {
         val props = new Properties()
         props.put("group.id", consumerGroup)
         props.put("bootstrap.servers", brokerConnect)
-//        props.put("zookeeper.connect", zookeeperConnect)
         props.put("key.deserializer", classOf[StringDeserializer])
         props.put("value.deserializer", classOf[StringDeserializer])
         props.put("auto.offset.reset", "earliest")
