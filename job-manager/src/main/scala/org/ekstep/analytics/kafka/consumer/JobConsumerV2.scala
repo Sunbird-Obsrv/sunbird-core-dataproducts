@@ -21,8 +21,9 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 
     def read(): Option[String] =
         try {
+            JobLogger.log("Consumer details: " + consumerProps + "topics: " + connector.listTopics(), None, INFO);
             if (hasNext) {
-                JobLogger.log("Getting message from queue", None, INFO);
+                JobLogger.log("Getting message from queue. Iterator: " + iterator, None, INFO);
                 val message = iterator.next().value()
                 Some(new String(message))
             } else {
@@ -38,7 +39,9 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 
     private def hasNext(): Boolean =
         try {
-            iterator.hasNext
+            val check = iterator.hasNext
+            JobLogger.log("hasNext have some value or not: " + check, None, INFO);
+            check
         } catch {
 //            case timeOutEx: ConsumerTimeoutException =>
 //                false
@@ -55,10 +58,11 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 object JobConsumerV2Config {
 
     // Simple helper to create properties from the above. Note that we don't cache the lookup, as it may always change.
-    def makeProps(brokerConnect: String = "localhost:9092", consumerGroup: String = "dev.job-consumer", consumerTimeoutMs: String = "120000") = {
+    def makeProps(brokerConnect: String = "localhost:9092", zookeeperConnect: String = "localhost:2181", consumerGroup: String = "dev.job-consumer", consumerTimeoutMs: String = "120000") = {
         val props = new Properties()
         props.put("group.id", consumerGroup)
         props.put("bootstrap.servers", brokerConnect)
+        props.put("zookeeper.connect", zookeeperConnect)
         props.put("key.deserializer", classOf[StringDeserializer])
         props.put("value.deserializer", classOf[StringDeserializer])
         props.put("auto.offset.reset", "earliest")

@@ -56,7 +56,7 @@ object JobManager extends optional.Application {
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
         JobLogger.log("Initializing the job consumer", None, INFO);
-        val props = JobConsumerV2Config.makeProps(config.bootStrapServer, config.consumerGroup)
+        val props = JobConsumerV2Config.makeProps(config.bootStrapServer, config.zookeeperConnect, config.consumerGroup)
         val consumer = new JobConsumerV2(config.topic, props);
         consumer;
     }
