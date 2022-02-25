@@ -17,7 +17,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private var iterator = connector.poll(600).asScala.toIterator;
 
     def pollConsumer() ={
-        iterator = connector.poll(600).asScala.toIterator
+        if (iterator.isEmpty) iterator = connector.poll(600).asScala.toIterator
     }
 
     def read(): Option[String] =
