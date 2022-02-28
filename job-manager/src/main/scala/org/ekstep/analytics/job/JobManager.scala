@@ -1,8 +1,9 @@
 package org.ekstep.analytics.job
 
+import org.apache.kafka.common.errors.WakeupException
 import org.ekstep.analytics.framework.util.JSONUtils
-import java.util.concurrent._
 
+import java.util.concurrent._
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework.JobConfig
@@ -10,6 +11,7 @@ import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
 import org.ekstep.analytics.kafka.consumer.JobConsumerV2
 import org.ekstep.analytics.framework.FrameworkContext
+
 import java.util.concurrent.atomic.AtomicBoolean
 import org.ekstep.analytics.framework.conf.AppConf
 
@@ -81,21 +83,28 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
 
-        while(running.get()) {
-            // poll consumer to get records
-            consumer.pollConsumer();
-            val record = consumer.read;
-            if (record.isDefined) {
-                JobLogger.log("Starting execution of " + record, None, INFO);
-                executeJob(record.get);
-                if (record.get.contains("monitor-job-summ"))
-                    stop()
-            } else {
-                // $COVERAGE-OFF$ Code is unreachable
-                JobLogger.log("Inside Thread sleep. Record: " + record, None, INFO);
-                Thread.sleep(10 * 1000); // Sleep for 10 seconds
-                // $COVERAGE-ON$
+        try {
+            while(running.get()) {
+                // poll consumer to get records
+                consumer.pollConsumer();
+                val record = consumer.read;
+                if (record.isDefined) {
+                    JobLogger.log("Starting execution of " + record, None, INFO);
+                    executeJob(record.get);
+                    if (record.get.contains("monitor-job-summ"))
+                        stop()
+                } else {
+                    // $COVERAGE-OFF$ Code is unreachable
+                    JobLogger.log("Inside Thread sleep. Record: " + record, None, INFO);
+                    Thread.sleep(10 * 1000); // Sleep for 10 seconds
+                    // $COVERAGE-ON$
+                }
             }
+        }
+        catch {
+            case ex: WakeupException =>
+                ex.printStackTrace()
+                if (!running.get()) throw ex
         }
         // Jobs are done. Close the framework context.
         fc.closeContext();
