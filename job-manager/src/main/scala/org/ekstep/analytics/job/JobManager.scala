@@ -147,7 +147,7 @@ class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends 
         try {
             consumer.subscribe(util.Arrays.asList(config.topic))
             while (!closed.get) {
-                val records = consumer.poll(10000)
+                val records = consumer.poll(600000)
                 // Handle all records
                 if (!records.isEmpty) {
                     JobLogger.log("Starting execution of " + records.count() + " jobs", None, INFO);
