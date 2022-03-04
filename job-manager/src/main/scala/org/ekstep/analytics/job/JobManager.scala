@@ -150,7 +150,7 @@ class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends 
                 val records = consumer.poll(10000)
                 // Handle all records
                 if (!records.isEmpty) {
-                    JobLogger.log("Starting execution of " + records.count(), None, INFO);
+                    JobLogger.log("Starting execution of " + records.count() + " jobs", None, INFO);
                     executeJobs(records);
                 } else {
                     // $COVERAGE-OFF$ Code is unreachable
@@ -179,14 +179,14 @@ class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends 
 
     private def executeJobs(records: ConsumerRecords[String, String])(implicit fc: FrameworkContext): Unit = {
         val recordItr = records.iterator()
-        if (recordItr.hasNext) {
-            JobLogger.log("Getting message from queue.", None, INFO);
-            val message = recordItr.next().value()
-            executeJob(message)
-            if (message.contains("monitor-job-summ"))
-                stop()
-        } else {
-            None
+        for(a <- 1 to records.count()) {
+            if (recordItr.hasNext) {
+                JobLogger.log("Getting message from queue.", None, INFO);
+                val message = recordItr.next().value()
+                executeJob(message)
+                if (message.contains("monitor-job-summ"))
+                    stop()
+            }
         }
     }
 
@@ -205,6 +205,4 @@ class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends 
                 ex.printStackTrace()
         }
     }
-
-
 }
