@@ -79,6 +79,7 @@ object JobConsumerV2Config {
         //commit after each 10 second
         props.put("auto.commit.interval.ms", "10000")
         props.put("enable.auto.commit", "true")
+        props.put("max.poll.interval.ms", "600000")
         props
     }
 }
