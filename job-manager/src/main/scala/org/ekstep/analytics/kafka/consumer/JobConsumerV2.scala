@@ -4,6 +4,7 @@ import java.util.Properties
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.util.JobLogger
 import org.apache.kafka.clients.consumer.{ConsumerRecord, KafkaConsumer}
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 
 import scala.collection.JavaConverters._
@@ -28,6 +29,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
         try {
             // poll consumer to get records
             pollConsumer();
+            JobLogger.log("Consumer commit details: " + connector.committed(new TopicPartition(topic, 0)), None, INFO);
             JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator, None, INFO);
             if (hasNext) {
                 JobLogger.log("Getting message from queue.", None, INFO);

@@ -1,5 +1,6 @@
 package org.ekstep.analytics.job
 
+import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
 import org.apache.kafka.common.errors.WakeupException
 import org.ekstep.analytics.framework.util.JSONUtils
 
@@ -8,12 +9,13 @@ import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework.JobConfig
 import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
-import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
-import org.ekstep.analytics.kafka.consumer.JobConsumerV2
+import org.ekstep.analytics.kafka.consumer.{JobConsumerV2, JobConsumerV2Config}
 import org.ekstep.analytics.framework.FrameworkContext
 
 import java.util.concurrent.atomic.AtomicBoolean
 import org.ekstep.analytics.framework.conf.AppConf
+
+import java.util
 
 case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
 
@@ -38,22 +40,23 @@ object JobManager extends optional.Application {
             case ex: Exception =>
                 ex.printStackTrace()
         }
-        val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
-        val consumer = initializeConsumer(config, jobQueue);
-        JobLogger.log("Initialized the job consumer", None, INFO);
+//        val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
+//        val consumer = initializeConsumer(config, jobQueue);
+//        JobLogger.log("Initialized the job consumer", None, INFO);
         val executor = Executors.newFixedThreadPool(1);
         JobLogger.log("Total job count: " + config.jobsCount, None, INFO);
         val doneSignal = new CountDownLatch(1);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-        executor.submit(new JobRunner(config, consumer, doneSignal));
+//        executor.submit(new JobRunner(config, consumer, doneSignal));
+        executor.submit(new JobRunnerV2(config, doneSignal));
         doneSignal.await()
 
         JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
         executor.shutdown();
         JobLogger.log("Job manager executor shutdown completed", None, INFO);
-        consumer.close();
-        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
+//        consumer.close();
+//        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
     }
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
@@ -124,4 +127,84 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
                 ex.printStackTrace()
         }
     }
+}
+
+class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends Runnable {
+
+    implicit val className: String = "JobRunnerV2";
+
+    val consumerProps = JobConsumerV2Config.makeProps(config.bootStrapServer, config.consumerGroup)
+    final private val closed = new AtomicBoolean(false)
+    final private val consumer = new KafkaConsumer[String, String](consumerProps)
+
+    override def run(): Unit = {
+        implicit val fc = new FrameworkContext();
+        // Register the storage service for all data
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
+        // Register the reports storage service
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
+
+        try {
+            consumer.subscribe(util.Arrays.asList(config.topic))
+            while (!closed.get) {
+                val records = consumer.poll(10000)
+                // Handle all records
+                if (!records.isEmpty) {
+                    JobLogger.log("Starting execution of " + records.count(), None, INFO);
+                    executeJobs(records);
+                } else {
+                    // $COVERAGE-OFF$ Code is unreachable
+                    JobLogger.log("Inside Thread sleep.", None, INFO);
+                    Thread.sleep(10 * 1000); // Sleep for 10 seconds
+                    // $COVERAGE-ON$
+                }
+            }
+        } catch {
+            case e: WakeupException =>
+                // Ignore exception if closing
+                if (!closed.get) throw e
+        } finally {
+            consumer.close()
+            // Jobs are done. Close the framework context.
+            fc.closeContext();
+        }
+    }
+
+    // Shutdown hook which can be called from a separate thread
+    def stop(): Unit = {
+        closed.set(true)
+        doneSignal.countDown();
+        consumer.wakeup()
+    }
+
+    private def executeJobs(records: ConsumerRecords[String, String])(implicit fc: FrameworkContext): Unit = {
+        val recordItr = records.iterator()
+        if (recordItr.hasNext) {
+            JobLogger.log("Getting message from queue.", None, INFO);
+            val message = recordItr.next().value()
+            executeJob(message)
+            if (message.contains("monitor-job-summ"))
+                stop()
+        } else {
+            None
+        }
+    }
+
+    private def executeJob(record: String)(implicit fc: FrameworkContext) {
+        JobLogger.log("Starting the job execution", None, INFO);
+        val jobConfig = JSONUtils.deserialize[Map[String, AnyRef]](record);
+        val modelName = jobConfig.get("model").get.toString()
+        val configStr = JSONUtils.serialize(jobConfig.get("config").get)
+        val config = JSONUtils.deserialize[JobConfig](configStr)
+        try {
+            JobLogger.log("Executing " + modelName, None, INFO);
+            JobExecutorV2.main(modelName, configStr)
+            JobLogger.log("Finished executing " + modelName, None, INFO);
+        } catch {
+            case ex: Exception =>
+                ex.printStackTrace()
+        }
+    }
+
+
 }
