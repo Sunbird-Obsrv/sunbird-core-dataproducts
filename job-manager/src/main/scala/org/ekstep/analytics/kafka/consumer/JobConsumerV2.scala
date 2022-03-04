@@ -20,8 +20,14 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
         if (iterator.isEmpty) iterator = connector.poll(600).asScala.toIterator
     }
 
+    def wakeUpConsumer() ={
+        connector.wakeup()
+    }
+
     def read(): Option[String] =
         try {
+            // poll consumer to get records
+            pollConsumer();
             JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator, None, INFO);
             if (hasNext) {
                 JobLogger.log("Getting message from queue.", None, INFO);
