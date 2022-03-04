@@ -40,23 +40,23 @@ object JobManager extends optional.Application {
             case ex: Exception =>
                 ex.printStackTrace()
         }
-//        val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
-//        val consumer = initializeConsumer(config, jobQueue);
-//        JobLogger.log("Initialized the job consumer", None, INFO);
+        val jobQueue: BlockingQueue[String] = new ArrayBlockingQueue[String](config.jobsCount);
+        val consumer = initializeConsumer(config, jobQueue);
+        JobLogger.log("Initialized the job consumer", None, INFO);
         val executor = Executors.newFixedThreadPool(1);
         JobLogger.log("Total job count: " + config.jobsCount, None, INFO);
         val doneSignal = new CountDownLatch(1);
         JobMonitor.init(config);
         JobLogger.log("Initialized the job event listener. Starting the job executor", None, INFO);
-//        executor.submit(new JobRunner(config, consumer, doneSignal));
-        executor.submit(new JobRunnerV2(config, doneSignal));
+        executor.submit(new JobRunner(config, consumer, doneSignal));
+//        executor.submit(new JobRunnerV2(config, doneSignal));
         doneSignal.await()
 
         JobLogger.log("Job manager execution completed. Shutting down the executor and consumer", None, INFO);
         executor.shutdown();
         JobLogger.log("Job manager executor shutdown completed", None, INFO);
-//        consumer.close();
-//        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
+        consumer.close();
+        JobLogger.log("Job manager consumer shutdown completed", None, INFO);
     }
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
@@ -147,7 +147,7 @@ class JobRunnerV2(config: JobManagerConfig, doneSignal: CountDownLatch) extends 
         try {
             consumer.subscribe(util.Arrays.asList(config.topic))
             while (!closed.get) {
-                val records = consumer.poll(600000)
+                val records = consumer.poll(100)
                 // Handle all records
                 if (!records.isEmpty) {
                     JobLogger.log("Starting execution of " + records.count() + " jobs", None, INFO);

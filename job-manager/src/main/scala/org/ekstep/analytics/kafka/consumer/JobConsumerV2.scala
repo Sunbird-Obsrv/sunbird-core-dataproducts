@@ -15,10 +15,10 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     implicit val className = "org.ekstep.analytics.kafka.consumer.JobConsumerV2"
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
-    private var iterator = connector.poll(600).asScala.toIterator;
+    private var iterator = connector.poll(100).asScala.toIterator;
 
     def pollConsumer() ={
-        if (iterator.isEmpty) iterator = connector.poll(600).asScala.toIterator
+        if (iterator.isEmpty) iterator = connector.poll(100).asScala.toIterator
     }
 
     def wakeUpConsumer() ={
@@ -79,7 +79,7 @@ object JobConsumerV2Config {
         //commit after each 10 second
         props.put("auto.commit.interval.ms", "10000")
         props.put("enable.auto.commit", "true")
-        props.put("max.poll.interval.ms", "600000")
+        props.put("max.poll.interval.ms", "1200000")
         props
     }
 }
