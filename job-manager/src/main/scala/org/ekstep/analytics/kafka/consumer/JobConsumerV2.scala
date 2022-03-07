@@ -29,14 +29,10 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
         try {
             // poll consumer to get records
             pollConsumer();
-            JobLogger.log("Consumer commit details: " + connector.committed(new TopicPartition(topic, 0)), None, INFO);
-            JobLogger.log("Consumer details: " + consumerProps + " Iterator: " + iterator, None, INFO);
             if (hasNext) {
-                JobLogger.log("Getting message from queue.", None, INFO);
                 val message = iterator.next().value()
                 Some(new String(message))
             } else {
-                JobLogger.log("Waiting for message from queue", None, INFO);
                 None
             }
         } catch {
@@ -49,13 +45,11 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
     private def hasNext(): Boolean =
         try {
             val check = iterator.hasNext
-            JobLogger.log("hasNext have some value or not: " + check, None, INFO);
             check
         } catch {
 //            case timeOutEx: ConsumerTimeoutException =>
 //                false
             case ex: Exception =>
-                JobLogger.log("Exception reading message from queue: " + ex.getMessage, None, INFO);
                 JobLogger.log("Getting error when reading message", Option(Map("err" -> ex.getMessage)), ERROR);
                 false
         }
