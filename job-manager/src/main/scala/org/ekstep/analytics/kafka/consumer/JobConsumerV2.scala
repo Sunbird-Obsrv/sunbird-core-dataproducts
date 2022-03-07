@@ -30,6 +30,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
             // poll consumer to get records
             pollConsumer();
             if (hasNext) {
+                JobLogger.log("Getting message from queue", None, INFO)
                 val message = iterator.next().value()
                 Some(new String(message))
             } else {
@@ -44,8 +45,7 @@ class JobConsumerV2(topic: String, consumerProps: Properties) {
 
     private def hasNext(): Boolean =
         try {
-            val check = iterator.hasNext
-            check
+            iterator.hasNext
         } catch {
 //            case timeOutEx: ConsumerTimeoutException =>
 //                false
