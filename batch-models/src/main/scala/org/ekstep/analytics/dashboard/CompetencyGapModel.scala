@@ -11,6 +11,12 @@ import scala.collection.mutable.Buffer
 import org.apache.spark.HashPartitioner
 import org.ekstep.analytics.framework.JobContext
 import org.apache.commons.lang3.StringUtils
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.util.EntityUtils
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework.Level.INFO
 import org.ekstep.analytics.framework.util.JSONUtils
 import org.ekstep.analytics.framework.util.CommonUtil
@@ -40,206 +46,69 @@ object CompetencyGapModel extends IBatchModelTemplate[String, WorkflowInput, Mea
 
     implicit val className = "org.ekstep.analytics.model.CompetencyGapModel"
     override def name: String = "CompetencyGapModel"
-    val serverEvents = Array("LOG", "AUDIT", "SEARCH");
 
     override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
 
-        val defaultPDataId = V3PData(AppConf.getConfig("default.consumption.app.id"), Option("1.0"))
-        val parallelization = config.getOrElse("parallelization", 20).asInstanceOf[Int];
-        val indexedData = data.map{f =>
-                try {
-                    (JSONUtils.deserialize[WorkFlowIndexEvent](f), f)
-                }
-                catch {
-                    case ex: Exception =>
-                        JobLogger.log(ex.getMessage, None, INFO)
-                        (null.asInstanceOf[WorkFlowIndexEvent], "")
-                }
-        }.filter(f => null != f._1)
-        val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
-            .partitionBy(new HashPartitioner(parallelization))
-            .reduceByKey((a, b) => a ++ b);
-
-        partitionedData.map { x => WorkflowInput(x._1, x._2) }
     }
-    
+
+    def druidCompetencyData()(implicit spark: SparkSession) = {
+      val druidHost = "localhost"
+      val url = s"http://${druidHost}:8888/druid/v2/sql"
+      val requestBody = """{"resultFormat":"array","header":true,"context":{"sqlOuterLimit":10000},"query":"SELECT edata_cb_object_org, edata_cb_data_wa_id, edata_cb_data_wa_userId, edata_cb_data_wa_competency_id, edata_cb_data_wa_competency_level, edata_cb_data_wa_competency_name, edata_cb_data_wa_competency_status, edata_cb_data_wa_competency_type FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"}"""
+
+      // create an HttpPost object
+      val post = new HttpPost(url)
+
+      // set the Content-type
+      post.setHeader("Content-type", "application/json")
+
+      // add the JSON as a StringEntity
+      post.setEntity(new StringEntity(requestBody))
+
+      // send the post request
+      val response = (new DefaultHttpClient).execute(post)
+
+      val result = EntityUtils.toString(response.getEntity)
+
+      Console.println("result", result)
+
+      result
+    }
+
+  def decCompetencyData()(implicit spark: SparkSession) {
+
+    val userdata = spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
+      .option("keyspace", "sunbird").option("table", "user").load().persist(StorageLevel.MEMORY_ONLY);
+
+    Console.println("Number of users", userdata.count());
+
+    val userprofile = userdata.where(userdata.col("profiledetails").isNotNull).select("userid", "profiledetails")
+
+    //    val profileschema = StructType(Seq(
+    //      StructField("k", StringType, true), StructField("v", DoubleType, true)
+    //    ))
+    //
+    //    val profileschema2 = StructType(Seq(
+    //      StructField("competencies", StringType, true), StructField("v", DoubleType, true)
+    //    ))
+
+    userprofile.where(userdata.col("userid").equalTo("75388267-e5f3-449a-84cb-1d15b81c76ed"))
+
+  }
+
+  def courseCompetencyData()(implicit spark: SparkSession): Unit = {
+    val coursedata = spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
+      .option("keyspace", "dev_hierarchy_store").option("table", "content_hierarchy").load().persist(StorageLevel.MEMORY_ONLY);
+
+    val coursedata2 = coursedata.select("identifier", "hierarchy")
+
+  }
+
     override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
 
-      val url =
-      val parsedData = parse(fromURL("{url}").mkString).extract[WorkOrderOfficerCompetencyResult]
-      val mySourceDataset = fc.createDataset(parsedData.result)
+      val expectedCompData = druidCompetencyData()
 
-      val rdd = sc.cassandraTable("sunbird", "user")
-      val userProfileId = rdd.select("id", "userid", "profiledetails")
-      userProfileId.toArray().foreach(println)
 
-        val idleTime = config.getOrElse("idleTime", 600).asInstanceOf[Int];
-        val sessionBreakTime = config.getOrElse("sessionBreakTime", 30).asInstanceOf[Int];
-        
-        val outputEventsCount = fc.outputEventsCount;
-        
-        data.map({ f =>
-            var summEvents: Buffer[MeasuredEvent] = Buffer();
-            val events = f.events.map{f =>
-                try {
-                    JSONUtils.deserialize[WFSInputEvent](f)
-                }
-                catch {
-                    case ex: Exception =>
-                        JobLogger.log(ex.getMessage, None, INFO)
-                        null.asInstanceOf[WFSInputEvent]
-                }
-            }.filter(f => null != f)
-            val sortedEvents = events.sortBy { x => x.ets }
-            var rootSummary: org.ekstep.analytics.util.Summary = null
-            var currSummary: org.ekstep.analytics.util.Summary = null
-            var prevEvent: WFSInputEvent = sortedEvents.head
-            
-            sortedEvents.foreach{ x =>
-
-                val diff = CommonUtil.getTimeDiff(prevEvent.ets, x.ets).get
-                if(diff > (sessionBreakTime * 60) && !StringUtils.equalsIgnoreCase("app", x.edata.`type`)) {
-                    if(currSummary != null && !currSummary.isClosed){
-                        val clonedRootSummary = currSummary.deepClone()
-                        clonedRootSummary.close(summEvents, config)
-                        summEvents ++= clonedRootSummary.summaryEvents
-                        clonedRootSummary.clearAll()
-                        rootSummary = clonedRootSummary
-                        currSummary.clearSummary()
-                    }
-                    else {}
-                }
-                prevEvent = x
-                (x.eid) match {
-
-                    case ("START") =>
-                        if (rootSummary == null || rootSummary.isClosed) {
-                            if ((StringUtils.equalsIgnoreCase("START", x.eid) && !StringUtils.equalsIgnoreCase("app", x.edata.`type`))) {
-                                rootSummary = new org.ekstep.analytics.util.Summary(x)
-                                rootSummary.updateType("app")
-                                rootSummary.resetMode()
-                                currSummary = new org.ekstep.analytics.util.Summary(x)
-                                rootSummary.addChild(currSummary)
-                                currSummary.addParent(rootSummary, idleTime)
-                            }
-                            else {
-//                                if(currSummary != null && !currSummary.isClosed){
-//                                    println("Inside first missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
-//                                    currSummary.close(summEvents, config);
-//                                    summEvents ++= currSummary.summaryEvents;
-//                                }
-                                rootSummary = new org.ekstep.analytics.util.Summary(x)
-                                currSummary = rootSummary
-                            } 
-                        }
-//                        else if (currSummary == null || currSummary.isClosed) {
-//                            println("Inside second missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
-//                            currSummary = new org.ekstep.analytics.util.Summary(x)
-//                            if (!currSummary.checkSimilarity(rootSummary)) rootSummary.addChild(currSummary)
-//                        }
-                        else {
-                            val tempSummary = currSummary.checkStart(x.edata.`type`, Option(x.edata.mode), currSummary.summaryEvents, config)
-                            if (tempSummary == null) {
-                                val newSumm = new org.ekstep.analytics.util.Summary(x)
-                                if (!currSummary.isClosed) {
-                                    currSummary.addChild(newSumm)
-                                    newSumm.addParent(currSummary, idleTime)
-                                }
-                                currSummary = newSumm
-                            }
-                            else {
-                                if(tempSummary.PARENT != null && tempSummary.isClosed) {
-                                     summEvents ++= tempSummary.summaryEvents
-                                     val newSumm = new org.ekstep.analytics.util.Summary(x)
-//                                     if (!currSummary.isClosed) {
-//                                         println("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode)
-//                                        JobLogger.log("Inside 3rd missing code: " + currSummary.isClosed + " " + currSummary.sid + " " + currSummary.`type` + " " + currSummary.mode, None, INFO)
-//                                        currSummary.addChild(newSumm)
-//                                        newSumm.addParent(currSummary, idleTime)
-//                                     }
-                                     currSummary = newSumm
-                                     tempSummary.PARENT.addChild(currSummary)
-                                     currSummary.addParent(tempSummary.PARENT, idleTime)
-                                }
-                                else {
-                                  if (currSummary.PARENT != null) {
-                                    summEvents ++= currSummary.PARENT.summaryEvents
-                                  }
-                                  else {
-                                    summEvents ++= currSummary.summaryEvents
-                                  }
-                                  currSummary = new org.ekstep.analytics.util.Summary(x)
-                                  if(rootSummary.isClosed) {
-                                    summEvents ++= rootSummary.summaryEvents
-                                    rootSummary = currSummary
-                                  }
-                              }
-                            }
-                        }
-                    case ("END") =>
-                        // Check if first event is END event, currSummary = null
-                        if(currSummary != null && (currSummary.checkForSimilarSTART(x.edata.`type`, if(x.edata.mode == null) "" else x.edata.mode))) {
-                            val parentSummary = currSummary.checkEnd(x, idleTime, config)
-                            if(currSummary.PARENT != null && parentSummary.checkSimilarity(currSummary.PARENT)) {
-                                if (!currSummary.isClosed) {
-                                    currSummary.add(x, idleTime)
-                                    currSummary.close(summEvents, config);
-                                    summEvents ++= currSummary.summaryEvents
-                                    currSummary = parentSummary
-                                }
-                            }
-                            else if(parentSummary.checkSimilarity(rootSummary)) {
-                                val similarEndSummary = currSummary.getSimilarEndSummary(x)
-                                if(similarEndSummary.checkSimilarity(rootSummary)) {
-                                    rootSummary.add(x, idleTime)
-                                    rootSummary.close(rootSummary.summaryEvents, config)
-                                    summEvents ++= rootSummary.summaryEvents
-                                    currSummary = rootSummary
-                                }
-                                else {
-                                    if (!similarEndSummary.isClosed) {
-                                        similarEndSummary.add(x, idleTime)
-                                        similarEndSummary.close(summEvents, config);
-                                        summEvents ++= similarEndSummary.summaryEvents
-                                        currSummary = parentSummary
-                                    }
-                                }
-                            }
-                            else {
-                              if (!currSummary.isClosed) {
-                                currSummary.add(x, idleTime)
-                                currSummary.close(summEvents, config);
-                                summEvents ++= currSummary.summaryEvents
-                              }
-                              currSummary = parentSummary
-                            }
-                        }
-                        else {}
-                    case _ =>
-                        if (currSummary != null && !currSummary.isClosed) {
-                            currSummary.add(x, idleTime)
-                        }
-                        else{
-                            currSummary = new org.ekstep.analytics.util.Summary(x)
-                            currSummary.updateType("app")
-                            if(rootSummary == null || rootSummary.isClosed)
-                                rootSummary = currSummary
-                        }
-                }
-            }
-            if(currSummary != null && !currSummary.isClosed){
-                currSummary.close(currSummary.summaryEvents, config)
-                summEvents ++= currSummary.summaryEvents
-                if(rootSummary != null && !currSummary.checkSimilarity(rootSummary) && !rootSummary.isClosed){
-                    rootSummary.close(rootSummary.summaryEvents, config)
-                    summEvents ++= rootSummary.summaryEvents
-                }
-            }
-            else {}
-            val out = summEvents.distinct;
-            outputEventsCount.add(out.size);
-            out;
-        }).flatMap(f => f.map(f => f));
         
     }
     override def postProcess(data: RDD[MeasuredEvent], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
