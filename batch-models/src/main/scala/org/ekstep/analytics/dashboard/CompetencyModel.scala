@@ -44,12 +44,10 @@ case class WorkOrderOfficerCompetencyResult(success: Boolean, message: String, r
 
 object CompetencyGapModel extends IBatchModelTemplate[String, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
 
-    implicit val className = "org.ekstep.analytics.model.CompetencyGapModel"
-    override def name: String = "CompetencyGapModel"
+    implicit val className = "org.ekstep.analytics.model.CompetencyModel"
+    override def name: String = "CompetencyModel"
 
-    override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = {
-
-    }
+    override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WorkflowInput] = ???
 
     def druidCompetencyData()(implicit spark: SparkSession) = {
       val druidHost = "localhost"
@@ -104,14 +102,23 @@ object CompetencyGapModel extends IBatchModelTemplate[String, WorkflowInput, Mea
 
   }
 
-    override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
+  def fracCompetencyData()(implicit spark: SparkSession): Unit = {
+    val coursedata = spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
+      .option("keyspace", "dev_hierarchy_store").option("table", "content_hierarchy").load().persist(StorageLevel.MEMORY_ONLY);
 
-      val expectedCompData = druidCompetencyData()
+    val coursedata2 = coursedata.select("identifier", "hierarchy")
+
+  }
+
+  override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
+
+    val expectedCompData = druidCompetencyData()
 
 
-        
-    }
-    override def postProcess(data: RDD[MeasuredEvent], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
-        data
-    }
+
+  }
+
+  override def postProcess(data: RDD[MeasuredEvent], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
+      data
+  }
 }
