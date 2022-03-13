@@ -19,6 +19,7 @@ import org.ekstep.analytics.framework._
 
 
 case class DummyInput() extends AlgoInput
+@scala.beans.BeanInfo
 case class CompetencyGapDataRow(timestamp: Long, userID: String, orgID: String, workOrderID: String, competencyID: String,
                                 expectedLevel: Int, declaredLevel: Int, competencyGap: Int) extends Output with AlgoOutput
 
@@ -48,7 +49,6 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
   }
 
   def competencyGapData()(implicit spark: SparkSession): DataFrame = {
-
     val ecDF = expectedCompetencyData()
     val dcDF = declaredCompetencyData()
 
