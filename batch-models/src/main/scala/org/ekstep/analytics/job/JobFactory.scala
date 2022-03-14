@@ -1,6 +1,6 @@
 package org.ekstep.analytics.job
 
-import org.ekstep.analytics.dashboard.CompetencyGapJob
+import org.ekstep.analytics.dashboard.{CompetencyGapJob, UserCourseProgressJob}
 
 import scala.reflect.runtime.universe
 import org.ekstep.analytics.framework.IJob
@@ -28,6 +28,8 @@ object JobFactory {
         WorkFlowSummarizer
       case "competency-gap" =>
         CompetencyGapJob
+      case "user-course-progress" =>
+        UserCourseProgressJob
       case "video-streaming" =>
         VideoStreamingJob
       case "telemetry-replay" =>
