@@ -4,24 +4,22 @@ import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.DefaultHttpClient
 import org.apache.http.util.EntityUtils
-import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
-import org.apache.spark.sql.functions.{col, current_timestamp, explode_outer, expr, from_json}
+import org.apache.spark.sql.{DataFrame, Encoders, Row, SparkSession}
+import org.apache.spark.sql.functions.{col, current_timestamp, explode_outer, expr, from_json, lit}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
-
 import org.ekstep.analytics.framework._
 
 
 
 case class DummyInput() extends AlgoInput
 @scala.beans.BeanInfo
-case class CompetencyGapDataRow(timestamp: Long, userID: String, orgID: String, workOrderID: String, competencyID: String,
-                                expectedLevel: Int, declaredLevel: Int, competencyGap: Int) extends Output with AlgoOutput
+case class CompetencyGapDataRow(userID: String, competencyID: String, orgID: String, workOrderID: String,
+                                expectedLevel: Int, declaredLevel: Int, competencyGap: Int, timestamp: Long) extends Output with AlgoOutput
 
 
 object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, CompetencyGapDataRow, CompetencyGapDataRow] with Serializable {
@@ -44,8 +42,22 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
   def competencyGapRDD()(implicit sc: SparkContext, fc: FrameworkContext) : RDD[CompetencyGapDataRow] = {
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
     val df = competencyGapData()
-    val encoder = Encoders.bean(classOf[CompetencyGapDataRow])
-    df.as[CompetencyGapDataRow](encoder).rdd
+
+    df.rdd.map(
+      row => CompetencyGapDataRow(
+        row.getAs[String]("userID"),
+        row.getAs[String]("competencyID"),
+        row.getAs[String]("orgID"),
+        row.getAs[String]("workOrderID"),
+        row.getAs[Int]("expectedLevel"),
+        row.getAs[Int]("declaredLevel"),
+        row.getAs[Int]("competencyGap"),
+        row.getAs[Long]("timestamp")
+      )
+    )
+
+    // val encoder = Encoders.bean(classOf[CompetencyGapDataRow])
+    // df.as[CompetencyGapDataRow](encoder).rdd
   }
 
   def competencyGapData()(implicit spark: SparkSession): DataFrame = {
@@ -66,7 +78,7 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       col("declared_level").alias("declaredLevel")
     )
     gapDF = gapDF.withColumn("competencyGap", expr("expectedLevel - declaredLevel"))
-    gapDF = gapDF.withColumn("timestamp", current_timestamp())
+    gapDF = gapDF.withColumn("timestamp", lit(System.currentTimeMillis()))
 
     gapDF.show()
     gapDF.printSchema()
