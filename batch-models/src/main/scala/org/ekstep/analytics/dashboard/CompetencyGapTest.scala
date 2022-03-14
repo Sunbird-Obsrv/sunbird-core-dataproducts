@@ -158,13 +158,13 @@ object CompetencyGapTest extends Serializable {
     up
   }
 
-  def courseCompetencyData()(implicit spark: SparkSession): Unit = {
-    val coursedata = spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
-      .option("keyspace", "dev_hierarchy_store").option("table", "content_hierarchy").load().persist(StorageLevel.MEMORY_ONLY);
-
-    val coursedata2 = coursedata.select("identifier", "hierarchy")
-
-  }
+//  def courseCompetencyData()(implicit spark: SparkSession): Unit = {
+//    val coursedata = spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
+//      .option("keyspace", "dev_hierarchy_store").option("table", "content_hierarchy").load().persist(StorageLevel.MEMORY_ONLY);
+//
+//    val coursedata2 = coursedata.select("identifier", "hierarchy")
+//
+//  }
 
   def time[R](block: => R): (Long, R) = {
     val t0 = System.currentTimeMillis()
