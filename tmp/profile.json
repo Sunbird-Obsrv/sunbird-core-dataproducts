@@ -1,0 +1,95 @@
+{
+  "skills": {
+    "additionalSkills": "test ",
+    "certificateDetails": ""
+  },
+  "professionalDetails": [
+    {
+      "name": "",
+      "industryOther": "",
+      "designationOther": "",
+      "completePostalAddress": "",
+      "additionalAttributes": {},
+      "osid": "1e875206-f9e9-49d7-af44-1536bace2caa"
+    }
+  ],
+  "employmentDetails": {
+    "service": "Central Architect Service.",
+    "cadre": "Indian Postal Service",
+    "allotmentYearOfService": "",
+    "payType": "",
+    "civilListNo": "",
+    "employeeCode": "",
+    "officialPostalAddress": "",
+    "pinCode": "",
+    "departmentName": " MDO Testone Update",
+    "osid": "1dd93bad-2f98-4986-8145-85c4cfa0774b",
+    "dojOfService": "02-03-2022"
+  },
+  "personalDetails": {
+    "firstname": "role",
+    "surname": "all",
+    "dob": "18-11-2021",
+    "nationality": "India",
+    "domicileMedium": "Bodo",
+    "gender": "Female",
+    "maritalStatus": "Single",
+    "category": "General",
+    "knownLanguages": [
+      "Algerian Arabic",
+      "Dogri"
+    ],
+    "countryCode": "+91",
+    "mobile": 2442425254,
+    "telephone": "undefined",
+    "primaryEmail": "full@yopmail.com",
+    "officialEmail": "full@yopmail.com",
+    "postalAddress": "street test name\narea test name",
+    "pincode": "560028",
+    "osid": "e899739b-e9e6-4e26-bdcc-22eb8ebd2987"
+  },
+  "academics": [
+    {
+      "nameOfQualification": "",
+      "type": "X_STANDARD",
+      "nameOfInstitute": "",
+      "yearOfPassing": "",
+      "osid": "55f61bca-0d04-4fcf-b27a-6c35bf7e746f"
+    },
+    {
+      "nameOfQualification": "",
+      "type": "XII_STANDARD",
+      "nameOfInstitute": "",
+      "yearOfPassing": "",
+      "osid": "43d3bde2-6dba-46c4-92b0-99f93fe62d66"
+    }
+  ],
+  "competencies": [
+    {
+      "type": "COMPETENCY",
+      "id": "CID0289",
+      "name": "Data Storytelling and Visualisation ",
+      "description": "Combine data insights, dynamic visual displays with illustrative and interactive graphics and narrative representative formats to present patterns, trends, meanings, messages and analytical insights f",
+      "status": "VERIFIED",
+      "source": "ISTM",
+      "competencyType": "Functional",
+      "competencySelfAttestedLevel": 1,
+      "competencySelfAttestedLevelValue": "Level 1(Level 1)",
+      "osid": "056da998-c653-4781-8c06-152d2f8e2378"
+    }
+  ],
+  "id": "75388267-e5f3-449a-84cb-1d15b81c76ed",
+  "mandatoryFieldsExists": true,
+  "interests": {
+    "professional": [
+      "civil service",
+      "ljjl"
+    ],
+    "hobbies": [
+      "painting ",
+      "jkjk"
+    ],
+    "additionalSkills": "test sk"
+  },
+  "userId": "75388267-e5f3-449a-84cb-1d15b81c76ed"
+}

@@ -1,0 +1,282 @@
+[
+  {
+    "edata_cb_object_org": null,
+    "edata_cb_data_wa_id": null,
+    "edata_cb_data_wa_userId": null,
+    "edata_cb_data_wa_competency_id": null,
+    "edata_cb_data_wa_competency_level": null,
+    "edata_cb_data_wa_competency_name": null,
+    "edata_cb_data_wa_competency_status": null,
+    "edata_cb_data_wa_competency_type": null
+  },
+  {
+    "edata_cb_object_org": " Department of Water Resources River Development and Ganga Rejuvenation",
+    "edata_cb_data_wa_id": "abc1560b-dabc-49c5-a03d-ca8b66133086",
+    "edata_cb_data_wa_userId": "22897ad6-0ffb-489f-b281-2bd985bfe39d",
+    "edata_cb_data_wa_competency_id": "CID02123",
+    "edata_cb_data_wa_competency_level": "Level 3",
+    "edata_cb_data_wa_competency_name": "Leading others",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " Department of Water Resources River Development and Ganga Rejuvenation",
+    "edata_cb_data_wa_id": "abc1560b-dabc-49c5-a03d-ca8b66133086",
+    "edata_cb_data_wa_userId": "22897ad6-0ffb-489f-b281-2bd985bfe39d",
+    "edata_cb_data_wa_competency_id": "CID0386",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Education and Training",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "Ministry of communication",
+    "edata_cb_data_wa_id": "6990b16b-05a2-4928-b2c2-f5385ba8ef78",
+    "edata_cb_data_wa_userId": "dd872de2-a8ba-4d7c-a71b-7aa83b562b8e",
+    "edata_cb_data_wa_competency_id": "112",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Legal, Government, and Jurisprudence",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "Ministry of communication",
+    "edata_cb_data_wa_id": "6990b16b-05a2-4928-b2c2-f5385ba8ef78",
+    "edata_cb_data_wa_userId": "dd872de2-a8ba-4d7c-a71b-7aa83b562b8e",
+    "edata_cb_data_wa_competency_id": "CID0289",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "New NHTest",
+    "edata_cb_data_wa_id": "399fdaac-ac13-4ce1-8114-d41731af2d31",
+    "edata_cb_data_wa_userId": "9ce62cd5-3acc-4966-82e7-672b15d17dd2",
+    "edata_cb_data_wa_competency_id": "CID0549",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "New Test Competency",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " Department of Water Resources River Development and Ganga Rejuvenation",
+    "edata_cb_data_wa_id": "34fff408-694f-4919-8d81-bdd36f53da70",
+    "edata_cb_data_wa_userId": "83a5cc86-20fd-4512-9dc7-9b47ea2cd059",
+    "edata_cb_data_wa_competency_id": "CID0161",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Drafting of charge sheet",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "ec581c32-a74e-4b63-9774-b35853bf8313",
+    "edata_cb_data_wa_userId": "7ee60cfc-5a9e-43ea-8e92-7ee224b29e52",
+    "edata_cb_data_wa_competency_id": "CID0289",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "JPAL",
+    "edata_cb_data_wa_id": "f5a75442-cdb7-4a41-8ca8-95c2ed3ada00",
+    "edata_cb_data_wa_userId": "0caa61e8-768c-4959-a929-16e53155b582",
+    "edata_cb_data_wa_competency_id": "CID0542",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Transportation",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "2503ea5d-7c30-4790-96e3-328e58b117ee",
+    "edata_cb_data_wa_userId": "2806422d-ced2-4ed1-90a4-fa16c7175332",
+    "edata_cb_data_wa_competency_id": "CID02093",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Public Health Communication",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "2503ea5d-7c30-4790-96e3-328e58b117ee",
+    "edata_cb_data_wa_userId": "2806422d-ced2-4ed1-90a4-fa16c7175332",
+    "edata_cb_data_wa_competency_id": "CID02171",
+    "edata_cb_data_wa_competency_level": "Level 4",
+    "edata_cb_data_wa_competency_name": "new comp",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "New NHTest",
+    "edata_cb_data_wa_id": "b5fc4b6e-a30b-431c-bdbc-03bc3d775703",
+    "edata_cb_data_wa_userId": "e9c93dd2-9ce0-4d07-9c6a-6fee14dd5f88",
+    "edata_cb_data_wa_competency_id": "CID0549",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "New Test Competency",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "New NHTest",
+    "edata_cb_data_wa_id": "323a5c2c-47c6-4bc0-9408-df4b7559a7ba",
+    "edata_cb_data_wa_userId": "875a64bb-a6ad-4dd1-a34b-22f4a0ff1cdf",
+    "edata_cb_data_wa_competency_id": "CID02093",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Public Health Communication",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "1fe3f6fd-e8cd-4a8a-8abe-2901de9c405c",
+    "edata_cb_data_wa_userId": "5254b0a7-e6e4-4961-8b70-7a49219f32cf",
+    "edata_cb_data_wa_competency_id": "CID0289",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "Final check",
+    "edata_cb_data_wa_id": "c3b00a79-f11a-472b-a596-2b4cca9c249e",
+    "edata_cb_data_wa_userId": "2dcd0db0-1600-4c72-9025-7ef320fe44c9",
+    "edata_cb_data_wa_competency_id": "CID0340",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Budget Administration",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "Final check",
+    "edata_cb_data_wa_id": "c3b00a79-f11a-472b-a596-2b4cca9c249e",
+    "edata_cb_data_wa_userId": "2dcd0db0-1600-4c72-9025-7ef320fe44c9",
+    "edata_cb_data_wa_competency_id": "CID0340",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Budget Administration",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "KarthikTestCBP",
+    "edata_cb_data_wa_id": "5ef3cae3-a99d-4167-be40-f836674bf30c",
+    "edata_cb_data_wa_userId": "a0c10db8-d4d1-4aa6-b873-02af787f1975",
+    "edata_cb_data_wa_competency_id": "",
+    "edata_cb_data_wa_competency_level": "Level 3",
+    "edata_cb_data_wa_competency_name": "adfadf",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "KarthikTestCBP",
+    "edata_cb_data_wa_id": "5ef3cae3-a99d-4167-be40-f836674bf30c",
+    "edata_cb_data_wa_userId": "a0c10db8-d4d1-4aa6-b873-02af787f1975",
+    "edata_cb_data_wa_competency_id": "",
+    "edata_cb_data_wa_competency_level": "Level 3",
+    "edata_cb_data_wa_competency_name": "adfadf",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "CID0431",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Human Capital Management",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "CID02083",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Productivity",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "CID02120",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "huma",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "CID02165",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Soi",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "59c53d45-1ac1-4e35-b05a-8a2e997c6100",
+    "edata_cb_data_wa_userId": "df396838-2b90-4970-b00e-77ce35a1c846",
+    "edata_cb_data_wa_competency_id": "CID02126",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Legal, Government, and Jurisprudence",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "CID02164",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Soil Science",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "59c53d45-1ac1-4e35-b05a-8a2e997c6100",
+    "edata_cb_data_wa_userId": "df396838-2b90-4970-b00e-77ce35a1c846",
+    "edata_cb_data_wa_competency_id": "CID0289",
+    "edata_cb_data_wa_competency_level": "Level 2",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "176b8b37-f765-409b-965c-09b1f7453d02",
+    "edata_cb_data_wa_userId": "a3ab4356-bfd2-4498-9043-ba03fa7c9edf",
+    "edata_cb_data_wa_competency_id": "CID0589",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Stakeholder management ",
+    "edata_cb_data_wa_competency_status": "UNVERIFIED",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": " MDO Testone Update",
+    "edata_cb_data_wa_id": "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "edata_cb_data_wa_userId": "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "edata_cb_data_wa_competency_id": "",
+    "edata_cb_data_wa_competency_level": "",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  },
+  {
+    "edata_cb_object_org": "White Rabbit",
+    "edata_cb_data_wa_id": "ac9cd828-464c-4502-9df6-386c113e7b5e",
+    "edata_cb_data_wa_userId": "aef8dded-cc87-4734-976c-6b83c6c38764",
+    "edata_cb_data_wa_competency_id": "CID0289",
+    "edata_cb_data_wa_competency_level": "Level 1",
+    "edata_cb_data_wa_competency_name": "Data Storytelling and Visualisation ",
+    "edata_cb_data_wa_competency_status": "",
+    "edata_cb_data_wa_competency_type": "COMPETENCY"
+  }
+]

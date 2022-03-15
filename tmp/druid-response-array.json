@@ -1,0 +1,282 @@
+[
+  [
+    "edata_cb_object_org",
+    "edata_cb_data_wa_id",
+    "edata_cb_data_wa_userId",
+    "edata_cb_data_wa_competency_id",
+    "edata_cb_data_wa_competency_level",
+    "edata_cb_data_wa_competency_name",
+    "edata_cb_data_wa_competency_status",
+    "edata_cb_data_wa_competency_type"
+  ],
+  [
+    " Department of Water Resources River Development and Ganga Rejuvenation",
+    "abc1560b-dabc-49c5-a03d-ca8b66133086",
+    "22897ad6-0ffb-489f-b281-2bd985bfe39d",
+    "CID02123",
+    "Level 3",
+    "Leading others",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " Department of Water Resources River Development and Ganga Rejuvenation",
+    "abc1560b-dabc-49c5-a03d-ca8b66133086",
+    "22897ad6-0ffb-489f-b281-2bd985bfe39d",
+    "CID0386",
+    "Level 2",
+    "Education and Training",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "Ministry of communication",
+    "6990b16b-05a2-4928-b2c2-f5385ba8ef78",
+    "dd872de2-a8ba-4d7c-a71b-7aa83b562b8e",
+    "112",
+    "",
+    "Legal, Government, and Jurisprudence",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "Ministry of communication",
+    "6990b16b-05a2-4928-b2c2-f5385ba8ef78",
+    "dd872de2-a8ba-4d7c-a71b-7aa83b562b8e",
+    "CID0289",
+    "Level 2",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "New NHTest",
+    "399fdaac-ac13-4ce1-8114-d41731af2d31",
+    "9ce62cd5-3acc-4966-82e7-672b15d17dd2",
+    "CID0549",
+    "Level 1",
+    "New Test Competency",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " Department of Water Resources River Development and Ganga Rejuvenation",
+    "34fff408-694f-4919-8d81-bdd36f53da70",
+    "83a5cc86-20fd-4512-9dc7-9b47ea2cd059",
+    "CID0161",
+    "",
+    "Drafting of charge sheet",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "ec581c32-a74e-4b63-9774-b35853bf8313",
+    "7ee60cfc-5a9e-43ea-8e92-7ee224b29e52",
+    "CID0289",
+    "Level 2",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "JPAL",
+    "f5a75442-cdb7-4a41-8ca8-95c2ed3ada00",
+    "0caa61e8-768c-4959-a929-16e53155b582",
+    "CID0542",
+    "Level 2",
+    "Transportation",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "2503ea5d-7c30-4790-96e3-328e58b117ee",
+    "2806422d-ced2-4ed1-90a4-fa16c7175332",
+    "CID02093",
+    "Level 1",
+    "Public Health Communication",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "2503ea5d-7c30-4790-96e3-328e58b117ee",
+    "2806422d-ced2-4ed1-90a4-fa16c7175332",
+    "CID02171",
+    "Level 4",
+    "new comp",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    "New NHTest",
+    "b5fc4b6e-a30b-431c-bdbc-03bc3d775703",
+    "e9c93dd2-9ce0-4d07-9c6a-6fee14dd5f88",
+    "CID0549",
+    "Level 1",
+    "New Test Competency",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "New NHTest",
+    "323a5c2c-47c6-4bc0-9408-df4b7559a7ba",
+    "875a64bb-a6ad-4dd1-a34b-22f4a0ff1cdf",
+    "CID02093",
+    "Level 1",
+    "Public Health Communication",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "1fe3f6fd-e8cd-4a8a-8abe-2901de9c405c",
+    "5254b0a7-e6e4-4961-8b70-7a49219f32cf",
+    "CID0289",
+    "Level 2",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "Final check",
+    "c3b00a79-f11a-472b-a596-2b4cca9c249e",
+    "2dcd0db0-1600-4c72-9025-7ef320fe44c9",
+    "CID0340",
+    "Level 1",
+    "Budget Administration",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    "Final check",
+    "c3b00a79-f11a-472b-a596-2b4cca9c249e",
+    "2dcd0db0-1600-4c72-9025-7ef320fe44c9",
+    "CID0340",
+    "Level 1",
+    "Budget Administration",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    "KarthikTestCBP",
+    "5ef3cae3-a99d-4167-be40-f836674bf30c",
+    "a0c10db8-d4d1-4aa6-b873-02af787f1975",
+    "",
+    "Level 3",
+    "adfadf",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "KarthikTestCBP",
+    "5ef3cae3-a99d-4167-be40-f836674bf30c",
+    "a0c10db8-d4d1-4aa6-b873-02af787f1975",
+    "",
+    "Level 3",
+    "adfadf",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "CID0431",
+    "Level 2",
+    "Human Capital Management",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "CID02083",
+    "Level 1",
+    "Productivity",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "CID02120",
+    "",
+    "huma",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "CID02165",
+    "",
+    "Soi",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "59c53d45-1ac1-4e35-b05a-8a2e997c6100",
+    "df396838-2b90-4970-b00e-77ce35a1c846",
+    "CID02126",
+    "",
+    "Legal, Government, and Jurisprudence",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "CID02164",
+    "",
+    "Soil Science",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "59c53d45-1ac1-4e35-b05a-8a2e997c6100",
+    "df396838-2b90-4970-b00e-77ce35a1c846",
+    "CID0289",
+    "Level 2",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "176b8b37-f765-409b-965c-09b1f7453d02",
+    "a3ab4356-bfd2-4498-9043-ba03fa7c9edf",
+    "CID0589",
+    "Level 1",
+    "Stakeholder management ",
+    "UNVERIFIED",
+    "COMPETENCY"
+  ],
+  [
+    " MDO Testone Update",
+    "69ba8bca-4fde-4c65-998c-6756bf77a8c6",
+    "9b5d5576-7368-4d6a-8c17-bdea3457a590",
+    "",
+    "",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ],
+  [
+    "White Rabbit",
+    "ac9cd828-464c-4502-9df6-386c113e7b5e",
+    "aef8dded-cc87-4734-976c-6b83c6c38764",
+    "CID0289",
+    "Level 1",
+    "Data Storytelling and Visualisation ",
+    "",
+    "COMPETENCY"
+  ]
+]
