@@ -1,5 +1,7 @@
 package org.ekstep.analytics.job
 
+import org.ekstep.analytics.dashboard.{CompetencyGapJob, UserCourseProgressJob}
+
 import scala.reflect.runtime.universe
 import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.exception.JobNotFoundException
@@ -8,7 +10,6 @@ import org.ekstep.analytics.job.metrics.MetricsAuditJob
 import org.ekstep.analytics.job.summarizer.DruidQueryProcessor
 import org.ekstep.analytics.job.summarizer.ExperimentDefinitionJob
 import org.ekstep.analytics.job.summarizer.MonitorSummarizer
-import org.ekstep.analytics.dashboard.UserCourseProgressJob
 import org.ekstep.analytics.job.summarizer.WorkFlowSummarizer
 import org.ekstep.analytics.job.updater.ContentRatingUpdater
 import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob
@@ -25,6 +26,8 @@ object JobFactory {
         MonitorSummarizer
       case "wfs" =>
         WorkFlowSummarizer
+      case "competency-gap" =>
+        CompetencyGapJob
       case "user-course-progress" =>
         UserCourseProgressJob
       case "video-streaming" =>
