@@ -5,10 +5,12 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework.{AlgoInput, AlgoOutput, FrameworkContext, IBatchModelTemplate, Output}
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 case class UserCourseInput() extends AlgoInput
 @scala.beans.BeanInfo
-case class UserCourseOutput(userid: Any, courseid: Any, percentage: Any, timestamp: Long) extends Output with AlgoOutput
+case class UserCourseOutput(userid: Any, courseid: Any, percentage: Any, timestamp: Long, date: String) extends Output with AlgoOutput
 
 object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInput, UserCourseOutput, UserCourseOutput]{
   override def preProcess(events: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UserCourseInput] = {
@@ -23,7 +25,8 @@ object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInp
       .option("table", "user_content_consumption")
       .load().persist(StorageLevel.MEMORY_ONLY);
     val progressData = userCourseData.select("userid", "courseid", "completionpercentage");
-    val outputData: RDD[UserCourseOutput] = progressData.rdd.map{f => UserCourseOutput(f(0) , f(1), f(2), System.currentTimeMillis())}
+    val date:String = DateTimeFormatter.ofPattern("dd-MM-YYYY").format(LocalDate.now)
+    val outputData: RDD[UserCourseOutput] = progressData.rdd.map{f => UserCourseOutput(f(0) , f(1), f(2), System.currentTimeMillis(), date)}
     outputData.distinct()
   }
 
