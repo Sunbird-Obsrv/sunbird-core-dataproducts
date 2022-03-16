@@ -11,6 +11,10 @@ case class UserCourseInput() extends AlgoInput
 case class UserCourseOutput(userid: Any, courseid: Any, percentage: Any) extends Output with AlgoOutput
 
 object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInput, UserCourseOutput, UserCourseOutput]{
+
+  implicit val className = "org.ekstep.analytics.dashboard.UserCourseProgressModel"
+  override def name: String = "UserCourseProgressModel"
+
   /**
    * Pre processing steps before running the algorithm. Few pre-process steps are
    * 1. Transforming input - Filter/Map etc.
