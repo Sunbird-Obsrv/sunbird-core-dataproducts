@@ -6,10 +6,9 @@
 //import org.apache.http.util.EntityUtils
 //import org.apache.spark.rdd.RDD
 //import org.apache.spark.sql.{DataFrame, SparkSession}
-//import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit}
+//import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit, max}
 //import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 //import org.apache.spark.storage.StorageLevel
-//
 //import org.ekstep.analytics.framework.util.JSONUtils
 //
 //
@@ -21,6 +20,7 @@
 //object CompetencyGapTest extends Serializable {
 //
 //  def main(args: Array[String]): Unit = {
+//    val timestamp = System.currentTimeMillis()
 //    implicit val spark: SparkSession =
 //      SparkSession
 //        .builder()
@@ -30,7 +30,7 @@
 //        .config("spark.cassandra.output.batch.size.rows", "10000")
 //        //.config("spark.cassandra.read.timeoutMS", "60000")
 //        .getOrCreate()
-//    val res = time(competencyGapRDDTest());
+//    val res = time(competencyGapRDDSerialized(timestamp));
 //    Console.println("Time taken to execute script", res._1);
 //    spark.stop();
 //  }
@@ -69,6 +69,7 @@
 //  }
 //
 //  def competencyGapData(timestamp : Long)(implicit spark: SparkSession): DataFrame = {
+//
 //    val ecDF = expectedCompetencyData()
 //    val dcDF = declaredCompetencyData()
 //
@@ -77,13 +78,18 @@
 //      "leftouter"
 //    )
 //    gapDF = gapDF.na.fill(0, Seq("declared_level"))  // if null values created during join fill with 0
+//    gapDF = gapDF.groupBy("user_id", "competency_id", "org_id", "work_order_id")
+//      .agg(
+//        max("competency_level").alias("expectedLevel"),
+//        max("declared_level").alias("declaredLevel")
+//      )
 //    gapDF = gapDF.select(
 //      col("user_id").alias("userID"),
 //      col("competency_id").alias("competencyID"),
 //      col("org_id").alias("orgID"),
 //      col("work_order_id").alias("workOrderID"),
-//      col("competency_level").alias("expectedLevel"),
-//      col("declared_level").alias("declaredLevel")
+//      col("expectedLevel"),
+//      col("declaredLevel")
 //    )
 //    gapDF = gapDF.withColumn("competencyGap", expr("expectedLevel - declaredLevel"))
 //    gapDF = gapDF.withColumn("timestamp", lit(timestamp))
@@ -91,6 +97,7 @@
 //    gapDF.show()
 //    gapDF.printSchema()
 //    gapDF
+//
 //  }
 //
 //  def druidSQLAPI(query: String, host : String, resultFormat : String = "object", limit : Int = 10000) : String = {

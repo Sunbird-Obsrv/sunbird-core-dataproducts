@@ -9,13 +9,14 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit}
+import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit, max}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
+// import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 
 // IMPORTANT: this unused import initializes JSONUtils and allows serialization to work
-import org.ekstep.analytics.framework.util.JSONUtils
+// import org.ekstep.analytics.framework.util.JSONUtils
 
 
 case class DummyInput(timestamp: Long) extends AlgoInput
@@ -42,6 +43,11 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
   override def postProcess(data: RDD[CompetencyGapDataRow], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CompetencyGapDataRow] = {
     data
   }
+
+//  def kafkaDispatch(data: RDD[String])(implicit sc: SparkContext, fc: FrameworkContext): Unit = {
+//
+//    KafkaDispatcher.dispatch(config, data)
+//  }
 
   def competencyGapRDD(timestamp : Long)(implicit sc: SparkContext, fc: FrameworkContext) : RDD[CompetencyGapDataRow] = {
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
@@ -71,13 +77,18 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       "leftouter"
     )
     gapDF = gapDF.na.fill(0, Seq("declared_level"))  // if null values created during join fill with 0
+    gapDF = gapDF.groupBy("user_id", "competency_id", "org_id", "work_order_id")
+      .agg(
+        max("competency_level").alias("expectedLevel"),  // in-case of multiple entries, take max
+        max("declared_level").alias("declaredLevel")  // in-case of multiple entries, take max
+      )
     gapDF = gapDF.select(
       col("user_id").alias("userID"),
       col("competency_id").alias("competencyID"),
       col("org_id").alias("orgID"),
       col("work_order_id").alias("workOrderID"),
-      col("competency_level").alias("expectedLevel"),
-      col("declared_level").alias("declaredLevel")
+      col("expectedLevel"),
+      col("declaredLevel")
     )
     gapDF = gapDF.withColumn("competencyGap", expr("expectedLevel - declaredLevel"))
     gapDF = gapDF.withColumn("timestamp", lit(timestamp))
@@ -107,7 +118,7 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
     val dataset = spark.createDataset(result :: Nil)
     val df = spark.read.option("multiline", value = true).json(dataset)
       .filter(col("competency_id").isNotNull && col("competency_level").notEqual(0))
-      .withColumn("competency_level", expr("CAST(competency_level as INTEGER)"))
+      .withColumn("competency_level", expr("CAST(competency_level as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
 
     df.show()
     df.printSchema()
