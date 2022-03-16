@@ -21,7 +21,7 @@ import org.ekstep.analytics.framework.util.JSONUtils
 case class DummyInput(timestamp: Long) extends AlgoInput
 @scala.beans.BeanInfo
 case class CompetencyGapDataRow(userID: String, competencyID: String, orgID: String, workOrderID: String,
-                                expectedLevel: Int, declaredLevel: Int, competencyGap: Int, timestamp: Long) extends Output with AlgoOutput
+                                expectedLevel: Long, declaredLevel: Long, competencyGap: Long, timestamp: Long) extends Output with AlgoOutput
 
 
 object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, CompetencyGapDataRow, CompetencyGapDataRow] with Serializable {
@@ -53,9 +53,9 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
         row.getAs[String]("competencyID"),
         row.getAs[String]("orgID"),
         row.getAs[String]("workOrderID"),
-        row.getAs[Int]("expectedLevel"),
-        row.getAs[Int]("declaredLevel"),
-        row.getAs[Int]("competencyGap"),
+        row.getAs[Long]("expectedLevel"),
+        row.getAs[Long]("declaredLevel"),
+        row.getAs[Long]("competencyGap"),
         row.getAs[Long]("timestamp")
       )
     )
