@@ -14,6 +14,7 @@ import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructFie
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 
+// IMPORTANT: this unused import initializes JSONUtils and allows serialization to work
 import org.ekstep.analytics.framework.util.JSONUtils
 
 
