@@ -25,9 +25,7 @@ object CompetencyComparisonModel extends IBatchModelTemplate[String, ComptencyIn
     post.setHeader("Content-type", "application/json")
     post.setEntity(new StringEntity(requestBody))
     val response = (new DefaultHttpClient).execute(post)
-    val re = response.getEntity
     val result = EntityUtils.toString(response.getEntity)
-    val result1 = result.map {f=> CompetencyComparisonOutput}
   }
 
   override def postProcess(events: RDD[CompetencyComparisonOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CompetencyComparisonOutput] = {
