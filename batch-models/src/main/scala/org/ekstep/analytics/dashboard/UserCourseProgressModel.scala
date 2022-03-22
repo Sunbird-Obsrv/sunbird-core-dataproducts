@@ -5,12 +5,11 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework.{AlgoInput, AlgoOutput, FrameworkContext, IBatchModelTemplate, Output}
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+
 
 case class UserCourseInput(timestamp: Long) extends AlgoInput
 @scala.beans.BeanInfo
-case class UserCourseOutput(userid: Any, courseid: Any, percentage: Any, timestamp: Long, date: String) extends Output with AlgoOutput
+case class UserCourseOutput(userid: Any, courseid: Any, percentage: Any, timestamp: Long) extends Output with AlgoOutput
 
 object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInput, UserCourseOutput, UserCourseOutput]{
 
@@ -32,7 +31,6 @@ object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInp
     val executionTime = events.first().timestamp
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
     userCourseDataRDD(executionTime)
-
   }
 
   override def postProcess(events: RDD[UserCourseOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UserCourseOutput] = {
