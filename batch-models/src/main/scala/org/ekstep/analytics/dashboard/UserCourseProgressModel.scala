@@ -2,7 +2,7 @@ package org.ekstep.analytics.dashboard
 
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework.{AlgoInput, AlgoOutput, FrameworkContext, IBatchModelTemplate, Output}
 
@@ -35,6 +35,15 @@ object UserCourseProgressModel extends IBatchModelTemplate[String, UserCourseInp
 
   override def postProcess(events: RDD[UserCourseOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UserCourseOutput] = {
     events
+  }
+
+  def userCourseCompletionDataFrame()(implicit spark: SparkSession): DataFrame = {
+    val userCourseData = spark.read.format("org.apache.spark.sql.cassandra")
+      .option("inferSchema", "true")
+      .option("keyspace", "sunbird_courses")
+      .option("table", "user_content_consumption")
+      .load().persist(StorageLevel.MEMORY_ONLY);
+    userCourseData.select("userid", "courseid", "completionpercentage")
   }
 
   def userCourseDataRDD(timestamp: Long)(implicit spark: SparkSession): RDD[UserCourseOutput] = {

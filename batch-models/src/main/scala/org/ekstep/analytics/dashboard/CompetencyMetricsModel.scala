@@ -9,11 +9,46 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit, max}
+import org.apache.spark.sql.functions.{col, explode_outer, expr, first, from_json, lit, max}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+
+/*
+
+Prerequisites(PR) -
+
+PR01: user's expected competencies, declared competencies, and competency gaps
+PR02: course competency mapping
+PR03: user's course progress
+PR05: all competencies from FRAC
+
+
+Metric  PR      Type                Description
+
+M2.08   1,2     Scorecard           Number of competencies mapped to MDO officials for which there is no CBP on iGOT
+M2.11   1       Scorecard           Average number of competency gaps per officer in the MDO
+M2.22   1       Scorecard           Average for MDOs: Average number of competency gaps per officer
+M3.55   1       Bar-Graph           Total competency gaps in the MDO
+M3.56   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs have not been started by officers
+M3.57   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are in progress by officers
+M3.58   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are completed by officers
+
+S3.13   1       Scorecard           Average competency gaps per user
+S3.14   1       Bar-Graph           Total competency gaps
+S3.15   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs have not been started by officers
+S3.16   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are in progress by officers
+S3.17   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are completed by officers
+
+C1.01   5       Scorecard           Total number of CBPs on iGOT platform
+C1.03   3       Scorecard           Number of officers who enrolled (defined as 10% completion) for the CBP in the last year
+C1.04   2,3     Bar-Graph           CBP enrollment rate (for a particular competency)
+C1.05   3       Scorecard           Number of officers who completed the CBP in the last year
+C1.06   3       Leaderboard         CBP completion rate
+C1.09   5       Scorecard           No. of CBPs mapped (by competency)
+
+*/
 
 case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
@@ -56,31 +91,37 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def processCompetencyMetricsData(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     // get broker and topics from model config
     val broker = getConfigSideBroker(config)
+    val userCourseCompletionTopic = getConfigSideTopic(config, "userCourseCompletionTopic")
     val fracCompetencyTopic = getConfigSideTopic(config, "fracCompetencyTopic")
     val courseCompetencyTopic = getConfigSideTopic(config, "courseCompetencyTopic")
     val expectedCompetencyTopic = getConfigSideTopic(config, "expectedCompetencyTopic")
     val declaredCompetencyTopic = getConfigSideTopic(config, "declaredCompetencyTopic")
     val competencyGapTopic = getConfigSideTopic(config, "competencyGapTopic")
 
-    // get course competency mapping data, dispatch to kafka
-    val fcDF = fracCompetencyDataFrame()
-    // kafkaDispatch(withTimestamp(fcDF, timestamp), broker, fracCompetencyTopic)
+    // get course completion data, dispatch to kafka
+    val uccDF = userCourseCompletionDataFrame()
+    kafkaDispatch(withTimestamp(uccDF, timestamp), broker, userCourseCompletionTopic)
 
-//    // get course competency mapping data, dispatch to kafka
-//    val ccDF = courseCompetencyDataFrame()
-//    kafkaDispatch(withTimestamp(ccDF, timestamp), broker, courseCompetencyTopic)
-//
-//    // get user's expected competency data, dispatch to kafka
-//    val ecDF = expectedCompetencyDataFrame()
-//    kafkaDispatch(withTimestamp(ecDF, timestamp), broker, expectedCompetencyTopic)
-//
-//    // get user's declared competency data, dispatch to kafka
-//    val dcDF = declaredCompetencyDataFrame()
-//    kafkaDispatch(withTimestamp(dcDF, timestamp), broker, declaredCompetencyTopic)
-//
-//    // calculate competency gaps, dispatch to kafka
-//    val cgDF = competencyGapDataFrame(ecDF, dcDF)
-//    kafkaDispatch(withTimestamp(cgDF, timestamp), broker, competencyGapTopic)
+    // get frac competency data, dispatch to kafka
+    val fcDF = fracCompetencyDataFrame()
+    kafkaDispatch(withTimestamp(fcDF, timestamp), broker, fracCompetencyTopic)
+
+    // get course competency mapping data, dispatch to kafka
+    val ccDF = courseCompetencyDataFrame()
+    kafkaDispatch(withTimestamp(ccDF, timestamp), broker, courseCompetencyTopic)
+
+    // get user's expected competency data, dispatch to kafka
+    val ecDF = expectedCompetencyDataFrame()
+    kafkaDispatch(withTimestamp(ecDF, timestamp), broker, expectedCompetencyTopic)
+
+    // get user's declared competency data, dispatch to kafka
+    val dcDF = declaredCompetencyDataFrame()
+    kafkaDispatch(withTimestamp(dcDF, timestamp), broker, declaredCompetencyTopic)
+
+    // calculate competency gaps, add course completion status, dispatch to kafka
+    val cgDF = competencyGapDataFrame(ecDF, dcDF)
+    val cgcDF = competencyGapCompletionDataFrame(cgDF, ccDF, uccDF)  // add course completion status
+    kafkaDispatch(withTimestamp(cgcDF, timestamp), broker, competencyGapTopic)
   }
 
   /* Util functions */
@@ -135,7 +176,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
 
   def fracCompetencyAPI(host: String): String = {
     val url = s"https://${host}/graphql"
-    val requestBody = """{"operationName": "filterCompetencies","variables": { "cod": "","competencyType": "","competencyArea": ""}, "query": "query filterCompetencies($cod: String, $competencyType: String, $competencyArea: String) {  getAllCompetencies(    cod: $cod    competencyType: $competencyType    competencyArea: $competencyArea  ) {    name    id    description    status    source    additionalProperties {      competencyType      competencyArea      __typename    }    __typename  }}"}"""
+    val requestBody = """{"operationName":"filterCompetencies","variables":{"cod":[""],"competencyType":[""],"competencyArea":[""]},"query":"query filterCompetencies($cod: [String], $competencyType: [String], $competencyArea: [String]) {\n  getAllCompetencies(\n    cod: $cod\n    competencyType: $competencyType\n    competencyArea: $competencyArea\n  ) {\n    name\n    id\n    description\n    status\n    source\n    additionalProperties {\n      competencyType\n      competencyArea\n      __typename\n    }\n    __typename\n  }\n}\n"}"""
     api("POST", url, requestBody)
   }
 
@@ -150,15 +191,54 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
   }
 
+  /**
+   * completionPercentage   completionStatus
+   * NULL                   not-enrolled
+   * 0.0                    enrolled
+   * 0.0 < % < 10.0         started
+   * 10.0 <= % < 100.0      in-progress
+   * 100.0                  completed
+   * @param df data frame with completionPercentage column
+   * @return df with completionStatus column
+   */
+  def withCompletionStatusColumn(df: DataFrame): DataFrame = {
+    val caseExpression = "CASE WHEN ISNULL(completionPercentage) THEN 'not-enrolled' WHEN completionPercentage == 0.0 THEN 'enrolled' WHEN completionPercentage < 10.0 THEN 'started' WHEN completionPercentage < 100.0 THEN 'in-progress' ELSE 'completed'"
+    df.withColumn("completionStatus", expr(caseExpression))
+  }
+
   /* Data processing functions */
 
   /**
+   * data frame of user course completion percentage
+   * @return DataFrame(completionUserID, completionCourseID, completionPercentage, completionStatus)
+   */
+  def userCourseCompletionDataFrame()(implicit spark: SparkSession): DataFrame = {
+    var df = cassandraTableAsDataFrame("sunbird_courses", "user_content_consumption")
+      .select(
+        col("userid").alias("completionUserID"),
+        col("courseid").alias("completionCourseID"),
+        col("completionpercentage").alias("completionPercentage")
+      )
+    df = withCompletionStatusColumn(df)
+
+    df.show()
+    df.printSchema()
+    df
+  }
+
+  /**
    * data frame of all approved competencies from frac dictionary api
-   * @return DataFrame()
+   * @return DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus)
    */
   def fracCompetencyDataFrame()(implicit spark: SparkSession): DataFrame = {
-    val result = fracCompetencyAPI("frac-dictionary-backend.igot-dev.in")
+    val result = fracCompetencyAPI("frac-dictionary-backend.igot-stage.in")
     val df = dataFrameFromJSONString(result)
+      .select(explode_outer(col("data.getAllCompetencies")).alias("competency"))
+      .select(
+        col("competency.id").alias("fracCompetencyID"),
+        col("competency.name").alias("fracCompetencyName"),
+        col("competency.status").alias("fracCompetencyStatus")
+      )
 
     df.show()
     df.printSchema()
@@ -317,6 +397,49 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     gapDF.show()
     gapDF.printSchema()
     gapDF
+  }
+
+  /**
+   * add course data to competency gap data, add user course completion info on top, calculate user competency gap status
+   *
+   * @param cgDF competency gap data frame
+   * @param ccDF course competency data frame
+   * @param uccDF user course completion data frame
+   * @return DataFrame(userID, competencyID, orgID, workOrderID, expectedLevel, declaredLevel, competencyGap, completionPercentage, completionStatus)
+   */
+  def competencyGapCompletionDataFrame(cgDF: DataFrame, ccDF: DataFrame, uccDF: DataFrame): DataFrame = {
+    // cgDF - userID, competencyID, orgID, workOrderID, expectedLevel, declaredLevel, competencyGap
+    // ccDF - courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel
+    // uccDF - completionUserID, completionCourseID, completionPercentage, completionStatus
+
+    val cgCourseDF = cgDF.filter("competencyGap > 0")  // for
+      .join(ccDF, cgDF.col("competencyID") <=> ccDF.col("courseCompetencyID"), "leftouter")
+      .filter("expectedLevel >= courseCompetencyLevel")
+
+    val gapCourseUserStatus = cgCourseDF.join(uccDF,
+      cgCourseDF.col("userID") <=> uccDF.col("completionUserID") &&
+        cgCourseDF.col("courseID") <=> uccDF.col("completionCourseID"), "leftouter")
+      .groupBy("userID", "competencyID", "orgID", "workOrderID")
+      .agg(
+        max(col("completionPercentage")))
+      .withColumn("completionPercentage", expr("IF(ISNULL(completionPercentage), 0.0, completionPercentage)"))
+
+    var df = cgDF.join(gapCourseUserStatus.as("s"),
+      cgDF.col("userID") <=> gapCourseUserStatus.col("s.userID") &&
+        cgDF.col("competencyID") <=> gapCourseUserStatus.col("s.competencyID") &&
+        cgDF.col("orgID") <=> gapCourseUserStatus.col("s.orgID") &&
+        cgDF.col("workOrderID") <=> gapCourseUserStatus.col("s.workOrderID"), "leftouter")
+      .select(
+        col("userID"), col("competencyID"), col("orgID"), col("workOrderID"),
+        col("expectedLevel"), col("declaredLevel"), col("competencyGap"),
+        col("s.completionPercentage").alias("completionPercentage")
+      )
+
+    df = withCompletionStatusColumn(df)
+
+    df.show()
+    df.printSchema()
+    df
   }
 
 }
