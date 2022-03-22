@@ -6,17 +6,20 @@ import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.DefaultHttpClient
+import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
-import org.apache.spark.sql.{DataFrame, Encoders, Row, SparkSession}
-import org.apache.spark.sql.functions.{col, current_timestamp, explode_outer, expr, from_json, lit}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit, max}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
+// import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+
+// IMPORTANT: this unused import initializes JSONUtils and allows serialization to work
+// import org.ekstep.analytics.framework.util.JSONUtils
 
 
-
-case class DummyInput() extends AlgoInput
+case class DummyInput(timestamp: Long) extends AlgoInput
 @scala.beans.BeanInfo
 case class CompetencyGapDataRow(userID: String, competencyID: String, orgID: String, workOrderID: String,
                                 expectedLevel: Int, declaredLevel: Int, competencyGap: Int, timestamp: Long) extends Output with AlgoOutput
@@ -24,24 +27,31 @@ case class CompetencyGapDataRow(userID: String, competencyID: String, orgID: Str
 
 object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, CompetencyGapDataRow, CompetencyGapDataRow] with Serializable {
 
-  implicit val className = "org.ekstep.analytics.model.CompetencyGapModel"
-  override def name: String = "CompetencyGapModel"
+  implicit val className: String = "org.ekstep.analytics.dashboard.CompetencyGapModel"
+  override def name(): String = "CompetencyGapModel"
 
   override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyInput] = {
-    sc.parallelize(Seq())
+    val executionTime = System.currentTimeMillis()
+    sc.parallelize(Seq(DummyInput(executionTime)))
   }
 
   override def algorithm(data: RDD[DummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CompetencyGapDataRow] = {
-    competencyGapRDD()
+    val executionTime = data.first().timestamp
+    competencyGapRDD(executionTime)
   }
 
   override def postProcess(data: RDD[CompetencyGapDataRow], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CompetencyGapDataRow] = {
     data
   }
 
-  def competencyGapRDD()(implicit sc: SparkContext, fc: FrameworkContext) : RDD[CompetencyGapDataRow] = {
+//  def kafkaDispatch(data: RDD[String])(implicit sc: SparkContext, fc: FrameworkContext): Unit = {
+//
+//    KafkaDispatcher.dispatch(config, data)
+//  }
+
+  def competencyGapRDD(timestamp : Long)(implicit sc: SparkContext, fc: FrameworkContext) : RDD[CompetencyGapDataRow] = {
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
-    val df = competencyGapData()
+    val df = competencyGapData(timestamp)
 
     df.rdd.map(
       row => CompetencyGapDataRow(
@@ -56,11 +66,9 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       )
     )
 
-    // val encoder = Encoders.bean(classOf[CompetencyGapDataRow])
-    // df.as[CompetencyGapDataRow](encoder).rdd
   }
 
-  def competencyGapData()(implicit spark: SparkSession): DataFrame = {
+  def competencyGapData(timestamp : Long)(implicit spark: SparkSession): DataFrame = {
     val ecDF = expectedCompetencyData()
     val dcDF = declaredCompetencyData()
 
@@ -69,16 +77,21 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       "leftouter"
     )
     gapDF = gapDF.na.fill(0, Seq("declared_level"))  // if null values created during join fill with 0
+    gapDF = gapDF.groupBy("user_id", "competency_id", "org_id", "work_order_id")
+      .agg(
+        max("competency_level").alias("expectedLevel"),  // in-case of multiple entries, take max
+        max("declared_level").alias("declaredLevel")  // in-case of multiple entries, take max
+      )
     gapDF = gapDF.select(
       col("user_id").alias("userID"),
       col("competency_id").alias("competencyID"),
       col("org_id").alias("orgID"),
       col("work_order_id").alias("workOrderID"),
-      col("competency_level").alias("expectedLevel"),
-      col("declared_level").alias("declaredLevel")
+      col("expectedLevel"),
+      col("declaredLevel")
     )
     gapDF = gapDF.withColumn("competencyGap", expr("expectedLevel - declaredLevel"))
-    gapDF = gapDF.withColumn("timestamp", lit(System.currentTimeMillis()))
+    gapDF = gapDF.withColumn("timestamp", lit(timestamp))
 
     gapDF.show()
     gapDF.printSchema()
@@ -86,23 +99,26 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
   }
 
   def druidSQLAPI(query: String, host : String, resultFormat : String = "object", limit : Int = 10000) : String = {
+    // TODO: tech-debt, use proper spark druid connector
     val url = s"http://${host}:8888/druid/v2/sql"
     val requestBody = s"""{"resultFormat":"${resultFormat}","header":true,"context":{"sqlOuterLimit":${limit}},"query":"${query}"}"""
     val post = new HttpPost(url)  // create an HttpPost object
     post.setHeader("Content-type", "application/json")  // set the Content-type
     post.setEntity(new StringEntity(requestBody))  // add the JSON as a StringEntity
-    val response = (new DefaultHttpClient).execute(post)  // send the post request TODO: use non-deprecated way
+    val httpClient = HttpClientBuilder.create().build()  // create HttpClient
+    val response = httpClient.execute(post)  // send the post request
     EntityUtils.toString(response.getEntity)
   }
 
   def expectedCompetencyData()(implicit spark: SparkSession) : DataFrame = {
-    // val query = """SELECT edata_cb_data_deptId AS org_id, edata_cb_data_wa_id AS work_order_id, edata_cb_data_wa_userId AS user_id, edata_cb_data_wa_competency_id AS competency_id, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS competency_level, edata_cb_data_wa_competency_name AS competency_name, edata_cb_data_wa_competency_status AS competency_status, edata_cb_data_wa_competency_type AS competency_type FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val query = """SELECT edata_cb_data_deptId AS org_id, edata_cb_data_wa_id AS work_order_id, edata_cb_data_wa_userId AS user_id, edata_cb_data_wa_competency_id AS competency_id, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS competency_level FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val result = druidSQLAPI(query, "10.0.0.13")
 
     import spark.implicits._
     val dataset = spark.createDataset(result :: Nil)
-    val df = spark.read.option("multiline", value = true).json(dataset).filter(col("competency_level").notEqual(0))
+    val df = spark.read.option("multiline", value = true).json(dataset)
+      .filter(col("competency_id").isNotNull && col("competency_level").notEqual(0))
+      .withColumn("competency_level", expr("CAST(competency_level as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
 
     df.show()
     df.printSchema()
@@ -118,7 +134,6 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       StructField("competencyType",  StringType, nullable = true),
       StructField("competencySelfAttestedLevel",  IntegerType, nullable = true)
     ))
-
     val profileSchema = StructType(
       StructField("competencies", ArrayType(competencySchema), nullable = true) :: Nil
     )
@@ -132,13 +147,10 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
       .select("userid", "profiledetails")
       .withColumn("profile", from_json(col("profiledetails"), profileSchema))
       .select(col("userid"), explode_outer(col("profile.competencies")).alias("competency"))
-      .where(col("competency").isNotNull)
+      .where(col("competency").isNotNull && col("competency.id").isNotNull)
       .select(
         col("userid").alias("uid"),
         col("competency.id").alias("id"),
-        // col("competency.name").alias("d_name"),
-        // col("competency.status").alias("d_status"),
-        // col("competency.competencyType").alias("d_type"),
         col("competency.competencySelfAttestedLevel").alias("declared_level")
       )
       .na.fill(1, Seq("declared_level"))  // if competency is listed without a level assume level 1
@@ -147,6 +159,5 @@ object CompetencyGapModel extends IBatchModelTemplate[String, DummyInput, Compet
     up.printSchema()
     up
   }
-
 
 }
