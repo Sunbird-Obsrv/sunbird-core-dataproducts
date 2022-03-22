@@ -11,7 +11,7 @@ object CompetencyMetricsTest extends Serializable {
     implicit val spark: SparkSession =
       SparkSession
         .builder()
-        .appName("CompetencyTest")
+        .appName("CompetencyMetricsTest")
         .config("spark.master", "local[*]")
         .config("spark.cassandra.connection.host", "10.0.0.7")
         .config("spark.cassandra.output.batch.size.rows", "10000")
@@ -19,9 +19,25 @@ object CompetencyMetricsTest extends Serializable {
         .getOrCreate()
     implicit val sc: SparkContext = spark.sparkContext
     implicit val fc: FrameworkContext = new FrameworkContext()
-    val res = time(CompetencyMetricsModel.test());
+    val res = time(test());
     Console.println("Time taken to execute script", res._1);
     spark.stop();
+  }
+
+  def test()(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
+    val timestamp = System.currentTimeMillis()
+    val config = Map(
+      "sideOutput" -> Map(
+        "brokerList" -> "10.0.0.5:9092",
+        "topics" -> Map(
+          "expectedCompetencyTopic" -> "dev.dashboards.competency.expected",
+          "declaredCompetencyTopic" -> "dev.dashboards.competency.declared",
+          "courseCompetencyTopic" -> "dev.dashboards.competency.course",
+          "competencyGapTopic" -> "dev.dashboards.competency.gap"
+        )
+      )
+    )
+    CompetencyMetricsModel.processCompetencyMetricsData(timestamp, config)
   }
 
   def time[R](block: => R): (Long, R) = {
