@@ -24,8 +24,7 @@ object CompetencyMetricsTest extends Serializable {
     spark.stop();
   }
 
-  def test()(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
-    val timestamp = System.currentTimeMillis()
+  def testModelConfig(): Map[String, AnyRef] = {
     val sideOutput = Map(
       "brokerList" -> "10.0.0.5:9092",
       "topics" -> Map(
@@ -51,10 +50,12 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraContentHierarchyTable" -> "content_hierarchy",
       "cassandraRatingSummaryTable" -> "rating_summary"
     )
-    val config = Map(
-      "sideOutput" -> sideOutput,
-      "modelParams" -> modelParams
-    )
+    Map("sideOutput" -> sideOutput, "modelParams" -> modelParams)
+  }
+
+  def test()(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
+    val timestamp = System.currentTimeMillis()
+    val config = testModelConfig()
     CompetencyMetricsModel.processCompetencyMetricsData(timestamp, config)
   }
 
