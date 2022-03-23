@@ -22,6 +22,7 @@ Prerequisites(PR) -
 PR01: user's expected competencies, declared competencies, and competency gaps
 PR02: course competency mapping
 PR03: user's course progress
+PR04: course rating summary
 PR05: all competencies from FRAC
 
 
@@ -36,16 +37,19 @@ M3.57   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs
 M3.58   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are completed by officers
 
 S3.13   1       Scorecard           Average competency gaps per user
+S3.11   4       Leaderboard         Average user rating of CBPs
 S3.14   1       Bar-Graph           Total competency gaps
 S3.15   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs have not been started by officers
 S3.16   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are in progress by officers
 S3.17   1,2,3   Stacked-Bar-Graph   Percentage of competency gaps for which CBPs are completed by officers
 
 C1.01   5       Scorecard           Total number of CBPs on iGOT platform
+C1.1    4       Scorecard           Use ratings averaged for ALL CBPs by the provider
 C1.03   3       Scorecard           Number of officers who enrolled (defined as 10% completion) for the CBP in the last year
 C1.04   2,3     Bar-Graph           CBP enrollment rate (for a particular competency)
 C1.05   3       Scorecard           Number of officers who completed the CBP in the last year
 C1.06   3       Leaderboard         CBP completion rate
+C1.07   4       Leaderboard         average user ratings by enrolled officers for each CBP
 C1.09   5       Scorecard           No. of CBPs mapped (by competency)
 
 */
@@ -99,32 +103,32 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val competencyGapTopic = getConfigSideTopic(config, "competencyGapTopic")
     val courseRatingSummaryTopic = getConfigSideTopic(config, "courseRatingSummaryTopic")
 
-    // get course completion data, dispatch to kafka
+    // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
     val uccDF = userCourseCompletionDataFrame()
     kafkaDispatch(withTimestamp(uccDF, timestamp), broker, userCourseCompletionTopic)
 
-    // get frac competency data, dispatch to kafka
+    // get frac competency data, dispatch to kafka to be ingested by druid data-source: dashboards-frac-competency
     val fcDF = fracCompetencyDataFrame()
     kafkaDispatch(withTimestamp(fcDF, timestamp), broker, fracCompetencyTopic)
 
-    // get course competency mapping data, dispatch to kafka
+    // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
     val ccDF = courseCompetencyDataFrame()
     kafkaDispatch(withTimestamp(ccDF, timestamp), broker, courseCompetencyTopic)
 
-    // get user's expected competency data, dispatch to kafka
+    // get user's expected competency data, dispatch to kafka to be ingested by druid data-source: dashboards-expected-user-competency
     val ecDF = expectedCompetencyDataFrame()
     kafkaDispatch(withTimestamp(ecDF, timestamp), broker, expectedCompetencyTopic)
 
-    // get user's declared competency data, dispatch to kafka
+    // get user's declared competency data, dispatch to kafka to be ingested by druid data-source: dashboards-declared-user-competency
     val dcDF = declaredCompetencyDataFrame()
     kafkaDispatch(withTimestamp(dcDF, timestamp), broker, declaredCompetencyTopic)
 
-    // calculate competency gaps, add course completion status, dispatch to kafka
+    // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
     val cgDF = competencyGapDataFrame(ecDF, dcDF)
     val cgcDF = competencyGapCompletionDataFrame(cgDF, ccDF, uccDF)  // add course completion status
     kafkaDispatch(withTimestamp(cgcDF, timestamp), broker, competencyGapTopic)
 
-    // get total rating and total number of rating for course rating summary, dispatch to kafka
+    // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
     val crsDF = courseRatingSummaryDataFrame()
     kafkaDispatch(withTimestamp(crsDF, timestamp), broker, courseRatingSummaryTopic)
   }
