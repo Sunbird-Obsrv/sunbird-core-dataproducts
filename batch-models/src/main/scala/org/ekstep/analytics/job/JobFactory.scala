@@ -26,10 +26,8 @@ object JobFactory {
         MonitorSummarizer
       case "wfs" =>
         WorkFlowSummarizer
-      case "competency-gap" =>
+      case "competency-metrics" =>
         CompetencyMetricsJob
-      case "user-course-progress" =>
-        UserCourseProgressJob
       case "video-streaming" =>
         VideoStreamingJob
       case "telemetry-replay" =>

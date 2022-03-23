@@ -9,7 +9,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, explode_outer, expr, first, from_json, lit, max}
+import org.apache.spark.sql.functions.{col, explode_outer, expr, from_json, lit, max}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
@@ -57,9 +57,17 @@ C1.09   5       Scorecard           No. of CBPs mapped (by competency)
 case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
+case class Config(broker: String, userCourseProgressTopic: String, fracCompetencyTopic: String,
+                  courseCompetencyTopic: String, expectedCompetencyTopic: String, declaredCompetencyTopic: String,
+                  competencyGapTopic: String, courseRatingSummaryTopic: String,
+                  sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
+                  sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
+                  cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
+                  cassandraUserContentConsumptionTable: String, cassandraContentHierarchyTable: String,
+                  cassandraRatingSummaryTable: String) extends Serializable
+
 /**
  * Model for processing competency metrics
- * TODO: make more configurable, remove hardcoded hosts etc
  */
 object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, DummyOutput, DummyOutput] with Serializable {
 
@@ -88,49 +96,74 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    *
    * @param timestamp unique timestamp from the start of the processing
    * @param config model config, should be defined at sunbird-data-pipeline:ansible/roles/data-products-deploy/templates/model-config.j2
-   * @param spark
-   * @param sc
-   * @param fc
    */
   def processCompetencyMetricsData(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
-    // get broker and topics from model config
-    val broker = getConfigSideBroker(config)
-    val userCourseCompletionTopic = getConfigSideTopic(config, "userCourseCompletionTopic")
-    val fracCompetencyTopic = getConfigSideTopic(config, "fracCompetencyTopic")
-    val courseCompetencyTopic = getConfigSideTopic(config, "courseCompetencyTopic")
-    val expectedCompetencyTopic = getConfigSideTopic(config, "expectedCompetencyTopic")
-    val declaredCompetencyTopic = getConfigSideTopic(config, "declaredCompetencyTopic")
-    val competencyGapTopic = getConfigSideTopic(config, "competencyGapTopic")
-    val courseRatingSummaryTopic = getConfigSideTopic(config, "courseRatingSummaryTopic")
+    // parse model config
+    implicit val conf: Config = parseConfig(config)
+
+    // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
+    val crsDF = courseRatingSummaryDataFrame()
+    kafkaDispatch(withTimestamp(crsDF, timestamp), conf.courseRatingSummaryTopic)
 
     // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
     val uccDF = userCourseCompletionDataFrame()
-    kafkaDispatch(withTimestamp(uccDF, timestamp), broker, userCourseCompletionTopic)
+    kafkaDispatch(withTimestamp(uccDF, timestamp), conf.userCourseProgressTopic)
 
     // get frac competency data, dispatch to kafka to be ingested by druid data-source: dashboards-frac-competency
     val fcDF = fracCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(fcDF, timestamp), broker, fracCompetencyTopic)
+    kafkaDispatch(withTimestamp(fcDF, timestamp), conf.fracCompetencyTopic)
 
     // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
     val ccDF = courseCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(ccDF, timestamp), broker, courseCompetencyTopic)
+    kafkaDispatch(withTimestamp(ccDF, timestamp), conf.courseCompetencyTopic)
 
     // get user's expected competency data, dispatch to kafka to be ingested by druid data-source: dashboards-expected-user-competency
     val ecDF = expectedCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(ecDF, timestamp), broker, expectedCompetencyTopic)
+    kafkaDispatch(withTimestamp(ecDF, timestamp), conf.expectedCompetencyTopic)
 
     // get user's declared competency data, dispatch to kafka to be ingested by druid data-source: dashboards-declared-user-competency
     val dcDF = declaredCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(dcDF, timestamp), broker, declaredCompetencyTopic)
+    kafkaDispatch(withTimestamp(dcDF, timestamp), conf.declaredCompetencyTopic)
 
     // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
     val cgDF = competencyGapDataFrame(ecDF, dcDF)
     val cgcDF = competencyGapCompletionDataFrame(cgDF, ccDF, uccDF)  // add course completion status
-    kafkaDispatch(withTimestamp(cgcDF, timestamp), broker, competencyGapTopic)
+    kafkaDispatch(withTimestamp(cgcDF, timestamp), conf.competencyGapTopic)
+  }
 
-    // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
-    val crsDF = courseRatingSummaryDataFrame()
-    kafkaDispatch(withTimestamp(crsDF, timestamp), broker, courseRatingSummaryTopic)
+  /* Config functions */
+
+  def getConfig[T](config: Map[String, AnyRef], key: String, default: T = null): T = {
+    val path = key.split('.')
+    var obj = config
+    path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
+    obj.getOrElse(path.last, default).asInstanceOf[T]
+  }
+  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"modelParams.${key}", "")
+  def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
+  def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
+  def parseConfig(config: Map[String, AnyRef]): Config = {
+    Config(
+      broker = getConfigSideBroker(config),
+      userCourseProgressTopic = getConfigSideTopic(config, "userCourseProgress"),
+      fracCompetencyTopic = getConfigSideTopic(config, "fracCompetency"),
+      courseCompetencyTopic = getConfigSideTopic(config, "courseCompetency"),
+      expectedCompetencyTopic = getConfigSideTopic(config, "expectedCompetency"),
+      declaredCompetencyTopic = getConfigSideTopic(config, "declaredCompetency"),
+      competencyGapTopic = getConfigSideTopic(config, "competencyGap"),
+      courseRatingSummaryTopic = getConfigSideTopic(config, "courseRatingSummary"),
+      sparkCassandraConnectionHost = getConfigModelParam(config, "sparkCassandraConnectionHost"),
+      sparkDruidRouterHost = getConfigModelParam(config, "sparkDruidRouterHost"),
+      sparkElasticsearchConnectionHost = getConfigModelParam(config, "sparkElasticsearchConnectionHost"),
+      fracBackendHost = getConfigModelParam(config, "fracBackendHost"),
+      cassandraUserKeyspace = getConfigModelParam(config, "cassandraUserKeyspace"),
+      cassandraCourseKeyspace = getConfigModelParam(config, "cassandraCourseKeyspace"),
+      cassandraHierarchyStoreKeyspace = getConfigModelParam(config, "cassandraHierarchyStoreKeyspace"),
+      cassandraUserTable = getConfigModelParam(config, "cassandraUserTable"),
+      cassandraUserContentConsumptionTable = getConfigModelParam(config, "cassandraUserContentConsumptionTable"),
+      cassandraContentHierarchyTable = getConfigModelParam(config, "cassandraContentHierarchyTable"),
+      cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable")
+    )
   }
 
   /* Util functions */
@@ -139,23 +172,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     df.withColumn("timestamp", lit(timestamp))
   }
 
-  def getConfigSideBroker(config: Map[String, AnyRef]): String = {
-    // TODO: tech-debt: wrong config would result in an uncaught error
-    val sideOutput = config.getOrElse("sideOutput", Map()).asInstanceOf[Map[String, AnyRef]]
-    sideOutput.getOrElse("brokerList", "").asInstanceOf[String]
-  }
-
-  def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = {
-    // TODO: tech-debt: wrong config would result in an uncaught error
-    val sideOutput = config.getOrElse("sideOutput", Map()).asInstanceOf[Map[String, AnyRef]]
-    val topics = sideOutput.getOrElse("topics", Map()).asInstanceOf[Map[String, AnyRef]]
-    topics.getOrElse(key, "").asInstanceOf[String]
-  }
-
-  def kafkaDispatch(data: DataFrame, broker: String, topic: String)(implicit sc: SparkContext, fc: FrameworkContext): Unit = {
-    val stringData = data.toJSON.rdd
-    val config = Map("brokerList" -> broker, "topic" -> topic)
-    KafkaDispatcher.dispatch(config, stringData)
+  def kafkaDispatch(data: DataFrame, topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+    KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
   }
 
   def api(method: String, url: String, body: String): String = {
@@ -218,11 +236,28 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   /* Data processing functions */
 
   /**
+   * data frame of course rating summary
+   * @return DataFrame(courseID, ratingSummary)
+   */
+  def courseRatingSummaryDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    val df = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraRatingSummaryTable)
+      .withColumn("ratingSummary", expr("sum_of_total_ratings / total_number_of_ratings"))
+      .select(
+        col("activity_id").alias("courseID"),
+        col("ratingSummary")
+      )
+
+    df.show()
+    df.printSchema()
+    df
+  }
+
+  /**
    * data frame of user course completion percentage
    * @return DataFrame(completionUserID, completionCourseID, completionPercentage, completionStatus)
    */
-  def userCourseCompletionDataFrame()(implicit spark: SparkSession): DataFrame = {
-    var df = cassandraTableAsDataFrame("sunbird_courses", "user_content_consumption")
+  def userCourseCompletionDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    var df = cassandraTableAsDataFrame(conf.cassandraCourseKeyspace, conf.cassandraUserContentConsumptionTable)
       .select(
         col("userid").alias("completionUserID"),
         col("courseid").alias("completionCourseID"),
@@ -239,8 +274,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * data frame of all approved competencies from frac dictionary api
    * @return DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus)
    */
-  def fracCompetencyDataFrame()(implicit spark: SparkSession): DataFrame = {
-    val result = fracCompetencyAPI("frac-dictionary-backend.igot-stage.in")
+  def fracCompetencyDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    val result = fracCompetencyAPI(conf.fracBackendHost)
     val df = dataFrameFromJSONString(result)
       .select(explode_outer(col("data.getAllCompetencies")).alias("competency"))
       .select(
@@ -259,8 +294,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
    * @return DataFrame(id)
    */
-  def liveCourseDataFrame()(implicit spark: SparkSession): DataFrame = {
-    val result = elasticSearchCourseAPI("10.0.0.7")
+  def liveCourseDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    val result = elasticSearchCourseAPI(conf.sparkElasticsearchConnectionHost)
 
     var courseDF = dataFrameFromJSONString(result)
     courseDF = courseDF.select(explode_outer(col("hits.hits")).alias("course"))
@@ -285,9 +320,9 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * course competency mapping data from cassandra dev_hierarchy_store:content_hierarchy
    * @return DataFrame(courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel)
    */
-  def courseCompetencyDataFrame()(implicit spark: SparkSession): DataFrame = {
+  def courseCompetencyDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
 
-    val rawCourseDF = cassandraTableAsDataFrame("dev_hierarchy_store", "content_hierarchy")
+    val rawCourseDF = cassandraTableAsDataFrame(conf.cassandraHierarchyStoreKeyspace, conf.cassandraContentHierarchyTable)
     val liveCourseIDsDF = liveCourseDataFrame()  // get ids for live courses from es api
 
     // inner join so that we only retain live courses
@@ -327,9 +362,9 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * User's expected competency data from the latest approved work orders issued for them from druid
    * @return DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel)
    */
-  def expectedCompetencyDataFrame()(implicit spark: SparkSession) : DataFrame = {
+  def expectedCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
     val query = """SELECT edata_cb_data_deptId AS expOrgID, edata_cb_data_wa_id AS expWorkOrderID, edata_cb_data_wa_userId AS expUserID, edata_cb_data_wa_competency_id AS expCompetencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
-    val result = druidSQLAPI(query, "10.0.0.13")
+    val result = druidSQLAPI(query, conf.sparkDruidRouterHost)
 
     val df = dataFrameFromJSONString(result)
       .filter(col("expCompetencyID").isNotNull && col("expCompetencyLevel").notEqual(0))
@@ -355,8 +390,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * User's declared competency data from cassandra sunbird:user
    * @return DataFrame(decUserID, decCompetencyID, decCompetencyLevel)
    */
-  def declaredCompetencyDataFrame()(implicit spark: SparkSession) : DataFrame = {
-    val userdata = cassandraTableAsDataFrame("sunbird", "user")
+  def declaredCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
+    val userdata = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
 
     val up = userdata.where(col("profiledetails").isNotNull)
       .select("userid", "profiledetails")
@@ -445,24 +480,6 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       )
 
     df = withCompletionStatusColumn(df)
-
-    df.show()
-    df.printSchema()
-    df
-  }
-
-  /**
-   * data frame of course rating summary
-   * @return DataFrame(courseID, ratingSummary)
-   */
-  def courseRatingSummaryDataFrame()(implicit spark: SparkSession): DataFrame = {
-    var df = cassandraTableAsDataFrame("sunbird", "ratings_summary")
-      .select(
-        col("activity_id").alias("courseID"),
-        col("sum_of_total_ratings"),
-        col("total_number_of_ratings")
-      )
-    df = df.withColumn("ratingSummary", expr("sum_of_total_ratings / total_number_of_ratings"))
 
     df.show()
     df.printSchema()

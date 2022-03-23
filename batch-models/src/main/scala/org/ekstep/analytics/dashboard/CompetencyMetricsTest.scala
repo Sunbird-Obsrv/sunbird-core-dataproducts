@@ -26,16 +26,34 @@ object CompetencyMetricsTest extends Serializable {
 
   def test()(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     val timestamp = System.currentTimeMillis()
-    val config = Map(
-      "sideOutput" -> Map(
-        "brokerList" -> "10.0.0.5:9092",
-        "topics" -> Map(
-          "expectedCompetencyTopic" -> "dev.dashboards.competency.expected",
-          "declaredCompetencyTopic" -> "dev.dashboards.competency.declared",
-          "courseCompetencyTopic" -> "dev.dashboards.competency.course",
-          "competencyGapTopic" -> "dev.dashboards.competency.gap"
-        )
+    val sideOutput = Map(
+      "brokerList" -> "10.0.0.5:9092",
+      "topics" -> Map(
+        "userCourseProgress" -> "dev.dashboards.user.course.progress",
+        "fracCompetency" -> "dev.dashboards.competency.frac",
+        "courseCompetency" -> "dev.dashboards.competency.course",
+        "expectedCompetency" -> "dev.dashboards.competency.expected",
+        "declaredCompetency" -> "dev.dashboards.competency.declared",
+        "competencyGap" -> "dev.dashboards.competency.gap",
+        "courseRatingSummary" -> "dev.dashboards.course.rating.summary"
       )
+    )
+    val modelParams = Map(
+      "sparkCassandraConnectionHost" -> "10.0.0.7",
+      "sparkDruidRouterHost" -> "10.0.0.13",
+      "sparkElasticsearchConnectionHost" -> "10.0.0.7",
+      "fracBackendHost" -> "frac-dictionary-backend.igot-stage.in",
+      "cassandraUserKeyspace" -> "sunbird",
+      "cassandraCourseKeyspace" -> "sunbird_courses",
+      "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
+      "cassandraUserTable" -> "user",
+      "cassandraUserContentConsumptionTable" -> "user_content_consumption",
+      "cassandraContentHierarchyTable" -> "content_hierarchy",
+      "cassandraRatingSummaryTable" -> "rating_summary"
+    )
+    val config = Map(
+      "sideOutput" -> sideOutput,
+      "modelParams" -> modelParams
     )
     CompetencyMetricsModel.processCompetencyMetricsData(timestamp, config)
   }
