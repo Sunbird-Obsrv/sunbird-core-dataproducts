@@ -325,15 +325,15 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
 
   /**
    * User's expected competency data from the latest approved work orders issued for them from druid
-   * @return DataFrame(org_id,work_order_id,user_id,competency_id,competency_level)
+   * @return DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel)
    */
   def expectedCompetencyDataFrame()(implicit spark: SparkSession) : DataFrame = {
-    val query = """SELECT edata_cb_data_deptId AS org_id, edata_cb_data_wa_id AS work_order_id, edata_cb_data_wa_userId AS user_id, edata_cb_data_wa_competency_id AS competency_id, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS competency_level FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
+    val query = """SELECT edata_cb_data_deptId AS expOrgID, edata_cb_data_wa_id AS expWorkOrderID, edata_cb_data_wa_userId AS expUserID, edata_cb_data_wa_competency_id AS expCompetencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val result = druidSQLAPI(query, "10.0.0.13")
 
     val df = dataFrameFromJSONString(result)
-      .filter(col("competency_id").isNotNull && col("competency_level").notEqual(0))
-      .withColumn("competency_level", expr("CAST(competency_level as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
+      .filter(col("expCompetencyID").isNotNull && col("expCompetencyLevel").notEqual(0))
+      .withColumn("expCompetencyLevel", expr("CAST(expCompetencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
 
     df.show()
     df.printSchema()
@@ -353,7 +353,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   )
   /**
    * User's declared competency data from cassandra sunbird:user
-   * @return DataFrame(uid,id,declared_level)
+   * @return DataFrame(decUserID, decCompetencyID, decCompetencyLevel)
    */
   def declaredCompetencyDataFrame()(implicit spark: SparkSession) : DataFrame = {
     val userdata = cassandraTableAsDataFrame("sunbird", "user")
@@ -364,11 +364,11 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       .select(col("userid"), explode_outer(col("profile.competencies")).alias("competency"))
       .where(col("competency").isNotNull && col("competency.id").isNotNull)
       .select(
-        col("userid").alias("uid"),
-        col("competency.id").alias("id"),
-        col("competency.competencySelfAttestedLevel").alias("declared_level")
+        col("userid").alias("decUserID"),
+        col("competency.id").alias("decCompetencyID"),
+        col("competency.competencySelfAttestedLevel").alias("decCompetencyLevel")
       )
-      .na.fill(1, Seq("declared_level"))  // if competency is listed without a level assume level 1
+      .na.fill(1, Seq("decCompetencyLevel"))  // if competency is listed without a level assume level 1
 
     up.show()
     up.printSchema()
@@ -384,20 +384,20 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def competencyGapDataFrame(ecDF: DataFrame, dcDF: DataFrame)(implicit spark: SparkSession): DataFrame = {
 
     var gapDF = ecDF.join(dcDF,
-      ecDF.col("competency_id") <=> dcDF.col("id") && ecDF.col("user_id") <=> dcDF.col("uid"),
+      ecDF.col("expCompetencyID") <=> dcDF.col("decCompetencyID") && ecDF.col("expUserID") <=> dcDF.col("decUserID"),
       "leftouter"
     )
-    gapDF = gapDF.na.fill(0, Seq("declared_level"))  // if null values created during join fill with 0
-    gapDF = gapDF.groupBy("user_id", "competency_id", "org_id", "work_order_id")
+    gapDF = gapDF.na.fill(0, Seq("decCompetencyLevel"))  // if null values created during join fill with 0
+    gapDF = gapDF.groupBy("expUserID", "expCompetencyID", "expQrgID", "expWorkOrderID")
       .agg(
-        max("competency_level").alias("expectedLevel"),  // in-case of multiple entries, take max
-        max("declared_level").alias("declaredLevel")  // in-case of multiple entries, take max
+        max("expCompetencyLevel").alias("expectedLevel"),  // in-case of multiple entries, take max
+        max("decCompetencyLevel").alias("declaredLevel")  // in-case of multiple entries, take max
       )
     gapDF = gapDF.select(
-      col("user_id").alias("userID"),
-      col("competency_id").alias("competencyID"),
-      col("org_id").alias("orgID"),
-      col("work_order_id").alias("workOrderID"),
+      col("expUserID").alias("userID"),
+      col("expCompetencyID").alias("competencyID"),
+      col("expQrgID").alias("orgID"),
+      col("expWorkOrderID").alias("workOrderID"),
       col("expectedLevel"),
       col("declaredLevel")
     )
