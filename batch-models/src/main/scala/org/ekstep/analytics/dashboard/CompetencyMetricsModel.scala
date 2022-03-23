@@ -97,6 +97,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val expectedCompetencyTopic = getConfigSideTopic(config, "expectedCompetencyTopic")
     val declaredCompetencyTopic = getConfigSideTopic(config, "declaredCompetencyTopic")
     val competencyGapTopic = getConfigSideTopic(config, "competencyGapTopic")
+    val courseRatingSummaryTopic = getConfigSideTopic(config, "courseRatingSummaryTopic")
 
     // get course completion data, dispatch to kafka
     val uccDF = userCourseCompletionDataFrame()
@@ -122,6 +123,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val cgDF = competencyGapDataFrame(ecDF, dcDF)
     val cgcDF = competencyGapCompletionDataFrame(cgDF, ccDF, uccDF)  // add course completion status
     kafkaDispatch(withTimestamp(cgcDF, timestamp), broker, competencyGapTopic)
+
+    // get total rating and total number of rating for course rating summary, dispatch to kafka
+    val crsDF = courseRatingSummaryDataFrame()
+    kafkaDispatch(withTimestamp(crsDF, timestamp), broker, courseRatingSummaryTopic)
   }
 
   /* Util functions */
@@ -436,6 +441,24 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       )
 
     df = withCompletionStatusColumn(df)
+
+    df.show()
+    df.printSchema()
+    df
+  }
+
+  /**
+   * data frame of course rating summary
+   * @return DataFrame(courseID, ratingSummary)
+   */
+  def courseRatingSummaryDataFrame()(implicit spark: SparkSession): DataFrame = {
+    var df = cassandraTableAsDataFrame("sunbird", "ratings_summary")
+      .select(
+        col("activity_id").alias("courseID"),
+        col("sum_of_total_ratings"),
+        col("total_number_of_ratings")
+      )
+    df = df.withColumn("ratingSummary", expr("sum_of_total_ratings / total_number_of_ratings"))
 
     df.show()
     df.printSchema()
