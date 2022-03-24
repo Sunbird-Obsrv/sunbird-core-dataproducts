@@ -101,6 +101,8 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
         df = df.withColumn(f1, when((col(f1) === "unknown") || (col(f1) === "<NULL>"), "Null").otherwise(col(f1)))
       })
       if (sortDfColNames.isDefined) {
+        JobLogger.log("inside sort condition",None,Level.INFO)
+        JobLogger.log("sort column names: "+sortDfColNames,None,Level.INFO)
         df = df.sort(sortDfColNames.get.head, sortDfColNames.get.tail: _*)
       }
       df = df.dropDuplicates()
