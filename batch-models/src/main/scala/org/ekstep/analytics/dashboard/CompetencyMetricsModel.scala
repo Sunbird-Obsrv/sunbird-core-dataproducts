@@ -113,6 +113,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val fcDF = fracCompetencyDataFrame()
     kafkaDispatch(withTimestamp(fcDF, timestamp), conf.fracCompetencyTopic)
 
+    // TODO: add course enrollment % data to fracCompetencyData
+
     // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
     val ccDF = courseCompetencyDataFrame()
     kafkaDispatch(withTimestamp(ccDF, timestamp), conf.courseCompetencyTopic)
