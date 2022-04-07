@@ -22,7 +22,7 @@ node('build-slave') {
         stage('Build') {
             sh '''
                 export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
-                export PATH=$JAVA_HOME/bin:$PATH \
+                export PATH=$JAVA_HOME/bin:$PATH
                 mvn clean install -DskipTests
                 '''
         }
