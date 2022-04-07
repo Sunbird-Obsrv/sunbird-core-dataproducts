@@ -37,7 +37,7 @@ class TestJobConsumer extends FlatSpec with Matchers with BeforeAndAfterAll with
             implicit val deserializer = new StringDeserializer()
 
             val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager", "6000")
-            val consumer = new JobConsumerV2("test", props);
+            val consumer = new JobConsumerV2("test", props, 100);
             val record = consumer.read;
             record.isDefined should be(false)
             consumer.close()
@@ -56,7 +56,7 @@ class TestJobConsumer extends FlatSpec with Matchers with BeforeAndAfterAll with
             publishStringMessageToKafka("test", null)
 
             val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager")
-            val consumer = new JobConsumerV2("test", props);
+            val consumer = new JobConsumerV2("test", props, 100);
             val record = consumer.read;
             record.isDefined should be(false)
             consumer.close()
@@ -75,7 +75,7 @@ class TestJobConsumer extends FlatSpec with Matchers with BeforeAndAfterAll with
                 publishStringMessageToKafka("test", "test-message")
 
                 val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager")
-                val consumer = new JobConsumerV2("test", props);
+                val consumer = new JobConsumerV2("test", props, 100);
                 val record = consumer.read;
                 record.isDefined should be(true)
                 consumer.close()

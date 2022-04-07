@@ -50,7 +50,7 @@ class TestJobManager extends FlatSpec with Matchers with BeforeAndAfterAll with 
             val config = JSONUtils.deserialize[JobManagerConfig](strConfig)
 
             val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager")
-            val consumer = new JobConsumerV2("test", props);
+            val consumer = new JobConsumerV2("test", props, 100);
             val doneSignal = new CountDownLatch(1)
             val runner = new JobRunner(config, consumer, doneSignal)
             runner.run()

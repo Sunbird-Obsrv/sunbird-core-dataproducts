@@ -10,15 +10,15 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import scala.collection.JavaConverters._
 
 
-class JobConsumerV2(topic: String, consumerProps: Properties) {
+class JobConsumerV2(topic: String, consumerProps: Properties, consumerPoll: Long) {
 
     implicit val className = "org.ekstep.analytics.kafka.consumer.JobConsumerV2"
     private val connector = new KafkaConsumer[String, String](consumerProps)
     connector.subscribe(java.util.Collections.singletonList(topic))
-    private var iterator = connector.poll(100).asScala.toIterator;
+    private var iterator = connector.poll(consumerPoll).asScala.toIterator;
 
     def pollConsumer() ={
-        if (iterator.isEmpty) iterator = connector.poll(100).asScala.toIterator
+        if (iterator.isEmpty) iterator = connector.poll(consumerPoll).asScala.toIterator
     }
 
     def wakeUpConsumer() ={

@@ -17,7 +17,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 
 import java.util
 
-case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
+case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, consumerPoll: Long = 100, runMode: String = "shutdown");
 
 object JobManager extends optional.Application {
 
@@ -61,7 +61,8 @@ object JobManager extends optional.Application {
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
         JobLogger.log("Initializing the job consumer", None, INFO);
         val props = JobConsumerV2Config.makeProps(config.bootStrapServer, config.consumerGroup)
-        val consumer = new JobConsumerV2(config.topic, props);
+        val poll = config.consumerPoll
+        val consumer = new JobConsumerV2(config.topic, props, poll);
         consumer;
     }
 }
