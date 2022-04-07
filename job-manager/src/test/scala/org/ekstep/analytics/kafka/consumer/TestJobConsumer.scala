@@ -18,7 +18,7 @@ class TestJobConsumer extends FlatSpec with Matchers with BeforeAndAfterAll with
             publishStringMessageToKafka("test", """{"model":"wfs","config":{"search":{"type":"local","queries":[{"file":"src/test/resources/workflow-summary/test-data1.log"}]},"model":"org.ekstep.analytics.model.WorkflowSummary","modelParams":{"apiVersion":"v2"},"output":[{"to":"console","params":{"printEvent": true}},{"to":"kafka","params":{"brokerList":"localhost:9092","topic":"output"}}],"parallelization":8,"appName":"Workflow Summarizer","deviceMapping":true}}""")
 
             val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager")
-            val consumer = new JobConsumerV2("test", props);
+            val consumer = new JobConsumerV2("test", props, 100);
             val record = consumer.read;
             record.isDefined should be(true)
             record.get should be("""{"model":"wfs","config":{"search":{"type":"local","queries":[{"file":"src/test/resources/workflow-summary/test-data1.log"}]},"model":"org.ekstep.analytics.model.WorkflowSummary","modelParams":{"apiVersion":"v2"},"output":[{"to":"console","params":{"printEvent": true}},{"to":"kafka","params":{"brokerList":"localhost:9092","topic":"output"}}],"parallelization":8,"appName":"Workflow Summarizer","deviceMapping":true}}""")
