@@ -1,19 +1,23 @@
 package org.ekstep.analytics.job
 
+import org.apache.kafka.clients.consumer.{ConsumerRecords, KafkaConsumer}
+import org.apache.kafka.common.errors.WakeupException
 import org.ekstep.analytics.framework.util.JSONUtils
-import java.util.concurrent._
 
+import java.util.concurrent._
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.framework.Level._
 import org.ekstep.analytics.framework.JobConfig
 import org.sunbird.cloud.storage.factory.{StorageConfig, StorageServiceFactory}
-import org.ekstep.analytics.kafka.consumer.JobConsumerV2Config
-import org.ekstep.analytics.kafka.consumer.JobConsumerV2
+import org.ekstep.analytics.kafka.consumer.{JobConsumerV2, JobConsumerV2Config}
 import org.ekstep.analytics.framework.FrameworkContext
+
 import java.util.concurrent.atomic.AtomicBoolean
 import org.ekstep.analytics.framework.conf.AppConf
 
-case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
+import java.util
+
+case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, consumerPoll: Long = 100, runMode: String = "shutdown");
 
 object JobManager extends optional.Application {
 
@@ -56,8 +60,9 @@ object JobManager extends optional.Application {
 
     private def initializeConsumer(config: JobManagerConfig, jobQueue: BlockingQueue[String]): JobConsumerV2 = {
         JobLogger.log("Initializing the job consumer", None, INFO);
-        val props = JobConsumerV2Config.makeProps(config.zookeeperConnect, config.consumerGroup)
-        val consumer = new JobConsumerV2(config.topic, props);
+        val props = JobConsumerV2Config.makeProps(config.bootStrapServer, config.consumerGroup)
+        val poll = config.consumerPoll
+        val consumer = new JobConsumerV2(config.topic, props, poll);
         consumer;
     }
 }
@@ -72,6 +77,7 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
     def stop(): Unit = {
         running.set(false)
         doneSignal.countDown();
+        consumer.wakeUpConsumer()
     }
 
     override def run {
@@ -80,19 +86,25 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
         // Register the reports storage service
         fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
-
-        while(running.get()) {
-            val record = consumer.read;
-            if (record.isDefined) {
-                JobLogger.log("Starting execution of " + record, None, INFO);
-                executeJob(record.get);
-                if (record.get.contains("monitor-job-summ"))
-                    stop();
-            } else {
-                // $COVERAGE-OFF$ Code is unreachable
-                Thread.sleep(10 * 1000); // Sleep for 10 seconds
-                // $COVERAGE-ON$
+        try {
+            while(running.get()) {
+                val record = consumer.read;
+                if (record.isDefined) {
+                    JobLogger.log("Starting execution of " + record, None, INFO);
+                    executeJob(record.get);
+                    if (record.get.contains("monitor-job-summ"))
+                        stop()
+                } else {
+                    // $COVERAGE-OFF$ Code is unreachable
+                    Thread.sleep(10 * 1000); // Sleep for 10 seconds
+                    // $COVERAGE-ON$
+                }
             }
+        }
+        catch {
+            case ex: WakeupException =>
+                ex.printStackTrace()
+                if (!running.get()) throw ex
         }
         // Jobs are done. Close the framework context.
         fc.closeContext();

@@ -30,12 +30,12 @@
             </properties>
         </profile>
         <profile>
-            <id>Scala-2.11.8</id>
+            <id>Scala-2.11.12</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
             <properties>
-                <scala.version>2.11.8</scala.version>
+                <scala.version>2.11.12</scala.version>
             </properties>
         </profile>
     </profiles>

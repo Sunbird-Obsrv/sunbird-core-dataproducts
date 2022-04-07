@@ -90,9 +90,17 @@
 					<groupId>org.apache.hadoop</groupId>
 					<artifactId>hadoop-client</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.apache.xbean</groupId>
+					<artifactId>xbean-asm6-shaded</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
-
+		<dependency>
+			<groupId>org.apache.xbean</groupId>
+			<artifactId>xbean-asm6-shaded</artifactId>
+			<version>4.10</version>
+		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jets3t</groupId>
 			<artifactId>jets3t</artifactId>
@@ -105,17 +113,18 @@
 			<version>2.8.1</version>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka_${scala.maj.version}</artifactId>
-			<version>1.0.1</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.fasterxml.jackson.core</groupId>
-					<artifactId>jackson-databind</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>org.apache.kafka</groupId>-->
+<!--			<artifactId>kafka_${scala.maj.version}</artifactId>-->
+<!--			<version>1.0.1</version>-->
+<!--&lt;!&ndash;			<version>2.4.1</version>&ndash;&gt;-->
+<!--			<exclusions>-->
+<!--				<exclusion>-->
+<!--					<groupId>com.fasterxml.jackson.core</groupId>-->
+<!--					<artifactId>jackson-databind</artifactId>-->
+<!--				</exclusion>-->
+<!--			</exclusions>-->
+<!--		</dependency>-->
 		<dependency>
 			<groupId>org.scalatest</groupId>
 			<artifactId>scalatest_${scala.maj.version}</artifactId>
@@ -185,6 +194,7 @@
 							<args>
 								<arg>-dependencyfile</arg>
 								<arg>${project.build.directory}/.scala_dependencies</arg>
+								<arg>-nobootcp</arg>
 							</args>
 						</configuration>
 					</execution>

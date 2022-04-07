@@ -3,7 +3,6 @@ package org.ekstep.analytics.job
 import scala.reflect.runtime.universe
 import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.exception.JobNotFoundException
-import org.ekstep.analytics.job.batch.VideoStreamingJob
 import org.ekstep.analytics.job.metrics.MetricsAuditJob
 import org.ekstep.analytics.job.summarizer.DruidQueryProcessor
 import org.ekstep.analytics.job.summarizer.ExperimentDefinitionJob
@@ -24,8 +23,6 @@ object JobFactory {
         MonitorSummarizer
       case "wfs" =>
         WorkFlowSummarizer
-      case "video-streaming" =>
-        VideoStreamingJob
       case "telemetry-replay" =>
         EventsReplayJob
       case "summary-replay" =>
