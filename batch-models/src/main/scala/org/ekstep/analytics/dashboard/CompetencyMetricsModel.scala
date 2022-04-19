@@ -99,6 +99,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    */
   def processCompetencyMetricsData(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     // parse model config
+    println(config)
     implicit val conf: Config = parseConfig(config)
 
     // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
