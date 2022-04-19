@@ -142,7 +142,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
     obj.getOrElse(path.last, default).asInstanceOf[T]
   }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"modelParams.${key}", "")
+  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
   def parseConfig(config: Map[String, AnyRef]): Config = {

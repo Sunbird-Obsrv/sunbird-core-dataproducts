@@ -48,9 +48,10 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraUserTable" -> "user",
       "cassandraUserContentConsumptionTable" -> "user_content_consumption",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
-      "cassandraRatingSummaryTable" -> "ratings_summary"
+      "cassandraRatingSummaryTable" -> "ratings_summary",
+      "sideOutput" -> sideOutput
     )
-    Map("sideOutput" -> sideOutput, "modelParams" -> modelParams)
+    modelParams
   }
 
   def test()(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
