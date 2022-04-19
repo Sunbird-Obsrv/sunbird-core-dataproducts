@@ -231,7 +231,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @return df with completionStatus column
    */
   def withCompletionStatusColumn(df: DataFrame): DataFrame = {
-    val caseExpression = "CASE WHEN ISNULL(completionPercentage) THEN 'not-enrolled' WHEN completionPercentage == 0.0 THEN 'enrolled' WHEN completionPercentage < 10.0 THEN 'started' WHEN completionPercentage < 100.0 THEN 'in-progress' ELSE 'completed'"
+    val caseExpression = "CASE WHEN ISNULL(completionPercentage) THEN 'not-enrolled' WHEN completionPercentage == 0.0 THEN 'enrolled' WHEN completionPercentage < 10.0 THEN 'started' WHEN completionPercentage < 100.0 THEN 'in-progress' ELSE 'completed' END"
     df.withColumn("completionStatus", expr(caseExpression))
   }
 
@@ -239,14 +239,22 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
 
   /**
    * data frame of course rating summary
-   * @return DataFrame(courseID, ratingSummary)
+   * @return DataFrame(courseID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
    */
   def courseRatingSummaryDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
     val df = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraRatingSummaryTable)
-      .withColumn("ratingSummary", expr("sum_of_total_ratings / total_number_of_ratings"))
+      .where(expr("LOWER(activitytype) == 'course' AND total_number_of_ratings > 0"))
+      .withColumn("ratingAverage", expr("sum_of_total_ratings / total_number_of_ratings"))
       .select(
-        col("activity_id").alias("courseID"),
-        col("ratingSummary")
+        col("activityid").alias("courseID"),
+        col("sum_of_total_ratings").alias("ratingSum"),
+        col("total_number_of_ratings").alias("ratingCount"),
+        col("ratingAverage"),
+        col("totalcount1stars").alias("count1Star"),
+        col("totalcount2stars").alias("count2Star"),
+        col("totalcount3stars").alias("count3Star"),
+        col("totalcount4stars").alias("count4Star"),
+        col("totalcount5stars").alias("count5Star")
       )
 
     df.show()
@@ -425,7 +433,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       "leftouter"
     )
     gapDF = gapDF.na.fill(0, Seq("decCompetencyLevel"))  // if null values created during join fill with 0
-    gapDF = gapDF.groupBy("expUserID", "expCompetencyID", "expQrgID", "expWorkOrderID")
+    gapDF = gapDF.groupBy("expUserID", "expCompetencyID", "expOrgID", "expWorkOrderID")
       .agg(
         max("expCompetencyLevel").alias("expectedLevel"),  // in-case of multiple entries, take max
         max("decCompetencyLevel").alias("declaredLevel")  // in-case of multiple entries, take max
@@ -433,7 +441,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     gapDF = gapDF.select(
       col("expUserID").alias("userID"),
       col("expCompetencyID").alias("competencyID"),
-      col("expQrgID").alias("orgID"),
+      col("expOrgID").alias("orgID"),
       col("expWorkOrderID").alias("workOrderID"),
       col("expectedLevel"),
       col("declaredLevel")
@@ -466,18 +474,22 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       cgCourseDF.col("userID") <=> uccDF.col("completionUserID") &&
         cgCourseDF.col("courseID") <=> uccDF.col("completionCourseID"), "leftouter")
       .groupBy("userID", "competencyID", "orgID", "workOrderID")
-      .agg(
-        max(col("completionPercentage")))
+      .agg(max(col("completionPercentage")).alias("completionPercentage"))
       .withColumn("completionPercentage", expr("IF(ISNULL(completionPercentage), 0.0, completionPercentage)"))
 
-    var df = cgDF.join(gapCourseUserStatus.as("s"),
-      cgDF.col("userID") <=> gapCourseUserStatus.col("s.userID") &&
-        cgDF.col("competencyID") <=> gapCourseUserStatus.col("s.competencyID") &&
-        cgDF.col("orgID") <=> gapCourseUserStatus.col("s.orgID") &&
-        cgDF.col("workOrderID") <=> gapCourseUserStatus.col("s.workOrderID"), "leftouter")
+    var df = cgDF.as("g").join(gapCourseUserStatus.as("s"),
+        col("g.userID") <=> col("s.userID") &&
+        col("g.competencyID") <=> col("s.competencyID") &&
+        col("g.orgID") <=> col("s.orgID") &&
+        col("g.workOrderID") <=> col("s.workOrderID"), "leftouter")
       .select(
-        col("userID"), col("competencyID"), col("orgID"), col("workOrderID"),
-        col("expectedLevel"), col("declaredLevel"), col("competencyGap"),
+        col("g.userID").alias("userID"),
+        col("g.competencyID").alias("competencyID"),
+        col("g.orgID").alias("orgID"),
+        col("g.workOrderID").alias("workOrderID"),
+        col("g.expectedLevel").alias("expectedLevel"),
+        col("g.declaredLevel").alias("declaredLevel"),
+        col("g.competencyGap").alias("competencyGap"),
         col("s.completionPercentage").alias("completionPercentage")
       )
 

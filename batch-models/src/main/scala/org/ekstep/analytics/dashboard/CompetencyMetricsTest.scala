@@ -48,7 +48,7 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraUserTable" -> "user",
       "cassandraUserContentConsumptionTable" -> "user_content_consumption",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
-      "cassandraRatingSummaryTable" -> "rating_summary"
+      "cassandraRatingSummaryTable" -> "ratings_summary"
     )
     Map("sideOutput" -> sideOutput, "modelParams" -> modelParams)
   }
