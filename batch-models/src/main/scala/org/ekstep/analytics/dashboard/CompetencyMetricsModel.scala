@@ -222,12 +222,12 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   }
 
   /**
-   * completionPercentage   completionStatus
-   * NULL                   not-enrolled
-   * 0.0                    enrolled
-   * 0.0 < % < 10.0         started
-   * 10.0 <= % < 100.0      in-progress
-   * 100.0                  completed
+   * completionPercentage   completionStatus    IDI status
+   * NULL                   not-enrolled        not-started
+   * 0.0                    enrolled            not-started
+   * 0.0 < % < 10.0         started             in-progress
+   * 10.0 <= % < 100.0      in-progress         in-progress
+   * 100.0                  completed           completed
    * @param df data frame with completionPercentage column
    * @return df with completionStatus column
    */
