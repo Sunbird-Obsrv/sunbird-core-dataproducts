@@ -111,7 +111,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     var name = OnDemandDruidExhaustJob.name()
 
     val submissionDate = DateTime.now().toString("yyyy-MM-dd")
-    val druidQueryConf = """{"id":"ml-task-detail-exhaust","queryType":"scan","dateRange":{"staticInterval":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","granularity":"all"},"metrics":[{"metric":"total_content_plays_on_portal","label":"total_content_plays_on_portal","druidQuery":{"queryType":"scan","dataSource":"sl-project","intervals":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","columns":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"filters":[{"type":"equals","dimension":"private_program","value":"false"},{"type":"equals","dimension":"sub_task_deleted_flag","value":"false"},{"type":"equals","dimension":"task_deleted_flag","value":"false"},{"type":"equals","dimension":"project_deleted_flag","value":"false"},{"type":"equals","dimension":"program_id","value":"$programId"},{"type":"equals","dimension":"solution_id","value":"$solutionId"}]}}],"labels":{"createdBy":"UUID","designation":"Role","state_name":"Declared State","district_name":"District","block_name":"Block","school_name":"School Name","school_externalId":"School ID","organisation_name":"Organisation Name","program_name":"Program Name","program_externalId":"Program ID","project_id":"Project ID","project_title_editable":"Project Title","project_description":"Project Objective","area_of_improvement":"Category","project_duration":"Project Duration","tasks":"Tasks","sub_task":"Sub-Tasks","task_evidence":"Evidence","task_remarks":"Remarks","status_of_project":"Project Status"},"output":[{"type":"csv","metrics":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"fileParameters":["id","dims"],"zip":false,"dims":["date"],"label":""}]}"""
+    val druidQueryConf = """{"id":"ml-task-detail-exhaust","queryType":"scan","dateRange":{"staticInterval":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","granularity":"all"},"metrics":[{"metric":"total_content_plays_on_portal","label":"total_content_plays_on_portal","druidQuery":{"queryType":"scan","dataSource":"sl-project","intervals":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","columns":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"filters":[{"type":"equals","dimension":"private_program","value":"false"},{"type":"equals","dimension":"sub_task_deleted_flag","value":"false"},{"type":"equals","dimension":"task_deleted_flag","value":"false"},{"type":"equals","dimension":"project_deleted_flag","value":"false"},{"type":"equals","dimension":"program_id","value":"602512d8e6aefa27d9629bc3"},{"type":"equals","dimension":"solution_id","value":"602a19d840d02028f3af00f0"}]}}],"labels":{"createdBy":"UUID","designation":"Role","state_name":"Declared State","district_name":"District","block_name":"Block","school_name":"School Name","school_externalId":"School ID","organisation_name":"Organisation Name","program_name":"Program Name","program_externalId":"Program ID","project_id":"Project ID","project_title_editable":"Project Title","project_description":"Project Objective","area_of_improvement":"Category","project_duration":"Project Duration","tasks":"Tasks","sub_task":"Sub-Tasks","task_evidence":"Evidence","task_remarks":"Remarks","status_of_project":"Project Status"},"output":[{"type":"csv","metrics":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"fileParameters":["id","dims"],"zip":false,"dims":["date"],"label":""}]}"""
     EmbeddedPostgresql.execute(
       s"""insert into dataset_metadata ("dataset_id", "dataset_sub_id", "dataset_config", "visibility", "dataset_type", "version",
           "authorized_roles", "available_from", "sample_request", "sample_response", "druid_query")
@@ -121,8 +121,13 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\"," +
-      "\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', '{}', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', " +
+      "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', '{}', " +
       "NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -212,8 +217,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-no-range\",\"params\":{\"programId\" :" +
-      "\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-no-range\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
       "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{ "type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -254,8 +263,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-no-interval\",\"params\":{\"programId\" :" +
-      "\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-no-interval\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
       "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -313,8 +326,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-static-interval\",\"params\":{\"programId\" :" +
-      "\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-static-interval\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
       "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -372,8 +389,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":{\"programId\" :" +
-      "\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
       "'2021-05-09 19:35:18.666', '{ml_reports/ml-task-detail-exhaust/1626335633616_888700F9A860E7A42DA968FBECDF3F22.csv}', NULL, NULL, 0, '' " +
       ",0,NULL);")
 
@@ -396,7 +417,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
 
   it should "execute the update and save request method" in {
     val jobRequest = JobRequest("126796199493140000", "888700F9A860E7A42DA968FBECDF3F22", "druid-dataset", "SUBMITTED", "{\"type\": \"ml-task-detail-exhaust\"," +
-      "\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}",
+      "\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}",
       "36b84ff5-2212-4219-bfed-24886969d890", "ORG_001", System.currentTimeMillis(), None, None, None, Option(0), Option("") ,Option(0),Option("test@123"))
     val req = new JobRequest()
     val jobRequestArr = Array(jobRequest)
@@ -447,8 +473,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-quote-column\",\"params\":{\"programId\" :\"602512d8e6aefa27d9629bc3\"," +
-      "\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-quote-column\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', " +
       "'{}', NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{ "type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -510,7 +540,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
       "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000'," +
       " '888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-no-label\",\"params\":" +
-      "{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d02028f3af00f0\"}}', " +
+      "{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', " +
       "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
     val strConfig =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
@@ -526,46 +561,65 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "insert status as failed when filter doesn't match" in {
-    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
-    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
-      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":" +
-      "{\"programId\" :\"602512d8e6aefa27d9629bc3\",\"solutionId\" : \"602a19d840d0202sd23234jadasf0\"}}', " +
-      "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, 'No data found from druid' ,0,'test@123');")
-    val strConfig =
-      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
-        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
-
-    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
-    implicit val config = jobConfig
-    implicit val conf = spark.sparkContext.hadoopConfiguration
-
     val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
         DruidFilter("equals","project_deleted_flag",Option("false"),None),
         DruidFilter("equals","program_id",Option("602512d8e6aefa27d9629bc3"),None),
-        DruidFilter("equals","solution_id",Option("602a19d840d0202sd23234jadasf0"),None))),None, None,
+        DruidFilter("equals","solution_id",Option("602a19d840d02028f3af00f1"),None))),None, None,
       Option(List("__time","createdBy","designation","state_name","district_name","block_name",
         "school_name","school_externalId", "organisation_name","program_name",
         "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
         "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
+    val json: String ="""
+            {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
+            "designation":"hm","school_externalId":"unknown","project_duration":"1 महीना","__time":1.6133724E12,"sub_task":"<NULL>",
+            "tasks":"यहां, आप अपने विद्यालय में परियोजना को पूरा करने के लिए अपने द्वारा किए गए कार्यों ( Tasks)को जोड़ सकते हैं।","project_id":"602a19d840d02028f3af00f0",
+            "project_description":"test","program_externalId":"PGM-Prerak-Head-Teacher-of-the-Block-19-20-Feb2021",
+            "organisation_name":"Pre-prod Custodian Organization","createdBy":"7651c7ab-88f9-4b23-8c1d-ac8d92844f8f",
+            "area_of_improvement":"Education Leader","school_name":"MPPS (GN) SAMANTHAKURRU","district_name":"EAST GODAVARI",
+            "program_name":"Prerak Head Teacher of the Block 19-20","state_name":"Andhra Pradesh","task_remarks":"<NULL>","status_of_project":"completed"}
+             """.stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
     (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
-      .returns(Source(List())).anyNumberOfTimes()
+      .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
     (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}]}}', " +
+      "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-05-09 19:35:18.666', '{}', " +
+      "NULL, NULL, 0, '' ,0,'test@123');")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "888700F9A860E7A42DA968FBECDF3F22"
+
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
 
     OnDemandDruidExhaustJob.execute()
     val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
-    while(postgresQuery.next()) {
-      postgresQuery.getString("status") should be ("FAILED")
-      postgresQuery.getString("err_message") should be ("No data found from druid")
-    }
   }
 
   it should "generate report with other generic query" in {
@@ -702,10 +756,12 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
 
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
-      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
-      "'999700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-obs-question-detail-exhaust\",\"params\":" +
-      "{\"programId\" :\"60549338acf1c71f0b2409c3\",\"solutionId\" : \"605c934eda9dea6400302afc\"}}', " +
-      "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-07-15 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'demo@123');")
+          "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
+          "'999700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-obs-question-detail-exhaust\",\"params\":" +
+          "{\"filters\":[{\"type\":\"equals\",\"dimension\":\"isAPrivateProgram\",\"value\":\"false\"}," +
+          "{\"type\":\"equals\",\"dimension\":\"solution_type\",\"value\":\"observation_with_out_rubric\"},{\"type\":\"equals\",\"dimension\":\"programId\",\"value\":\"60549338acf1c71f0b2409c3\"}," +
+          "{\"type\":\"equals\",\"dimension\":\"solutionId\",\"value\":\"605c934eda9dea6400302afc\"}]}}', " +
+          "'36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', '2021-07-15 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'demo@123');")
     val strConfig =
       """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
         |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
@@ -725,6 +781,206 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       postgresQuery.getString("iteration") should be ("0")
       postgresQuery.getString("encryption_key") should be ("demo@123")
       postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-obs-question-detail-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate report with all the 4 filters(district,organisation,program,solution)" in {
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("602512d8e6aefa27d9629bc3"),None),
+        DruidFilter("equals","solution_id",Option("602a19d840d02028f3af00f0"),None),
+        DruidFilter("equals","district_externalId",Option("8250d58d-f1a2-4397-bfd3-b2e688ba7141"),None),
+        DruidFilter("equals","organisation_id",Option("0126796199493140480"),None))),None, None,
+      Option(List("__time","createdBy","designation","state_name","district_name","block_name",
+        "school_name","school_externalId", "organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
+        "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+
+    val json: String ="""
+            {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
+            "designation":"hm","school_externalId":"unknown","project_duration":"1 महीना","__time":1.6133724E12,"sub_task":"<NULL>",
+            "tasks":"यहां, आप अपने विद्यालय में परियोजना को पूरा करने के लिए अपने द्वारा किए गए कार्यों ( Tasks)को जोड़ सकते हैं।","project_id":"602a19d840d02028f3af00f0",
+            "project_description":"test","program_externalId":"PGM-Prerak-Head-Teacher-of-the-Block-19-20-Feb2021",
+            "organisation_name":"Pre-prod Custodian Organization","createdBy":"7651c7ab-88f9-4b23-8c1d-ac8d92844f8f",
+            "area_of_improvement":"Education Leader","school_name":"MPPS (GN) SAMANTHAKURRU","district_name":"EAST GODAVARI",
+            "program_name":"Prerak Head Teacher of the Block 19-20","state_name":"Andhra Pradesh","task_remarks":"<NULL>","status_of_project":"inProgress"}
+             """.stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-static-interval\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"district_externalId\",\"value\":\"8250d58d-f1a2-4397-bfd3-b2e688ba7141\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"organisation_id\",\"value\":\"0126796199493140480\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "888700F9A860E7A42DA968FBECDF3F22"
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while (postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-task-detail-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate report with all the 3 filters(program,solution,district)" in {
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("602512d8e6aefa27d9629bc3"),None),
+        DruidFilter("equals","solution_id",Option("602a19d840d02028f3af00f0"),None),
+        DruidFilter("equals","district_externalId",Option("8250d58d-f1a2-4397-bfd3-b2e688ba7141"),None))),None, None,
+      Option(List("__time","createdBy","designation","state_name","district_name","block_name",
+        "school_name","school_externalId", "organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
+        "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+
+    val json: String ="""
+            {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
+            "designation":"hm","school_externalId":"unknown","project_duration":"1 महीना","__time":1.6133724E12,"sub_task":"<NULL>",
+            "tasks":"यहां, आप अपने विद्यालय में परियोजना को पूरा करने के लिए अपने द्वारा किए गए कार्यों ( Tasks)को जोड़ सकते हैं।","project_id":"602a19d840d02028f3af00f0",
+            "project_description":"test","program_externalId":"PGM-Prerak-Head-Teacher-of-the-Block-19-20-Feb2021",
+            "organisation_name":"Pre-prod Custodian Organization","createdBy":"7651c7ab-88f9-4b23-8c1d-ac8d92844f8f",
+            "area_of_improvement":"Education Leader","school_name":"MPPS (GN) SAMANTHAKURRU","district_name":"EAST GODAVARI",
+            "program_name":"Prerak Head Teacher of the Block 19-20","state_name":"Andhra Pradesh","task_remarks":"<NULL>","status_of_project":"inProgress"}
+             """.stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-static-interval\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"district_externalId\",\"value\":\"8250d58d-f1a2-4397-bfd3-b2e688ba7141\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "888700F9A860E7A42DA968FBECDF3F22"
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while (postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-task-detail-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate report with all the 3 filters(program,solution,organisation)" in {
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("602512d8e6aefa27d9629bc3"),None),
+        DruidFilter("equals","solution_id",Option("602a19d840d02028f3af00f0"),None),
+        DruidFilter("equals","organisation_id",Option("0126796199493140480"),None))),None, None,
+      Option(List("__time","createdBy","designation","state_name","district_name","block_name",
+        "school_name","school_externalId", "organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
+        "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+
+    val json: String ="""
+            {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
+            "designation":"hm","school_externalId":"unknown","project_duration":"1 महीना","__time":1.6133724E12,"sub_task":"<NULL>",
+            "tasks":"यहां, आप अपने विद्यालय में परियोजना को पूरा करने के लिए अपने द्वारा किए गए कार्यों ( Tasks)को जोड़ सकते हैं।","project_id":"602a19d840d02028f3af00f0",
+            "project_description":"test","program_externalId":"PGM-Prerak-Head-Teacher-of-the-Block-19-20-Feb2021",
+            "organisation_name":"Pre-prod Custodian Organization","createdBy":"7651c7ab-88f9-4b23-8c1d-ac8d92844f8f",
+            "area_of_improvement":"Education Leader","school_name":"MPPS (GN) SAMANTHAKURRU","district_name":"EAST GODAVARI",
+            "program_name":"Prerak Head Teacher of the Block 19-20","state_name":"Andhra Pradesh","task_remarks":"<NULL>","status_of_project":"inProgress"}
+             """.stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140000', " +
+      "'888700F9A860E7A42DA968FBECDF3F22', 'druid-dataset', 'SUBMITTED', '{\"type\": \"ml-task-detail-exhaust-static-interval\",\"params\":{\"filters\":" +
+      "[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"sub_task_deleted_flag\"," +
+      "\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":\"task_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"project_deleted_flag\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"program_id\",\"value\":\"602512d8e6aefa27d9629bc3\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"solution_id\",\"value\":\"602a19d840d02028f3af00f0\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"organisation_id\",\"value\":\"0126796199493140480\"}]}}', '36b84ff5-2212-4219-bfed-24886969d890', 'ORG_001', " +
+      "'2021-05-09 19:35:18.666', '{}', NULL, NULL, 0, '' ,0,'test@123');")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "888700F9A860E7A42DA968FBECDF3F22"
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while (postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-task-detail-exhaust/"+requestId+"_"+reportDate+".zip}")
     }
   }
 
