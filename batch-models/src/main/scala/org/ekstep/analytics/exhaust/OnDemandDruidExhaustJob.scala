@@ -133,20 +133,8 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
 
   def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]])(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
     markRequestAsProcessing(request)
-    val requestBody = JSONUtils.deserialize[RequestBody](request.request_data)
-    val requestParamsBody = requestBody.`params`
-    val reportConfigStr = JSONUtils.serialize(reportConfig)
-
-    var finalConfig = reportConfigStr
-    (requestParamsBody.keys).map(ke => {
-      if (finalConfig.contains(ke)) {
-        finalConfig = finalConfig.replace("$" + ke, requestParamsBody.get(ke).get.toString)
-      }
-    })
-
-    val finalReportConfig = JSONUtils.deserialize[ReportConfig](finalConfig)
-    val druidData: RDD[DruidOutput] = fetchDruidData(finalReportConfig, true, false, false)
-    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(finalReportConfig)), storageConfig, sortDfColNames))
+    val druidData: RDD[DruidOutput] = fetchDruidData(reportConfig, true, false, false)
+    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(reportConfig)), storageConfig, sortDfColNames))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
     if (failedOnDemandDruidRes) {
@@ -182,12 +170,19 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
           if (validateRequest(request)) {
             val requestBody = JSONUtils.deserialize[RequestBody](request.request_data)
             val requestType = requestBody.`type`
+            val requestParamsBody = requestBody.`params`
             // TO:DO
             // Fetch report config from dataset_metadata table
             val datasetConf = getDataSetDetails(requestType)
-            val reportConfStr = if(datasetConf.druid_query.nonEmpty) datasetConf.druid_query.get else AppConf.getConfig("druid_query." + requestType)
-            val sortDfColNames = JSONUtils.deserialize[Map[String,AnyRef]](reportConfStr).get("sort").asInstanceOf[Option[List[String]]]
-            val reportConfig = JSONUtils.deserialize[ReportConfig](reportConfStr)
+            val reportConf = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
+            val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
+            val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
+              val updatedDruidQuery:Map[String,AnyRef] = met.get("druidQuery").get.asInstanceOf[Map[String,AnyRef]] + ("filters"->requestParamsBody.get("filters").get.asInstanceOf[List[Map[String,AnyRef]]])
+              val updatedMet: Map[String, AnyRef] = (met ++ Map("druidQuery"->updatedDruidQuery))
+              updatedMet
+            })
+            val updatedReportConf = reportConf ++ Map("metrics" -> updatedMetrics)
+            val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(updatedReportConf))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
             val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
