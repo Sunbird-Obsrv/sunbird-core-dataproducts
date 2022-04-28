@@ -41,7 +41,7 @@ object CompetencyMetricsTest extends Serializable {
       "sparkCassandraConnectionHost" -> "10.0.0.7",
       "sparkDruidRouterHost" -> "10.0.0.13",
       "sparkElasticsearchConnectionHost" -> "10.0.0.7",
-      "fracBackendHost" -> "frac-dictionary-backend.igot-stage.in",
+      "fracBackendHost" -> "frac-dictionary-backend.igot-dev.in",
       "cassandraUserKeyspace" -> "sunbird",
       "cassandraCourseKeyspace" -> "sunbird_courses",
       "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
