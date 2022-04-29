@@ -19,6 +19,7 @@ object CompetencyMetricsTest extends Serializable {
         .getOrCreate()
     implicit val sc: SparkContext = spark.sparkContext
     implicit val fc: FrameworkContext = new FrameworkContext()
+    sc.setLogLevel("WARN")
     val res = time(test());
     Console.println("Time taken to execute script", res._1);
     spark.stop();
