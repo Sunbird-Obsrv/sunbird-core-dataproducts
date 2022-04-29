@@ -57,9 +57,9 @@ C1.09   5       Scorecard           No. of CBPs mapped (by competency)
 case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
-case class Config(broker: String, userCourseProgressTopic: String, fracCompetencyTopic: String,
-                  courseCompetencyTopic: String, expectedCompetencyTopic: String, declaredCompetencyTopic: String,
-                  competencyGapTopic: String, courseRatingSummaryTopic: String,
+case class Config(debug: String, broker: String, courseDetailsTopic: String, userCourseProgressTopic: String,
+                  fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
+                  declaredCompetencyTopic: String, competencyGapTopic: String, courseRatingSummaryTopic: String,
                   sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
                   sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
                   cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
@@ -70,6 +70,8 @@ case class Config(broker: String, userCourseProgressTopic: String, fracCompetenc
  * Model for processing competency metrics
  */
 object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, DummyOutput, DummyOutput] with Serializable {
+
+  implicit var debug: Boolean = false
 
   implicit val className: String = "org.ekstep.analytics.dashboard.CompetencyMetricsModel"
   override def name() = "CompetencyMetricsModel"
@@ -101,38 +103,46 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     // parse model config
     println(config)
     implicit val conf: Config = parseConfig(config)
+    if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
-    // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
-    val crsDF = courseRatingSummaryDataFrame()
-    kafkaDispatch(withTimestamp(crsDF, timestamp), conf.courseRatingSummaryTopic)
-
-    // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
-    val uccDF = userCourseCompletionDataFrame()
-    kafkaDispatch(withTimestamp(uccDF, timestamp), conf.userCourseProgressTopic)
+    // get course details, dispatch to kafka to be ingested by druid data-source: dashboards-course-details
+    val courseDetailsWithCompDF = courseDetailsWithCompetenciesJsonDataFrame()
+    val courseDetailsDF = courseDetailsDataFrame(courseDetailsWithCompDF)
+    // kafkaDispatch(withTimestamp(courseDetailsDF, timestamp), conf.courseDetailsTopic)
 
     // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
-    val ccDF = courseCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(ccDF, timestamp), conf.courseCompetencyTopic)
+    // val courseCompetencyDF = courseCompetencyDataFrame(courseDetailsWithCompDF)
+    // kafkaDispatch(withTimestamp(courseCompetencyDF, timestamp), conf.courseCompetencyTopic)
+
+    // get total rating and total number of rating for course rating summary, dispatch to kafka to be ingested by druid data-source: dashboards-course-rating-summary
+    // val courseRatingDF = courseRatingSummaryDataFrame()
+    // val courseRatingWithDetailsDF = courseRatingSummaryWithDetailsDataFrame(courseRatingDF, courseDetailsDF)
+    // kafkaDispatch(withTimestamp(courseRatingWithDetailsDF, timestamp), conf.courseRatingSummaryTopic)
+
+    // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
+    // val courseCompletionDF = userCourseCompletionDataFrame()
+    // val courseCompletionWithOrgAndNameDF = userCourseCompletionWithDetailsDataFrame(courseCompletionDF, courseDetailsDF)
+    // kafkaDispatch(withTimestamp(courseCompletionWithOrgAndNameDF, timestamp), conf.userCourseProgressTopic)
 
     // get user's expected competency data, dispatch to kafka to be ingested by druid data-source: dashboards-expected-user-competency
-    val ecDF = expectedCompetencyDataFrame()
-    val eccDF = expectedCompetencyWithCourseCountDataFrame(ecDF, ccDF)
-    kafkaDispatch(withTimestamp(eccDF, timestamp), conf.expectedCompetencyTopic)
+    // val expectedCompetencyDF = expectedCompetencyDataFrame()
+    // val expectedCompetencyWithCourseCountDF = expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF, courseCompetencyDF)
+    // kafkaDispatch(withTimestamp(expectedCompetencyWithCourseCountDF, timestamp), conf.expectedCompetencyTopic)
 
     // get user's declared competency data, dispatch to kafka to be ingested by druid data-source: dashboards-declared-user-competency
-    val dcDF = declaredCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(dcDF, timestamp), conf.declaredCompetencyTopic)
+    // val declaredCompetencyDF = declaredCompetencyDataFrame()
+    // kafkaDispatch(withTimestamp(declaredCompetencyDF, timestamp), conf.declaredCompetencyTopic)
 
     // get frac competency data, dispatch to kafka to be ingested by druid data-source: dashboards-frac-competency
-    val fcDF = fracCompetencyDataFrame()
-    val fccDF = fracCompetencyWithCourseCountDataFrame(fcDF, ccDF)
-    val fcoDF = fracCompetencyWithOfficerCountDataFrame(fccDF, ecDF, dcDF)
-    kafkaDispatch(withTimestamp(fcoDF, timestamp), conf.fracCompetencyTopic)
+    // val fracCompetencyDF = fracCompetencyDataFrame()
+    // val fracCompetencyWithCourseCountDF = fracCompetencyWithCourseCountDataFrame(fracCompetencyDF, courseCompetencyDF)
+    // val fracCompetencyWithDetailsDF = fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF, expectedCompetencyDF, declaredCompetencyDF)
+    // kafkaDispatch(withTimestamp(fracCompetencyWithDetailsDF, timestamp), conf.fracCompetencyTopic)
 
     // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
-    val cgDF = competencyGapDataFrame(ecDF, dcDF)
-    val cgcDF = competencyGapCompletionDataFrame(cgDF, ccDF, uccDF)  // add course completion status
-    kafkaDispatch(withTimestamp(cgcDF, timestamp), conf.competencyGapTopic)
+    // val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
+    // val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionDF)  // add course completion status
+    // kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
   }
 
   /* Config functions */
@@ -148,7 +158,9 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
   def parseConfig(config: Map[String, AnyRef]): Config = {
     Config(
+      debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
+      courseDetailsTopic = getConfigSideTopic(config, "courseDetails"),
       userCourseProgressTopic = getConfigSideTopic(config, "userCourseProgress"),
       fracCompetencyTopic = getConfigSideTopic(config, "fracCompetency"),
       courseCompetencyTopic = getConfigSideTopic(config, "courseCompetency"),
@@ -171,13 +183,23 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   }
 
   /* Util functions */
+  def show(df: DataFrame): Unit = {
+    if (debug) df.show()
+    df.printSchema()
+  }
 
   def withTimestamp(df: DataFrame, timestamp: Long): DataFrame = {
     df.withColumn("timestamp", lit(timestamp))
   }
 
   def kafkaDispatch(data: DataFrame, topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
-    KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
+    if (topic == "") {
+      println("ERROR: topic is blank, skipping kafka dispatch")
+    } else if (conf.broker == "") {
+      println("ERROR: broker list is blank, skipping kafka dispatch")
+    } else {
+      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
+    }
   }
 
   def api(method: String, url: String, body: String): String = {
@@ -240,6 +262,99 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   /* Data processing functions */
 
   /**
+   * Distinct live course ids from elastic search api
+   * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
+   * @return DataFrame(id)
+   */
+  def liveCourseDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    val result = elasticSearchCourseAPI(conf.sparkElasticsearchConnectionHost)
+
+    var df = dataFrameFromJSONString(result)
+    df = df.select(explode_outer(col("hits.hits")).alias("course"))
+    df = df.select(col("course._source.identifier").alias("id")).distinct()
+
+    show(df)
+    df
+  }
+
+  /* schema definitions for courseDetailsDataFrame */
+  val courseHierarchySchema: StructType = StructType(Seq(
+    StructField("name", StringType, nullable = true),
+    StructField("status", StringType, nullable = true),
+    StructField("channel", StringType, nullable = true),
+    StructField("competencies_v3", StringType, nullable = true)
+  ))
+  /**
+   * course details with competencies json from cassandra dev_hierarchy_store:content_hierarchy
+   * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, competenciesJson)
+   */
+  def courseDetailsWithCompetenciesJsonDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+    val rawCourseDF = cassandraTableAsDataFrame(conf.cassandraHierarchyStoreKeyspace, conf.cassandraContentHierarchyTable)
+    val liveCourseIDsDF = liveCourseDataFrame()  // get ids for live courses from es api
+
+    // inner join so that we only retain live courses
+    var df = liveCourseIDsDF.join(rawCourseDF,
+      liveCourseIDsDF.col("id") <=> rawCourseDF.col("identifier"), "inner")
+      .filter(col("hierarchy").isNotNull)
+
+    df = df.withColumn("data", from_json(col("hierarchy"), courseHierarchySchema))
+    df = df.select(
+      col("id").alias("courseID"),
+      col("data.name").alias("courseName"),
+      col("data.status").alias("courseStatus"),
+      col("data.channel").alias("courseOrgID"),
+      col("data.competencies_v3").alias("competenciesJson")
+    )
+
+    show(df)
+    df
+  }
+
+  /**
+   * course details without competencies json
+   * @param courseDetailsWithCompDF course details with competencies json
+   * @return DataFrame(courseID, courseName, courseStatus, courseOrgID)
+   */
+  def courseDetailsDataFrame(courseDetailsWithCompDF: DataFrame): DataFrame = {
+    val df = courseDetailsWithCompDF.drop("competenciesJson")
+
+    show(df)
+    df
+  }
+
+  /* schema definitions for courseCompetencyDataFrame */
+  val courseCompetenciesSchema: ArrayType = ArrayType(StructType(Seq(
+    StructField("id",  StringType, nullable = true),
+    StructField("selectedLevelLevel",  StringType, nullable = true)
+  )))
+  /**
+   * course competency mapping data from cassandra dev_hierarchy_store:content_hierarchy
+   * @param courseDetailsWithCompDF course details with competencies json
+   * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
+   */
+  def courseCompetencyDataFrame(courseDetailsWithCompDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+    var df = courseDetailsWithCompDF.withColumn("competencies", from_json(col("competenciesJson"), courseCompetenciesSchema))
+
+    df = df.select(
+      col("courseID"), col("courseName"), col("courseStatus"), col("courseOrgID"),
+      explode_outer(col("competencies")).alias("competency")
+    ).filter(col("competency").isNotNull)
+
+    df = df.withColumn("competencyLevel", expr("TRIM(competency.selectedLevelLevel)"))
+    df = df.withColumn("competencyLevel",
+      expr("IF(competencyLevel RLIKE '[0-9]+', CAST(REGEXP_EXTRACT(competencyLevel, '[0-9]+', 0) AS INTEGER), 1)"))
+
+    df = df.select(
+      col("courseID"), col("courseName"), col("courseStatus"), col("courseOrgID"),
+      col("competency.id").alias("competencyID"),
+      col("competencyLevel")
+    )
+
+    show(df)
+    df
+  }
+
+  /**
    * data frame of course rating summary
    * @return DataFrame(courseID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
    */
@@ -259,137 +374,94 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
         col("totalcount5stars").alias("count5Star")
       )
 
-    df.show()
-    df.printSchema()
+    show(df)
+    df
+  }
+
+  /**
+   * attach courseName, courseStatus, courseOrgID to course rating summary data frame
+   * @param courseRatingDF course rating summary data frame
+   * @param courseDetailsDF course details data frame
+   * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
+   */
+  def courseRatingSummaryWithDetailsDataFrame(courseRatingDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+    // courseRatingDF = DataFrame(courseID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
+    // courseDetailsDF = DataFrame(courseID, courseName, courseStatus, courseOrgID)
+    val df = courseRatingDF.join(courseDetailsDF, Seq("courseID"), "leftouter")
+
+    show(df)
     df
   }
 
   /**
    * data frame of user course completion percentage
-   * @return DataFrame(completionUserID, completionCourseID, completionPercentage, completionStatus)
+   * @return DataFrame(userID, courseID, completionPercentage, completionStatus)
    */
   def userCourseCompletionDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
     var df = cassandraTableAsDataFrame(conf.cassandraCourseKeyspace, conf.cassandraUserContentConsumptionTable)
       .select(
-        col("userid").alias("completionUserID"),
-        col("courseid").alias("completionCourseID"),
+        col("userid").alias("userID"),
+        col("courseid").alias("courseID"),
         col("completionpercentage").alias("completionPercentage")
       )
     df = withCompletionStatusColumn(df)
 
-    df.show()
-    df.printSchema()
+    show(df)
     df
   }
 
-  /* schema definitions for courseCompetencyDataFrame */
-  val courseCompetenciesSchema: ArrayType = ArrayType(StructType(Seq(
-    StructField("id",  StringType, nullable = true),
-    StructField("selectedLevelLevel",  StringType, nullable = true)
-  )))
-  val courseHierarchySchema: StructType = StructType(Seq(
-    StructField("status", StringType, nullable = true),
-    StructField("channel", StringType, nullable = true),
-    StructField("competencies_v3", StringType, nullable = true)
-  ))
   /**
-   * course competency mapping data from cassandra dev_hierarchy_store:content_hierarchy
-   * @return DataFrame(courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel)
+   * attach courseName, courseStatus, courseOrgID to course rating summary data frame
+   * @param courseCompletionDF user course completion data frame
+   * @param courseDetailsDF course details data frame
+   * @return DataFrame(userID, courseID, courseName, courseStatus, courseOrgID, completionPercentage, completionStatus)
    */
-  def courseCompetencyDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def userCourseCompletionWithDetailsDataFrame(courseCompletionDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+    // courseCompletionDF = DataFrame(userID, courseID, completionPercentage, completionStatus)
+    // courseDetailsDF = DataFrame(courseID, courseName, courseStatus, courseOrgID)
+    val df = courseCompletionDF.join(courseDetailsDF, Seq("courseID"), "leftouter")
 
-    val rawCourseDF = cassandraTableAsDataFrame(conf.cassandraHierarchyStoreKeyspace, conf.cassandraContentHierarchyTable)
-    val liveCourseIDsDF = liveCourseDataFrame()  // get ids for live courses from es api
-
-    // inner join so that we only retain live courses
-    var courseDF = liveCourseIDsDF.join(rawCourseDF,
-      liveCourseIDsDF.col("id") <=> rawCourseDF.col("identifier"), "inner")
-      .filter(col("hierarchy").isNotNull)
-
-    courseDF = courseDF.withColumn("data", from_json(col("hierarchy"), courseHierarchySchema))
-    courseDF = courseDF.select(
-      col("id").alias("courseID"),
-      col("data.status").alias("courseStatus"),
-      col("data.channel").alias("courseChannel"),
-      col("data.competencies_v3").alias("competenciesJson")
-    ).withColumn("competencies", from_json(col("competenciesJson"), courseCompetenciesSchema))
-
-    courseDF = courseDF.select(
-      col("courseID"), col("courseStatus"), col("courseChannel"),
-      explode_outer(col("competencies")).alias("competency")
-    ).filter(col("competency").isNotNull)
-
-    courseDF = courseDF.withColumn("competencyLevel", expr("TRIM(competency.selectedLevelLevel)"))
-    courseDF = courseDF.withColumn("competencyLevel",
-      expr("IF(competencyLevel RLIKE '[0-9]+', CAST(REGEXP_EXTRACT(competencyLevel, '[0-9]+', 0) AS INTEGER), 1)"))
-
-    courseDF = courseDF.select(
-      col("courseID"), col("courseStatus"), col("courseChannel"),
-      col("competency.id").alias("courseCompetencyID"),
-      col("competencyLevel").alias("courseCompetencyLevel")
-    )
-
-    courseDF.show()
-    courseDF.printSchema()
-    courseDF
-  }
-
-  /**
-   * Distinct live course ids from elastic search api
-   * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
-   * @return DataFrame(id)
-   */
-  def liveCourseDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
-    val result = elasticSearchCourseAPI(conf.sparkElasticsearchConnectionHost)
-
-    var courseDF = dataFrameFromJSONString(result)
-    courseDF = courseDF.select(explode_outer(col("hits.hits")).alias("course"))
-    courseDF = courseDF.select(col("course._source.identifier").alias("id")).distinct()
-
-    courseDF.show()
-    courseDF.printSchema()
-    courseDF
+    show(df)
+    df
   }
 
   /**
    * User's expected competency data from the latest approved work orders issued for them from druid
-   * @return DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel)
+   * @return DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
    */
   def expectedCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
-    val query = """SELECT edata_cb_data_deptId AS expOrgID, edata_cb_data_wa_id AS expWorkOrderID, edata_cb_data_wa_userId AS expUserID, edata_cb_data_wa_competency_id AS expCompetencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
+    val query = """SELECT edata_cb_data_deptId AS orgID, edata_cb_data_wa_id AS workOrderID, edata_cb_data_wa_userId AS userID, edata_cb_data_wa_competency_id AS competencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS competencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val result = druidSQLAPI(query, conf.sparkDruidRouterHost)
 
     val df = dataFrameFromJSONString(result)
-      .filter(col("expCompetencyID").isNotNull && col("expCompetencyLevel").notEqual(0))
-      .withColumn("expCompetencyLevel", expr("CAST(expCompetencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
+      .filter(col("competencyID").isNotNull && col("competencyLevel").notEqual(0))
+      .withColumn("expectedCompetencyLevel", expr("CAST(competencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
 
-    df.show()
-    df.printSchema()
+    show(df)
     df
   }
 
   /**
    * User's expected competency data from the latest approved work orders issued for them, including live course count
-   * @param ecDF expected competency data frame
-   * @param ccDF course competency data frame
-   * @return DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel, liveCourseCount)
+   * @param expectedCompetencyDF expected competency data frame
+   * @param courseCompetencyDF course competency data frame
+   * @return DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel, liveCourseCount)
    */
-  def expectedCompetencyWithCourseCountDataFrame(ecDF: DataFrame, ccDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
-    // ecDF = DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel)
-    // ccDF = DataFrame(courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel)
+  def expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+    // expectedCompetencyDF = DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
+    // courseCompetencyDF = DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
 
     // live course count DF
-    val lccDF = ecDF.join(ccDF, col("expCompetencyID") <=> col("courseCompetencyID"), "leftouter")
-      .where(expr("expCompetencyLevel <= courseCompetencyLevel"))
-      .groupBy("expOrgID", "expWorkOrderID", "expUserID", "expCompetencyID", "expCompetencyLevel")
+    val liveCourseCountDF = expectedCompetencyDF.join(courseCompetencyDF, Seq("competencyID"), "leftouter")
+      .where(expr("expectedCompetencyLevel <= competencyLevel"))
+      .groupBy("orgID", "workOrderID", "userID", "competencyID", "expectedCompetencyLevel")
       .agg(countDistinct("courseID").alias("liveCourseCount"))
 
-    val eccDF = ecDF.join(lccDF, Seq("expOrgID", "expWorkOrderID", "expUserID", "expCompetencyID", "expCompetencyLevel"), "leftouter")
+    val df = expectedCompetencyDF.join(liveCourseCountDF, Seq("orgID", "workOrderID", "userID", "competencyID", "expectedCompetencyLevel"), "leftouter")
       .na.fill(0, Seq("liveCourseCount"))
 
-    eccDF.show()
-    eccDF.printSchema()
-    eccDF
+    show(df)
+    df
   }
 
   /* schema definitions for declaredCompetencyDataFrame */
@@ -405,161 +477,146 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   )
   /**
    * User's declared competency data from cassandra sunbird:user
-   * @return DataFrame(decUserID, decCompetencyID, decCompetencyLevel)
+   * @return DataFrame(userID, competencyID, declaredCompetencyLevel)
    */
   def declaredCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
     val userdata = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
 
-    val up = userdata.where(col("profiledetails").isNotNull)
+    val df = userdata.where(col("profiledetails").isNotNull)
       .select("userid", "profiledetails")
       .withColumn("profile", from_json(col("profiledetails"), profileDetailsSchema))
       .select(col("userid"), explode_outer(col("profile.competencies")).alias("competency"))
       .where(col("competency").isNotNull && col("competency.id").isNotNull)
       .select(
-        col("userid").alias("decUserID"),
-        col("competency.id").alias("decCompetencyID"),
-        col("competency.competencySelfAttestedLevel").alias("decCompetencyLevel")
+        col("userid").alias("userID"),
+        col("competency.id").alias("competencyID"),
+        col("competency.competencySelfAttestedLevel").alias("declaredCompetencyLevel")
       )
-      .na.fill(1, Seq("decCompetencyLevel"))  // if competency is listed without a level assume level 1
+      .na.fill(1, Seq("declaredCompetencyLevel"))  // if competency is listed without a level assume level 1
 
-    up.show()
-    up.printSchema()
-    up
+    show(df)
+    df
   }
 
   /**
    * data frame of all approved competencies from frac dictionary api
-   * @return DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus)
+   * @return DataFrame(competencyID, competencyName, competencyStatus)
    */
   def fracCompetencyDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
     val result = fracCompetencyAPI(conf.fracBackendHost)
     val df = dataFrameFromJSONString(result)
       .select(explode_outer(col("data.getAllCompetencies")).alias("competency"))
       .select(
-        col("competency.id").alias("fracCompetencyID"),
-        col("competency.name").alias("fracCompetencyName"),
-        col("competency.status").alias("fracCompetencyStatus")
+        col("competency.id").alias("competencyID"),
+        col("competency.name").alias("competencyName"),
+        col("competency.status").alias("competencyStatus")
       )
 
-    df.show()
-    df.printSchema()
+    show(df)
     df
   }
 
   /**
    * data frame of all approved competencies from frac dictionary api, including live course count
-   * @param fcDF frac competency data frame
-   * @param ccDF course competency data frame
-   * @return DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus, liveCourseCount)
+   * @param fracCompetencyDF frac competency data frame
+   * @param courseCompetencyDF course competency data frame
+   * @return DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount)
    */
-  def fracCompetencyWithCourseCountDataFrame(fcDF: DataFrame, ccDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
-    // fcDF = DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus)
-    // ccDF = DataFrame(courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel)
+  def fracCompetencyWithCourseCountDataFrame(fracCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+    // fracCompetencyDF = DataFrame(competencyID, competencyName, competencyStatus)
+    // courseCompetencyDF = DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
 
     // live course count DF
-    val lccDF = fcDF.join(ccDF, col("fracCompetencyID") <=> col("courseCompetencyID"), "leftouter")
+    val liveCourseCountDF = fracCompetencyDF.join(courseCompetencyDF, Seq("competencyID"), "leftouter")
       .filter(col("courseID").isNotNull)
-      .groupBy("fracCompetencyID", "fracCompetencyName", "fracCompetencyStatus")
+      .groupBy("competencyID", "competencyName", "competencyStatus")
       .agg(countDistinct("courseID").alias("liveCourseCount"))
 
-    val eccDF = fcDF.join(lccDF, Seq("fracCompetencyID", "fracCompetencyName", "fracCompetencyStatus"), "leftouter")
+    val df = fracCompetencyDF.join(liveCourseCountDF, Seq("competencyID", "competencyName", "competencyStatus"), "leftouter")
       .na.fill(0, Seq("liveCourseCount"))
 
-    eccDF.show()
-    eccDF.printSchema()
-    eccDF
+    show(df)
+    df
   }
 
   /**
    * data frame of all approved competencies from frac dictionary api, including officer count
-   * @param fccDF frac competency data frame with live course count
-   * @param ecDF expected competency data frame
-   * @param dcDF declared  competency data frame
-   * @return DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus, liveCourseCount, officerCountExpected, officerCountDeclared)
+   * @param fracCompetencyWithCourseCountDF frac competency data frame with live course count
+   * @param expectedCompetencyDF expected competency data frame
+   * @param declaredCompetencyDF declared  competency data frame
+   * @return DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount, officerCountExpected, officerCountDeclared)
    */
-  def fracCompetencyWithOfficerCountDataFrame(fccDF: DataFrame, ecDF: DataFrame, dcDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
-    // fccDF = DataFrame(fracCompetencyID, fracCompetencyName, fracCompetencyStatus, liveCourseCount)
-    // ecDF = DataFrame(expOrgID, expWorkOrderID, expUserID, expCompetencyID, expCompetencyLevel)
-    // dcDF = DataFrame(decUserID, decCompetencyID, decCompetencyLevel)
+  def fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF: DataFrame, expectedCompetencyDF: DataFrame, declaredCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+    // fracCompetencyWithCourseCountDF = DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount)
+    // expectedCompetencyDF = DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
+    // declaredCompetencyDF = DataFrame(userID, competencyID, declaredCompetencyLevel)
 
     // add expected officer count
-    val fceDF = fccDF.join(ecDF, col("fracCompetencyID") <=> col("expCompetencyID"), "leftouter")
-      .groupBy("fracCompetencyID", "fracCompetencyName", "fracCompetencyStatus", "liveCourseCount")
-      .agg(countDistinct("expUserID").alias("officerCountExpected"))
+    val fcExpectedCountDF = fracCompetencyWithCourseCountDF.join(expectedCompetencyDF, Seq("competencyID"), "leftouter")
+      .groupBy("competencyID", "competencyName", "competencyStatus", "liveCourseCount")
+      .agg(countDistinct("userID").alias("officerCountExpected"))
 
     // add declared officer count
-    val fcoDF = fceDF.join(dcDF, col("fracCompetencyID") <=> col("decCompetencyID"), "leftouter")
-      .groupBy("fracCompetencyID", "fracCompetencyName", "fracCompetencyStatus", "liveCourseCount", "officerCountExpected")
-      .agg(countDistinct("decUserID").alias("officerCountDeclared"))
+    val df = fcExpectedCountDF.join(declaredCompetencyDF, Seq("competencyID"), "leftouter")
+      .groupBy("competencyID", "competencyName", "competencyStatus", "liveCourseCount", "officerCountExpected")
+      .agg(countDistinct("userID").alias("officerCountDeclared"))
 
-    fcoDF.show()
-    fcoDF.printSchema()
-    fcoDF
+    show(df)
+    df
   }
 
   /**
    * Calculates user's competency gaps
-   * @param ecDF expected competency data frame
-   * @param dcDF declared  competency data frame
-   * @return DataFrame(userID, competencyID, orgID, workOrderID, expectedLevel, declaredLevel, competencyGap)
+   * @param expectedCompetencyDF expected competency data frame
+   * @param declaredCompetencyDF declared competency data frame
+   * @return DataFrame(userID, competencyID, orgID, workOrderID, expectedCompetencyLevel, declaredCompetencyLevel, competencyGap)
    */
-  def competencyGapDataFrame(ecDF: DataFrame, dcDF: DataFrame)(implicit spark: SparkSession): DataFrame = {
+  def competencyGapDataFrame(expectedCompetencyDF: DataFrame, declaredCompetencyDF: DataFrame)(implicit spark: SparkSession): DataFrame = {
+    // expectedCompetencyDF: DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
+    // declaredCompetencyDF: DataFrame(userID, competencyID, declaredCompetencyLevel)
 
-    var gapDF = ecDF.join(dcDF,
-      ecDF.col("expCompetencyID") <=> dcDF.col("decCompetencyID") && ecDF.col("expUserID") <=> dcDF.col("decUserID"),
-      "leftouter"
-    )
-    gapDF = gapDF.na.fill(0, Seq("decCompetencyLevel"))  // if null values created during join fill with 0
-    gapDF = gapDF.groupBy("expUserID", "expCompetencyID", "expOrgID", "expWorkOrderID")
+    var df = expectedCompetencyDF.join(declaredCompetencyDF, Seq("competencyID", "userID"), "leftouter")
+    df = df.na.fill(0, Seq("declaredCompetencyLevel"))  // if null values created during join fill with 0
+    df = df.groupBy("userID", "competencyID", "orgID", "workOrderID")
       .agg(
-        max("expCompetencyLevel").alias("expectedLevel"),  // in-case of multiple entries, take max
-        max("decCompetencyLevel").alias("declaredLevel")  // in-case of multiple entries, take max
+        max("expectedCompetencyLevel").alias("expectedCompetencyLevel"),  // in-case of multiple entries, take max
+        max("declaredCompetencyLevel").alias("declaredCompetencyLevel")  // in-case of multiple entries, take max
       )
-    gapDF = gapDF.select(
-      col("expUserID").alias("userID"),
-      col("expCompetencyID").alias("competencyID"),
-      col("expOrgID").alias("orgID"),
-      col("expWorkOrderID").alias("workOrderID"),
-      col("expectedLevel"),
-      col("declaredLevel")
-    )
-    gapDF = gapDF.withColumn("competencyGap", expr("expectedLevel - declaredLevel"))
+    df = df.withColumn("competencyGap", expr("expectedCompetencyLevel - declaredCompetencyLevel"))
 
-    gapDF.show()
-    gapDF.printSchema()
-    gapDF
+    show(df)
+    df
   }
 
   /**
    * add course data to competency gap data, add user course completion info on top, calculate user competency gap status
    *
-   * @param cgDF competency gap data frame
-   * @param ccDF course competency data frame
-   * @param uccDF user course completion data frame
-   * @return DataFrame(userID, competencyID, orgID, workOrderID, expectedLevel, declaredLevel, competencyGap, completionPercentage, completionStatus)
+   * @param competencyGapDF competency gap data frame
+   * @param courseCompetencyDF course competency data frame
+   * @param courseCompletionDF user course completion data frame
+   * @return DataFrame(userID, competencyID, orgID, workOrderID, expectedCompetencyLevel, declaredCompetencyLevel, competencyGap, completionPercentage, completionStatus)
    */
-  def competencyGapCompletionDataFrame(cgDF: DataFrame, ccDF: DataFrame, uccDF: DataFrame): DataFrame = {
-    // cgDF - userID, competencyID, orgID, workOrderID, expectedLevel, declaredLevel, competencyGap
-    // ccDF - courseID, courseStatus, courseChannel, courseCompetencyID, courseCompetencyLevel
-    // uccDF - completionUserID, completionCourseID, completionPercentage, completionStatus
+  def competencyGapCompletionDataFrame(competencyGapDF: DataFrame, courseCompetencyDF: DataFrame, courseCompletionDF: DataFrame): DataFrame = {
+    // competencyGapDF - userID, competencyID, orgID, workOrderID, expectedCompetencyLevel, declaredCompetencyLevel, competencyGap
+    // courseCompetencyDF - courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel
+    // courseCompletionDF - userID, courseID, courseName, courseStatus, courseOrgID, completionPercentage, completionStatus
 
-    val cgCourseDF = cgDF.filter("competencyGap > 0")  // for
-      .join(ccDF, cgDF.col("competencyID") <=> ccDF.col("courseCompetencyID"), "leftouter")
-      .filter("expectedLevel >= courseCompetencyLevel")
+    // userID, competencyID, orgID, workOrderID, expectedCompetencyLevel, declaredCompetencyLevel, competencyGap, courseID, courseName, courseStatus, courseOrgID, competencyLevel
+    val cgCourseDF = competencyGapDF.filter("competencyGap > 0")
+      .join(courseCompetencyDF, Seq("competencyID"), "leftouter")
+      .filter("expectedCompetencyLevel >= competencyLevel")
 
-    val gapCourseUserStatus = cgCourseDF.join(uccDF,
-      cgCourseDF.col("userID") <=> uccDF.col("completionUserID") &&
-        cgCourseDF.col("courseID") <=> uccDF.col("completionCourseID"), "leftouter")
+    // userID, competencyID, orgID, workOrderID, completionPercentage
+    val gapCourseUserStatus = cgCourseDF.join(courseCompletionDF, Seq("userID", "courseID"), "leftouter")
       .groupBy("userID", "competencyID", "orgID", "workOrderID")
       .agg(max(col("completionPercentage")).alias("completionPercentage"))
       .withColumn("completionPercentage", expr("IF(ISNULL(completionPercentage), 0.0, completionPercentage)"))
 
-    var df = cgDF.join(gapCourseUserStatus, Seq("userID", "competencyID", "orgID", "workOrderID"), "leftouter")
+    var df = competencyGapDF.join(gapCourseUserStatus, Seq("userID", "competencyID", "orgID", "workOrderID"), "leftouter")
 
     df = withCompletionStatusColumn(df)
 
-    df.show()
-    df.printSchema()
+    show(df)
     df
   }
 

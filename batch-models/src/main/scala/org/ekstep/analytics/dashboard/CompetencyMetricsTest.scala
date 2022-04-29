@@ -28,6 +28,7 @@ object CompetencyMetricsTest extends Serializable {
     val sideOutput = Map(
       "brokerList" -> "10.0.0.5:9092",
       "topics" -> Map(
+        "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",
         "fracCompetency" -> "dev.dashboards.competency.frac",
         "courseCompetency" -> "dev.dashboards.competency.course",
@@ -38,6 +39,7 @@ object CompetencyMetricsTest extends Serializable {
       )
     )
     val modelParams = Map(
+      "debug" -> "true",
       "sparkCassandraConnectionHost" -> "10.0.0.7",
       "sparkDruidRouterHost" -> "10.0.0.13",
       "sparkElasticsearchConnectionHost" -> "10.0.0.7",
