@@ -1,5 +1,6 @@
 package org.ekstep.analytics.dashboard
 
+import redis.clients.jedis.Jedis
 import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
@@ -64,7 +65,8 @@ case class Config(debug: String, broker: String, courseDetailsTopic: String, use
                   sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
                   cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
                   cassandraUserContentConsumptionTable: String, cassandraContentHierarchyTable: String,
-                  cassandraRatingSummaryTable: String) extends Serializable
+                  cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int,
+                  redisDB: Int, redisKey: String) extends Serializable
 
 /**
  * Model for processing competency metrics
@@ -144,6 +146,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
     val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
     val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionDF)  // add course completion status
+    redisDispatch(conf.redisHost, conf.redisPort, conf.redisDB, conf.redisKey, competencyGapWithCompletionDF)
     kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
   }
 
@@ -180,7 +183,11 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       cassandraUserTable = getConfigModelParam(config, "cassandraUserTable"),
       cassandraUserContentConsumptionTable = getConfigModelParam(config, "cassandraUserContentConsumptionTable"),
       cassandraContentHierarchyTable = getConfigModelParam(config, "cassandraContentHierarchyTable"),
-      cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable")
+      cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable"),
+      redisHost = getConfigModelParam(config, "redisHost"),
+      redisPort = getConfigModelParam(config, "redisPort").toInt,
+      redisDB = getConfigModelParam(config, "redisDB").toInt,
+      redisKey = getConfigModelParam(config, "redisKey")
     )
   }
 
@@ -205,6 +212,17 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     } else {
       KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
     }
+  }
+
+  def redisDispatch(host: String, port: Int, db: Int, key: String, data: DataFrame)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+    val jedis = getRedisConnect(host, port, conf)
+    jedis.select(db)
+    jedis.set(key, data.toString())
+    jedis.close()
+  }
+
+  def getRedisConnect(redisHost: String, redisPort: Int, conf: Config):Jedis = {
+    new Jedis(redisHost, redisPort,30000)
   }
 
   def api(method: String, url: String, body: String): String = {
