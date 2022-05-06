@@ -12,6 +12,7 @@ import org.ekstep.analytics.kafka.consumer.JobConsumerV2
 import org.ekstep.analytics.framework.FrameworkContext
 import java.util.concurrent.atomic.AtomicBoolean
 import org.ekstep.analytics.framework.conf.AppConf
+import org.ekstep.analytics.framework.storage.CustomS3StorageService
 
 case class JobManagerConfig(jobsCount: Int, topic: String, bootStrapServer: String, zookeeperConnect: String, consumerGroup: String, slackChannel: String, slackUserName: String, tempBucket: String, tempFolder: String, runMode: String = "shutdown");
 
@@ -19,7 +20,17 @@ object JobManager extends optional.Application {
 
     implicit val className = "org.ekstep.analytics.job.JobManager";
     val storageType = AppConf.getConfig("cloud_storage_type")
-    val storageService = StorageServiceFactory.getStorageService(StorageConfig(storageType, AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config")))
+
+    val storageEndpoint = AppConf.getConfig("cloud_storage_endpoint_with_protocol")
+    val storageService = if ("s3".equalsIgnoreCase(storageType) && !"".equalsIgnoreCase(storageEndpoint)) {
+        new CustomS3StorageService(
+            StorageConfig(storageType, AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"), Option(storageEndpoint))
+        )
+    } else {
+        StorageServiceFactory.getStorageService(
+            StorageConfig(storageType, AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"))
+        )
+    }
 
     def main(config: String) {
         JobLogger.init("JobManager");
