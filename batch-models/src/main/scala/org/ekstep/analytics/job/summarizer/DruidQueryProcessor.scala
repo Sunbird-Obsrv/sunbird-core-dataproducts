@@ -3,6 +3,7 @@ package org.ekstep.analytics.job.summarizer
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{Dataset, Encoders, SQLContext}
+import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob.sendMetricsEventToKafka
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
@@ -15,12 +16,10 @@ import org.joda.time.DateTime
 
 import scala.collection.mutable.ListBuffer
 
-
 case class ReportRequest(report_id: String, report_schedule: Option[String], config: String, status: String)
-
 case class ReportStatus(reportId: String, status: String)
 
-object DruidQueryProcessor extends optional.Application with IJob {
+object DruidQueryProcessor extends IJob {
 
   implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
 
@@ -59,14 +58,14 @@ object DruidQueryProcessor extends optional.Application with IJob {
                   Map("id" -> "output-events", "value" -> frameworkContext.inputEventsCount.value.asInstanceOf[AnyRef]),
                   Map("id" -> "time-taken-secs", "value" -> Double.box(result._1 / 1000).asInstanceOf[AnyRef]))
                 val metricEvent = getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
-                generateLogEvent(metricEvent)
+                sendMetricsEventToKafka(metricEvent)
                 JobLogger.log(reportId + " report got successfully created", None, Level.INFO)
                 status += ReportStatus(reportId, "SUCCESS")
               }
               catch {
                 case ex: Exception =>
                   JobLogger.log(reportId + " report Failed with error: " + ex.getMessage(), None, Level.INFO)
-                  generateLogEvent(getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "FAILED",
+                  sendMetricsEventToKafka(getMetricJson(reportId, Option(new DateTime().toString(CommonUtil.dateFormat)), "FAILED",
                     List(Map("id" -> "input-events", "value" -> frameworkContext.inputEventsCount.value.asInstanceOf[AnyRef]))))
                   status += ReportStatus(reportId, "FAILED")
               }
@@ -81,7 +80,7 @@ object DruidQueryProcessor extends optional.Application with IJob {
           Map("id" -> "time-taken-secs", "value" -> Double.box(result._1 / 1000).asInstanceOf[AnyRef]))
         val metricEvent = getMetricJson("DruidReports_" + modelParams.get("batchNumber").getOrElse(1).asInstanceOf[Int],
           Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
-        generateLogEvent(metricEvent)
+        sendMetricsEventToKafka(metricEvent)
         JobLogger.end(jobName + " Completed successfully!", "SUCCESS", Option(Map("model" -> jobName,
           "TotalRequests" -> finalStatus.length,
           "SuccessRequests" -> finalStatus.count(x => x.status.toUpperCase() == "SUCCESS")),
@@ -108,11 +107,5 @@ object DruidQueryProcessor extends optional.Application with IJob {
       requestsDf.filter(col("batch_number").equalTo(batchNumber.get.asInstanceOf[Int]))
     else
       requestsDf
-  }
-
-  // $COVERAGE-OFF$
-  def generateLogEvent(metricEvent: String)(implicit  fc: FrameworkContext):Unit = {
-    if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
   }
 }
