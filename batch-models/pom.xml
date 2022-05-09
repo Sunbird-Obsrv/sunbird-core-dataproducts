@@ -231,8 +231,8 @@
         </dependency>-->
         <dependency>
 			<groupId>org.sunbird</groupId>
-			<artifactId>cloud-store-sdk_2.12</artifactId>
-			<version>1.2.9</version>
+			<artifactId>cloud-store-sdk_${scala.maj.version}</artifactId>
+			<version>1.3.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>

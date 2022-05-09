@@ -1,10 +1,12 @@
 package org.ekstep.analytics.job
 
+import scala.reflect.runtime.universe
 import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.exception.JobNotFoundException
 import org.ekstep.analytics.job.metrics.MetricsAuditJob
 import org.ekstep.analytics.job.summarizer.{DruidQueryProcessor, ExperimentDefinitionJob, MonitorSummarizer, WorkFlowSummarizer}
 import org.ekstep.analytics.job.updater.ContentRatingUpdater
+import org.ekstep.analytics.exhaust.OnDemandDruidExhaustJob
 
 import scala.reflect.runtime.universe
 
@@ -32,6 +34,8 @@ object JobFactory {
         MetricsAuditJob
       case "druid_reports" =>
         DruidQueryProcessor
+      case "druid-dataset" =>
+        OnDemandDruidExhaustJob
       case _ =>
         reflectModule(jobType);
     }
