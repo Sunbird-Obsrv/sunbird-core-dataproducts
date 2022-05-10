@@ -16,6 +16,8 @@ import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 
+import java.util
+
 /*
 
 Prerequisites(PR) -
@@ -66,7 +68,7 @@ case class Config(debug: String, broker: String, courseDetailsTopic: String, use
                   cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
                   cassandraUserContentConsumptionTable: String, cassandraContentHierarchyTable: String,
                   cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int,
-                  redisDB: Int, redisKey: String) extends Serializable
+                  redisDB: Int) extends Serializable
 
 /**
  * Model for processing competency metrics
@@ -146,7 +148,6 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
     val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
     val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionDF)  // add course completion status
-    redisDispatch(conf.redisHost, conf.redisPort, conf.redisDB, conf.redisKey, competencyGapWithCompletionDF)
     kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
   }
 
@@ -186,8 +187,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable"),
       redisHost = getConfigModelParam(config, "redisHost"),
       redisPort = getConfigModelParam(config, "redisPort").toInt,
-      redisDB = getConfigModelParam(config, "redisDB").toInt,
-      redisKey = getConfigModelParam(config, "redisKey")
+      redisDB = getConfigModelParam(config, "redisDB").toInt
     )
   }
 
@@ -214,10 +214,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     }
   }
 
-  def redisDispatch(host: String, port: Int, db: Int, key: String, data: DataFrame)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+  def redisDispatch(host: String, port: Int, db: Int, key: String, data: util.Map[String, String])(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
     val jedis = getRedisConnect(host, port, conf)
     jedis.select(db)
-    jedis.set(key, data.toString())
+    jedis.hmset(key,data)
     jedis.close()
   }
 
