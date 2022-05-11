@@ -27,7 +27,7 @@ case class RequestBody(`type`: String,`params`: Map[String,AnyRef])
 case class OnDemandDruidResponse(file: List[String], status: String, statusMsg: String, execTime: Long)
 case class Metrics(totalRequests: Option[Int], failedRequests: Option[Int], successRequests: Option[Int])
 
-object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob"
 
   val jobId: String = "druid-dataset"

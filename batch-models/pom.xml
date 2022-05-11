@@ -87,7 +87,7 @@
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-client</artifactId>
-			<version>2.7.3</version>
+			<version>2.7.4</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -138,24 +138,24 @@
 			<version>4.1.0</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- -->
+		<!--
 		<dependency>
 			<groupId>optional</groupId>
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
-		
+		-->
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
 			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>
-			<version>2.5.1</version>
+			<version>3.0.1</version>
 		</dependency>
-		<dependency>
-			<groupId>org.scalanlp</groupId>
-			<artifactId>breeze_${scala.maj.version}</artifactId>
-			<version>0.11.2</version>
-			<scope>provided</scope>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>org.scalanlp</groupId>-->
+<!--			<artifactId>breeze_${scala.maj.version}</artifactId>-->
+<!--			<version>0.11.2</version>-->
+<!--			<scope>provided</scope>-->
+<!--		</dependency>-->
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-mllib_${scala.maj.version}</artifactId>
@@ -164,7 +164,7 @@
 			<exclusions>
 				<exclusion>
 					<groupId>org.apache.spark</groupId>
-					<artifactId>spark-core_2.11</artifactId>
+					<artifactId>spark-core_${scala.maj.version}</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -208,13 +208,15 @@
 		</dependency>
 		<dependency>
 			<groupId>net.liftweb</groupId>
-			<artifactId>lift-json_2.11</artifactId>
+			<artifactId>lift-json_${scala.maj.version}</artifactId>
 			<version>3.0.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.flyberrycapital</groupId>
-			<artifactId>scala-slack_2.11</artifactId>
-			<version>0.1.0</version>
+			<!--<artifactId>scala-slack_2.11</artifactId>
+			<version>0.1.0</version> -->
+			<artifactId>scala-slack_${scala.maj.version}</artifactId>
+			<version>0.3.1</version>
 		</dependency>
 		<dependency>
             <groupId>com.github.java-json-tools</groupId>
@@ -222,14 +224,14 @@
             <version>2.2.8</version>
             <scope>test</scope>
         </dependency>
-		<dependency>
+		<!--<dependency>
 			<groupId>org.sunbird</groupId>
 			<artifactId>video-streaming</artifactId>
             <version>1.0</version>
-        </dependency>
+        </dependency>-->
         <dependency>
 			<groupId>org.sunbird</groupId>
-			<artifactId>cloud-store-sdk</artifactId>
+			<artifactId>cloud-store-sdk_${scala.maj.version}</artifactId>
 			<version>1.3.0</version>
 			<exclusions>
 				<exclusion>
@@ -241,8 +243,16 @@
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
 				<exclusion>
+					<groupId>com.fasterxml.jackson.module</groupId>
+					<artifactId>jackson-module-scala_${scala.maj.version}.0-RC1</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.apache.httpcomponents</groupId>
 					<artifactId>httpclient</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -250,6 +260,16 @@
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-lang3</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -257,7 +277,7 @@
 			<artifactId>scruid_${scala.maj.version}</artifactId>
 			<version>2.4.0</version>
 			<scope>system</scope>
-			<systemPath>${project.basedir}/lib/scruid_2.11-2.4.0.jar</systemPath>
+			<systemPath>${project.basedir}/lib/scruid_2.12-2.4.0.jar</systemPath>
 		</dependency>
 		<dependency>
 		    <groupId>pl.allegro.tech</groupId>

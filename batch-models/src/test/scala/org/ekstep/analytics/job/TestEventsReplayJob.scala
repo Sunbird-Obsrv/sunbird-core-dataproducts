@@ -7,12 +7,10 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class TestEventsReplayJob extends FlatSpec with Matchers {
 
-  val config = "{\"search\":{\"type\":\"local\",\"queries\":[{\"file\":\"src/test/resources/telemetry-replay/data.json\"}]},\"model\":\"org.ekstep.analytics.job.EventsReplayJob\",\"modelParams\":{},\"output\":[{\"to\":\"console\",\"params\":{\"printEvent\":false}}],\"parallelization\":8,\"deviceMapping\":true}"
+  val config = """{"search":{"type":"local","queries":[{"file":"src/test/resources/telemetry-replay/data.json"}]},"model":"org.ekstep.analytics.job.EventsReplayJob","modelParams":{},"output":[{"to":"console","params":{"printEvent":false}}],"parallelization":8,"deviceMapping":true}"""
 
   "EventsReplayJob" should "Read and dispatch data properly" in {
-
     EventsReplayJob.main(config)(None)
-
   }
 
   it should "read and dispatch data" in {

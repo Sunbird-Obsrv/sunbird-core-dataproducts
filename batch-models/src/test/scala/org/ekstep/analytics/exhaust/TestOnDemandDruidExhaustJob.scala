@@ -1043,7 +1043,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
 }
 
 // Test object with canZipExceptionBeIgnored = false
-object OnDemandDruidExhaustTestJob extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+object OnDemandDruidExhaustTestJob extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob"
 
   val jobId: String = "druid-dataset"
@@ -1080,7 +1080,7 @@ object OnDemandDruidExhaustTestJob extends optional.Application with BaseReports
 }
 
 // Test object with zipEnabled = false
-object OnDemandDruidExhaustTestJob2 extends optional.Application with BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+object OnDemandDruidExhaustTestJob2 extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob2"
 
   val jobId: String = "druid-dataset"

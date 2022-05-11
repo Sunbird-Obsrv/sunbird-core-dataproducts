@@ -4,7 +4,7 @@ import org.ekstep.analytics.framework.FrameworkContext
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{HTTPClient, JSONUtils}
 import org.ekstep.analytics.model.SparkSpec
-import org.ekstep.media.config.AppConfig
+import org.ekstep.analytics.util.AppConfig
 import org.joda.time.DateTime
 import org.scalamock.scalatest.MockFactory
 
