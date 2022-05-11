@@ -1,5 +1,6 @@
 package org.ekstep.analytics.dashboard
 
+import redis.clients.jedis.Jedis
 import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
@@ -14,6 +15,8 @@ import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructFie
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+
+import java.util
 
 /*
 
@@ -64,7 +67,8 @@ case class Config(debug: String, broker: String, courseDetailsTopic: String, use
                   sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
                   cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
                   cassandraUserContentConsumptionTable: String, cassandraContentHierarchyTable: String,
-                  cassandraRatingSummaryTable: String) extends Serializable
+                  cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int,
+                  redisDB: Int) extends Serializable
 
 /**
  * Model for processing competency metrics
@@ -180,7 +184,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       cassandraUserTable = getConfigModelParam(config, "cassandraUserTable"),
       cassandraUserContentConsumptionTable = getConfigModelParam(config, "cassandraUserContentConsumptionTable"),
       cassandraContentHierarchyTable = getConfigModelParam(config, "cassandraContentHierarchyTable"),
-      cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable")
+      cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable"),
+      redisHost = getConfigModelParam(config, "redisHost"),
+      redisPort = getConfigModelParam(config, "redisPort").toInt,
+      redisDB = getConfigModelParam(config, "redisDB").toInt
     )
   }
 
@@ -205,6 +212,17 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     } else {
       KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
     }
+  }
+
+  def redisDispatch(host: String, port: Int, db: Int, key: String, data: util.Map[String, String])(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+    val jedis = getRedisConnect(host, port, conf)
+    jedis.select(db)
+    jedis.hmset(key,data)
+    jedis.close()
+  }
+
+  def getRedisConnect(redisHost: String, redisPort: Int, conf: Config):Jedis = {
+    new Jedis(redisHost, redisPort,30000)
   }
 
   def api(method: String, url: String, body: String): String = {
