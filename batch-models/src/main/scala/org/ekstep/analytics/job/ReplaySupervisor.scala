@@ -7,7 +7,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.exception.{DataFetcherException, JobNotFoundException}
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger}
 
-object ReplaySupervisor {
+object ReplaySupervisor extends optional.Application {
 
     implicit val className = "org.ekstep.analytics.job.ReplaySupervisor"
 

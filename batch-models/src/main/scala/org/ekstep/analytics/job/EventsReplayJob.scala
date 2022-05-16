@@ -7,7 +7,7 @@ import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger}
 
 import scala.collection.Map
 
-object EventsReplayJob extends IJob {
+object EventsReplayJob extends optional.Application with IJob {
 
   implicit val className = "org.ekstep.analytics.job.EventsReplayJob"
   implicit val fc = new FrameworkContext()

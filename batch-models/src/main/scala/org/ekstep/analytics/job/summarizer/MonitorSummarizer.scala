@@ -10,7 +10,7 @@ import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.model.MonitorSummaryModel
 import org.ekstep.analytics.framework.FrameworkContext
 
-object MonitorSummarizer extends IJob {
+object MonitorSummarizer extends optional.Application with IJob {
     implicit val className = "org.ekstep.analytics.job.MonitorSummarizer"
 
     def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {

@@ -19,7 +19,7 @@ import scala.collection.mutable.ListBuffer
 case class ReportRequest(report_id: String, report_schedule: Option[String], config: String, status: String)
 case class ReportStatus(reportId: String, status: String)
 
-object DruidQueryProcessor extends IJob {
+object DruidQueryProcessor extends optional.Application with IJob {
 
   implicit val className = "org.ekstep.analytics.job.DruidQueryProcessor"
 
