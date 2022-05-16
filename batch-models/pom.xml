@@ -138,13 +138,11 @@
 			<version>4.1.0</version>
 			<scope>test</scope>
 		</dependency>
-		<!--
 		<dependency>
 			<groupId>optional</groupId>
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
-		-->
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
 			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>

@@ -19,7 +19,7 @@
 	</properties>
 
 	<modules>
-		<!-- <module>optional-master</module> -->
+		<module>optional-master</module>
 		<module>batch-models</module>
 		<!-- <module>video-streaming</module> -->
 		<module>job-manager</module>
