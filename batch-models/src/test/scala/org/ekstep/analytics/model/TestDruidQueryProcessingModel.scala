@@ -5,8 +5,8 @@ import akka.http.scaladsl.model._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import cats.syntax.either._
-import ing.wbaa.druid._
-import ing.wbaa.druid.client.DruidClient
+import com.ing.wbaa.druid._
+import com.ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
 import org.apache.hadoop.fs.azure.AzureException

@@ -1,7 +1,7 @@
 package org.ekstep.analytics.job.summarizer
 import cats.syntax.either._
-import ing.wbaa.druid.client.DruidClient
-import ing.wbaa.druid._
+import com.ing.wbaa.druid.client.DruidClient
+import com.ing.wbaa.druid._
 import io.circe.Json
 import io.circe.parser._
 import org.apache.spark.sql.SQLContext
