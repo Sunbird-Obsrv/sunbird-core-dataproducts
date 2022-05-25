@@ -1,6 +1,7 @@
 package org.ekstep.analytics.dashboard
 
 import redis.clients.jedis.Jedis
+
 import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
@@ -15,6 +16,7 @@ import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructFie
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+import redis.clients.jedis.exceptions.JedisException
 
 import java.util
 
@@ -67,8 +69,7 @@ case class Config(debug: String, broker: String, courseDetailsTopic: String, use
                   sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
                   cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
                   cassandraUserContentConsumptionTable: String, cassandraContentHierarchyTable: String,
-                  cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int,
-                  redisDB: Int) extends Serializable
+                  cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int, redisDB: Int) extends Serializable
 
 /**
  * Model for processing competency metrics
@@ -149,6 +150,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
     val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionDF)  // add course completion status
     kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
+
+    closeRedisConnect()
   }
 
   /* Config functions */
@@ -214,16 +217,53 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     }
   }
 
-  def redisDispatch(host: String, port: Int, db: Int, key: String, data: util.Map[String, String])(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
-    val jedis = getRedisConnect(host, port, conf)
-    jedis.select(db)
-    jedis.hmset(key,data)
-    jedis.close()
+  /* redis util functions */
+  var redisConnect: Jedis = null
+  var redisHost: String = ""
+  var redisPort: Int = 0
+  def closeRedisConnect(): Unit = {
+    if (redisConnect != null) {
+      redisConnect.close()
+      redisConnect = null
+    }
   }
+  def redisDispatch(key: String, data: util.Map[String, String])(implicit conf: Config): Unit = {
+    redisDispatch(conf.redisHost, conf.redisPort, conf.redisDB, key, data)
+  }
+  def redisDispatch(db: Int, key: String, data: util.Map[String, String])(implicit conf: Config): Unit = {
+    redisDispatch(conf.redisHost, conf.redisPort, db, key, data)
+  }
+  def redisDispatch(host: String, port: Int, db: Int, key: String, data: util.Map[String, String]): Unit = {
+    try {
+      redisDispatchWithoutRetry(host, port, db, key, data)
+    } catch {
+      case e: JedisException =>
+        redisConnect = createRedisConnect(host, port)
+        redisDispatchWithoutRetry(host, port, db, key, data)
+    }
+  }
+  def redisDispatchWithoutRetry(host: String, port: Int, db: Int, key: String, data: util.Map[String, String]): Unit = {
+    val jedis = getOrCreateRedisConnect(host, port)
+    if (jedis.getDB != db) jedis.select(db)
+    jedis.hmset(key, data)
+  }
+  def getOrCreateRedisConnect(host: String, port: Int): Jedis = {
+    if (redisConnect == null) {
+      redisConnect = createRedisConnect(host, port)
+    } else if (redisHost != host || redisPort != port) {
+      redisConnect = createRedisConnect(host, port)
+    }
+    redisConnect
+  }
+  def getOrCreateRedisConnect(conf: Config): Jedis = getOrCreateRedisConnect(conf.redisHost, conf.redisPort)
+  def createRedisConnect(host: String, port: Int): Jedis = {
+    redisHost = host
+    redisPort = port
+    new Jedis(host, port, 30000)
+  }
+  def createRedisConnect(conf: Config): Jedis = createRedisConnect(conf.redisHost, conf.redisPort)
+  /* redis util functions over */
 
-  def getRedisConnect(redisHost: String, redisPort: Int, conf: Config):Jedis = {
-    new Jedis(redisHost, redisPort,30000)
-  }
 
   def api(method: String, url: String, body: String): String = {
     val request = method.toLowerCase() match {

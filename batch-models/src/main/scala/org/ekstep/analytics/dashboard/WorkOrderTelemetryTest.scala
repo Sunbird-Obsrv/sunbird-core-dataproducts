@@ -8,12 +8,13 @@ import org.ekstep.analytics.framework.FrameworkContext
 object WorkOrderTelemetryTest extends Serializable {
 
   def main(args: Array[String]): Unit = {
+    val cassandraHost = testModelConfig().getOrElse("sparkCassandraConnectionHost", "localhost").asInstanceOf[String]
     implicit val spark: SparkSession =
       SparkSession
         .builder()
         .appName("WorkOrderTelemetryTest")
         .config("spark.master", "local[*]")
-        .config("spark.cassandra.connection.host", "10.0.0.7")
+        .config("spark.cassandra.connection.host", cassandraHost)
         .config("spark.cassandra.output.batch.size.rows", "10000")
         //.config("spark.cassandra.read.timeoutMS", "60000")
         .getOrCreate()
