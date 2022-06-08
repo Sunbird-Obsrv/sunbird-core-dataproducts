@@ -5,18 +5,13 @@ import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.http.client.methods.HttpPost
-import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, countDistinct, explode_outer, expr, from_json, lit, max}
-import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 
 import java.util
+
 
 case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself

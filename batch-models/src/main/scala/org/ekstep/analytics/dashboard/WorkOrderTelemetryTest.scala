@@ -28,14 +28,14 @@ object WorkOrderTelemetryTest extends Serializable {
 
   def testModelConfig(): Map[String, AnyRef] = {
     val sideOutput = Map(
-      "brokerList" -> "10.0.0.5:9092",
+      "brokerList" -> "10.1.0.6:9092",
       "topics" -> Map(
-        "rawTopic" -> "dev.telemetry.raw"
+        "rawTelemetryTopic" -> "dev.telemetry.rawtest"
       )
     )
     val modelParams = Map(
       "debug" -> "true",
-      "sparkCassandraConnectionHost" -> "10.0.0.7",
+      "sparkCassandraConnectionHost" -> "10.1.0.4",
       "cassandraSunbirdKeyspace" -> "sunbird",
       "cassandraWorkOrderTable" -> "work_order",
       "cassandraWorkAllocationTable" -> "work_allocation",

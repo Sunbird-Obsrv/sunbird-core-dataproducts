@@ -231,7 +231,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
         )
       })
 
-    show(eventDS)
+    showDS(eventDS)
     eventDS
   }
 
@@ -303,7 +303,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     df.printSchema()
   }
 
-  def show[T](df: Dataset[T]): Unit = {
+  def showDS[T](df: Dataset[T]): Unit = {
     if (debug) {
       df.show()
       println("Count: " + df.count())
@@ -325,6 +325,5 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
       .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
   }
-
 
 }
