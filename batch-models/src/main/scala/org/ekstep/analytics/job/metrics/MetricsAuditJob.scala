@@ -5,7 +5,7 @@ import org.ekstep.analytics.framework.{FrameworkContext, IJob, JobDriver}
 import org.ekstep.analytics.framework.util.JobLogger
 import org.ekstep.analytics.model.MetricsAuditModel
 
-object MetricsAuditJob extends IJob {
+object MetricsAuditJob extends optional.Application with IJob {
   implicit val className: String = "org.ekstep.analytics.job.MetricsAuditJob"
 
   def main(config: String)(implicit sc: Option[SparkContext] = None, fc: Option[FrameworkContext] = None) {

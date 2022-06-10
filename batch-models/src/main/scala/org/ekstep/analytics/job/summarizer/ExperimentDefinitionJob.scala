@@ -6,7 +6,7 @@ import org.ekstep.analytics.framework.{IJob, JobDriver}
 import org.ekstep.analytics.model.ExperimentDefinitionModel
 import org.ekstep.analytics.framework.FrameworkContext
 
-object ExperimentDefinitionJob extends IJob {
+object ExperimentDefinitionJob extends optional.Application with IJob {
 
     implicit val className = "org.ekstep.analytics.job.ExperimentDefinitionJob"
 

@@ -8,7 +8,7 @@ import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.framework.FrameworkContext
 
 // object ContentRatingUpdater extends optional.Application with IJob {
-object ContentRatingUpdater extends IJob {
+object ContentRatingUpdater extends optional.Application with IJob {
 
   implicit val className = "org.ekstep.analytics.job.ContentRatingUpdater"
 

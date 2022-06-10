@@ -8,8 +8,8 @@ import org.ekstep.analytics.framework.{DruidFilter, DruidQueryModel, FrameworkCo
 import org.ekstep.analytics.framework.util.{CommonUtil, HadoopFileUtil, JSONUtils, JobLogger}
 import org.ekstep.analytics.util.{BaseDruidQueryProcessor, BaseSpec, EmbeddedPostgresql}
 import cats.syntax.either._
-import ing.wbaa.druid._
-import ing.wbaa.druid.client.DruidClient
+import com.ing.wbaa.druid._
+import com.ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser._
 import org.apache.spark.sql.SQLContext
@@ -98,7 +98,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -166,7 +166,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(List())).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -208,7 +208,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(List())).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -254,7 +254,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(List())).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -313,7 +313,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -376,7 +376,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -460,7 +460,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -526,7 +526,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -588,7 +588,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -744,7 +744,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -815,7 +815,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -882,7 +882,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
@@ -948,7 +948,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     val druidResponse =  DruidScanResponse.apply(List(results))
     implicit val mockDruidConfig = DruidConfig.DefaultConfig
     val mockDruidClient = mock[DruidClient]
-    (mockDruidClient.doQueryAsStream(_:ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
       .returns(Source(events)).anyNumberOfTimes()
     (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
     (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()

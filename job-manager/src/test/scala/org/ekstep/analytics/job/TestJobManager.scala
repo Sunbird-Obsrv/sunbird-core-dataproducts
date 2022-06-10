@@ -48,8 +48,8 @@ class TestJobManager extends FlatSpec with Matchers with BeforeAndAfterAll with 
             val strConfig = """{"jobsCount":1,"topic":"test","bootStrapServer":"localhost:9092","zookeeperConnect":"localhost:2181","consumerGroup":"jobmanager","slackChannel":"#test_channel","slackUserName":"JobManager","tempBucket":"dev-data-store","tempFolder":"transient-data-test"}""";
             val config = JSONUtils.deserialize[JobManagerConfig](strConfig)
 
-            val props = JobConsumerV2Config.makeProps("localhost:2181", "test-jobmanager")
-            val consumer = new JobConsumerV2("test", props);
+            val props = JobConsumerV2Config.makeProps("localhost:9092", "test-jobmanager")
+            val consumer = new JobConsumerV2("test", props, 100);
             val doneSignal = new CountDownLatch(1)
             val runner = new JobRunner(config, consumer, doneSignal)
             runner.run()

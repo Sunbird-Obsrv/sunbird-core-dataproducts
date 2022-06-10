@@ -7,7 +7,7 @@ import org.ekstep.analytics.framework.IJob
 import org.ekstep.analytics.model.WorkFlowSummaryModel
 import org.ekstep.analytics.framework.FrameworkContext
 
-object WorkFlowSummarizer extends IJob {
+object WorkFlowSummarizer extends optional.Application with IJob {
   
     implicit val className = "org.ekstep.analytics.job.WorkFlowSummarizer"
     

@@ -4,8 +4,8 @@ package org.ekstep.analytics.model
 import java.time.{ZoneOffset, ZonedDateTime}
 
 import cats.syntax.either._
-import ing.wbaa.druid._
-import ing.wbaa.druid.client.DruidClient
+import com.ing.wbaa.druid._
+import com.ing.wbaa.druid.client.DruidClient
 import io.circe.Json
 import io.circe.parser.parse
 import org.apache.spark.sql.SQLContext
