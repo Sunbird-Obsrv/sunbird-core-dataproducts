@@ -19,6 +19,7 @@ import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import redis.clients.jedis.exceptions.JedisException
 
 import java.util
+import scala.util.Try
 
 /*
 
@@ -407,7 +408,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def druidSQLAPI(query: String, host: String, resultFormat: String = "object", limit: Int = 10000): String = {
     // TODO: tech-debt, use proper spark druid connector
     val url = s"http://${host}:8888/druid/v2/sql"
-    val requestBody = s"""{"resultFormat":"${resultFormat}","header":true,"context":{"sqlOuterLimit":${limit}},"query":"${query}"}"""
+    val requestBody = s"""{"resultFormat":"${resultFormat}","header":false,"context":{"sqlOuterLimit":${limit}},"query":"${query}"}"""
     api("POST", url, requestBody)
   }
 
@@ -622,8 +623,12 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     val query = """SELECT edata_cb_data_deptId AS orgID, edata_cb_data_wa_id AS workOrderID, edata_cb_data_wa_userId AS userID, edata_cb_data_wa_competency_id AS competencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expectedCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val result = druidSQLAPI(query, conf.sparkDruidRouterHost)
 
-    val df = dataFrameFromJSONString(result)
-      .filter(col("competencyID").isNotNull && col("expectedCompetencyLevel").notEqual(0))
+    var df = dataFrameFromJSONString(result)
+
+    val error = Try(df("error")).isSuccess
+    if (error) return dataFrameFromJSONString("[]")
+
+    df = df.filter(col("competencyID").isNotNull && col("expectedCompetencyLevel").notEqual(0))
       .withColumn("expectedCompetencyLevel", expr("CAST(expectedCompetencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
 
     show(df)
