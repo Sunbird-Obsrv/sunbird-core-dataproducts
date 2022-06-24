@@ -201,7 +201,7 @@ trait BaseDruidQueryProcessor {
   // $COVERAGE-OFF$
   def sendMetricsEventToKafka(metricEvent: String)(implicit  fc: FrameworkContext):Unit = {
     if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
+      KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker"), "compression" -> AppConf.getConfigOr("metric.kafka.compression", "snappy")))
   }
 
 }

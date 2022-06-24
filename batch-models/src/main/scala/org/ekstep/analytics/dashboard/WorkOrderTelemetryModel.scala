@@ -17,7 +17,7 @@ case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 // config case class
-case class Config(debug: String, broker: String, rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
+case class Config(debug: String, broker: String, compression: String, rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
                   cassandraSunbirdKeyspace: String, cassandraWorkOrderTable: String, cassandraWorkAllocationTable: String,
                   cassandraUserWorkAllocationMappingTable: String) extends Serializable
 
@@ -280,11 +280,13 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
   }
   def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
+  def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
   def parseConfig(config: Map[String, AnyRef]): Config = {
     Config(
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
+      compression = getConfigSideBrokerCompression(config),
       rawTelemetryTopic = getConfigSideTopic(config, "rawTelemetryTopic"),
       sparkCassandraConnectionHost = getConfigModelParam(config, "sparkCassandraConnectionHost"),
       cassandraSunbirdKeyspace = getConfigModelParam(config, "cassandraSunbirdKeyspace"),
@@ -317,7 +319,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     } else if (conf.broker == "") {
       println("ERROR: broker list is blank, skipping kafka dispatch")
     } else {
-      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
+      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic, "compression" -> conf.compression), data.toJSON.rdd)
     }
   }
 

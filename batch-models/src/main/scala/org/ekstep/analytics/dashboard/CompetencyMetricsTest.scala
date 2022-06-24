@@ -29,6 +29,7 @@ object CompetencyMetricsTest extends Serializable {
   def testModelConfig(): Map[String, AnyRef] = {
     val sideOutput = Map(
       "brokerList" -> "10.0.0.5:9092",
+      "compression" -> "snappy",
       "topics" -> Map(
         "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",

@@ -29,6 +29,7 @@ object WorkOrderTelemetryTest extends Serializable {
   def testModelConfig(): Map[String, AnyRef] = {
     val sideOutput = Map(
       "brokerList" -> "10.1.0.6:9092",
+      "compression" -> "snappy",
       "topics" -> Map(
         "rawTelemetryTopic" -> "dev.telemetry.rawtest"
       )

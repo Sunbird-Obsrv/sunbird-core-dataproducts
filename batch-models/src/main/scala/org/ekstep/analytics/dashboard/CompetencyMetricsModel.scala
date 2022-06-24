@@ -63,7 +63,7 @@ C1.09   5       Scorecard           No. of CBPs mapped (by competency)
 case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
-case class Config(debug: String, broker: String, courseDetailsTopic: String, userCourseProgressTopic: String,
+case class Config(debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
                   fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
                   declaredCompetencyTopic: String, competencyGapTopic: String, courseRatingSummaryTopic: String,
                   sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
@@ -286,11 +286,13 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   }
   def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
+  def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
   def parseConfig(config: Map[String, AnyRef]): Config = {
     Config(
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
+      compression = getConfigSideBrokerCompression(config),
       courseDetailsTopic = getConfigSideTopic(config, "courseDetails"),
       userCourseProgressTopic = getConfigSideTopic(config, "userCourseProgress"),
       fracCompetencyTopic = getConfigSideTopic(config, "fracCompetency"),
@@ -336,7 +338,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     } else if (conf.broker == "") {
       println("ERROR: broker list is blank, skipping kafka dispatch")
     } else {
-      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic), data.toJSON.rdd)
+      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic, "compression" -> conf.compression), data.toJSON.rdd)
     }
   }
 
