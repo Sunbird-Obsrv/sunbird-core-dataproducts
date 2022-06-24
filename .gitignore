@@ -4,5 +4,5 @@ dependency-reduced-pom.xml
 **/logs
 **/.idea/**
 **.iml
-/tmp
+tmp/
 
