@@ -13,10 +13,10 @@ import org.ekstep.analytics.framework._
 import java.util
 
 
-case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
-case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
+case class UDummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
+case class UDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
-case class Config(debug: String, sparkCassandraConnectionHost: String, cassandraUserKeyspace: String,
+case class UConfig(debug: String, sparkCassandraConnectionHost: String, cassandraUserKeyspace: String,
                   cassandraUserTable: String, cassandraOrgTable: String, redisRegisteredOfficerCountKey: String,
                   redisTotalOfficerCountKey: String, redisOrgNameKey: String,
                   redisHost: String, redisPort: Int, redisDB: Int) extends Serializable
@@ -24,27 +24,27 @@ case class Config(debug: String, sparkCassandraConnectionHost: String, cassandra
 /**
  * Model for processing competency metrics
  */
-object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, DummyInput, DummyOutput, DummyOutput] with Serializable {
+object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, UDummyOutput, UDummyOutput] with Serializable {
 
   implicit var debug: Boolean = false
 
   implicit val className: String = "org.ekstep.analytics.dashboard.UserOrgRedisUpdateModel"
   override def name() = "UserOrgRedisUpdateModel"
 
-  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyInput] = {
+  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UDummyInput] = {
     // we want this call to happen only once, so that timestamp is consistent for all data points
     val executionTime = System.currentTimeMillis()
-    sc.parallelize(Seq(DummyInput(executionTime)))
+    sc.parallelize(Seq(UDummyInput(executionTime)))
   }
 
-  override def algorithm(data: RDD[DummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def algorithm(data: RDD[UDummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UDummyOutput] = {
     val timestamp = data.first().timestamp  // extract timestamp from input
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
     updateRedisUserOrgData(timestamp, config)
     sc.parallelize(Seq())  // return empty rdd
   }
 
-  override def postProcess(data: RDD[DummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def postProcess(data: RDD[UDummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[UDummyOutput] = {
     sc.parallelize(Seq())  // return empty rdd
   }
 
@@ -57,13 +57,13 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, DummyInput, D
   def updateRedisUserOrgData(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     // parse model config
     println(config)
-    implicit val conf: Config = parseConfig(config)
+    implicit val conf: UConfig = parseConfig(config)
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
     updateOrgUserCounts()
   }
 
-  def updateOrgUserCounts()(implicit spark: SparkSession, sc: SparkContext, conf: Config): Unit = {
+  def updateOrgUserCounts()(implicit spark: SparkSession, sc: SparkContext, conf: UConfig): Unit = {
     val userData = cassandraTableAsDataFrame("sunbird", "user")
     // show(userData)
 
@@ -117,8 +117,8 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, DummyInput, D
     obj.getOrElse(path.last, default).asInstanceOf[T]
   }
   def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
-  def parseConfig(config: Map[String, AnyRef]): Config = {
-    Config(
+  def parseConfig(config: Map[String, AnyRef]): UConfig = {
+    UConfig(
       debug = getConfigModelParam(config, "debug"),
       sparkCassandraConnectionHost = getConfigModelParam(config, "sparkCassandraConnectionHost"),
       cassandraUserKeyspace = getConfigModelParam(config, "cassandraUserKeyspace"),

@@ -13,11 +13,11 @@ import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 
 
 // input output case classes
-case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
-case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
+case class WODummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
+case class WODummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 // config case class
-case class Config(debug: String, broker: String, compression: String, rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
+case class WOConfig(debug: String, broker: String, compression: String, rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
                   cassandraSunbirdKeyspace: String, cassandraWorkOrderTable: String, cassandraWorkAllocationTable: String,
                   cassandraUserWorkAllocationMappingTable: String) extends Serializable
 
@@ -54,27 +54,27 @@ case class Event(actor: Actor, eid: String, edata: EData, ver: String, ets: Long
 /**
  * Model for processing competency metrics
  */
-object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, DummyOutput, DummyOutput] with Serializable {
+object WorkOrderTelemetryModel extends IBatchModelTemplate[String, WODummyInput, WODummyOutput, WODummyOutput] with Serializable {
 
   implicit var debug: Boolean = false
 
   implicit val className: String = "org.ekstep.analytics.dashboard.WorkOrderTelemetryModel"
   override def name() = "WorkOrderTelemetryModel"
 
-  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyInput] = {
+  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WODummyInput] = {
     // we want this call to happen only once, so that timestamp is consistent for all data points
     val executionTime = System.currentTimeMillis()
-    sc.parallelize(Seq(DummyInput(executionTime)))
+    sc.parallelize(Seq(WODummyInput(executionTime)))
   }
 
-  override def algorithm(data: RDD[DummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def algorithm(data: RDD[WODummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WODummyOutput] = {
     val timestamp = data.first().timestamp  // extract timestamp from input
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
     generateWorkOrderEvents(timestamp, config)
     sc.parallelize(Seq())  // return empty rdd
   }
 
-  override def postProcess(data: RDD[DummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def postProcess(data: RDD[WODummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[WODummyOutput] = {
     sc.parallelize(Seq())  // return empty rdd
   }
 
@@ -193,19 +193,19 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
   def generateWorkOrderEvents(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     // parse model config
     println(config)
-    implicit val conf: Config = parseConfig(config)
+    implicit val conf: WOConfig = parseConfig(config)
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
     val eventDS = workOrderEventDataSet()
     kafkaDispatch(eventDS, conf.rawTelemetryTopic)
   }
 
-  def workOrderEventDataSet()(implicit spark: SparkSession, conf: Config): Dataset[Event] = {
+  def workOrderEventDataSet()(implicit spark: SparkSession, conf: WOConfig): Dataset[Event] = {
     val workOrderDS = workOrderDataSet()
     eventDataSet(workOrderDS)
   }
 
-  def workOrderDataSet()(implicit spark: SparkSession, conf: Config): Dataset[WorkOrder] = {
+  def workOrderDataSet()(implicit spark: SparkSession, conf: WOConfig): Dataset[WorkOrder] = {
     import spark.implicits._
 
     val workOrderDF = workOrderDataFrame()
@@ -215,7 +215,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     workOrderWithAllocDF.as[WorkOrder]
   }
 
-  def eventDataSet(workOrderAllocDS: Dataset[WorkOrder])(implicit spark: SparkSession, conf: Config): Dataset[Event] = {
+  def eventDataSet(workOrderAllocDS: Dataset[WorkOrder])(implicit spark: SparkSession, conf: WOConfig): Dataset[Event] = {
     import spark.implicits._
     val eventDS = workOrderAllocDS
       .map(r => {
@@ -235,7 +235,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     eventDS
   }
 
-  def workOrderDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def workOrderDataFrame()(implicit spark: SparkSession, conf: WOConfig): DataFrame = {
     val workOrderDF = cassandraTableAsDataFrame(conf.cassandraSunbirdKeyspace, conf.cassandraWorkOrderTable)
       .withColumn("data", from_json(col("data"), workOrderSchema))
 
@@ -243,7 +243,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     workOrderDF
   }
 
-  def workAllocationDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def workAllocationDataFrame()(implicit spark: SparkSession, conf: WOConfig): DataFrame = {
     val workAllocDF = cassandraTableAsDataFrame(conf.cassandraSunbirdKeyspace, conf.cassandraWorkAllocationTable)
       .withColumn("data", from_json(col("data"), workAllocSchema))
 
@@ -251,7 +251,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     workAllocDF
   }
 
-  def groupAllocationByWorkOrder(workAllocDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def groupAllocationByWorkOrder(workAllocDF: DataFrame)(implicit spark: SparkSession, conf: WOConfig): DataFrame = {
     val workAllocGroupedDF = workAllocDF.withColumn("workOrderID", col("data.workOrderId"))
       .groupBy("workOrderID")
       .agg(collect_list("data").as("users"))
@@ -260,7 +260,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     workAllocGroupedDF
   }
 
-  def workOrderAllocationDataFrame(workOrderDF: DataFrame, workAllocDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def workOrderAllocationDataFrame(workOrderDF: DataFrame, workAllocDF: DataFrame)(implicit spark: SparkSession, conf: WOConfig): DataFrame = {
     val workAllocGroupedDF = groupAllocationByWorkOrder(workAllocDF)
     val workOrderWithAllocDF = workOrderDF.join(workAllocGroupedDF, col("id") === col("workOrderID"), "left")
       .select("data.*", "users")
@@ -282,8 +282,8 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
   def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
-  def parseConfig(config: Map[String, AnyRef]): Config = {
-    Config(
+  def parseConfig(config: Map[String, AnyRef]): WOConfig = {
+    WOConfig(
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
       compression = getConfigSideBrokerCompression(config),
@@ -313,7 +313,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, DummyInput, D
     df.printSchema()
   }
 
-  def kafkaDispatch[T](data: Dataset[T], topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+  def kafkaDispatch[T](data: Dataset[T], topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: WOConfig): Unit = {
     if (topic == "") {
       println("ERROR: topic is blank, skipping kafka dispatch")
     } else if (conf.broker == "") {

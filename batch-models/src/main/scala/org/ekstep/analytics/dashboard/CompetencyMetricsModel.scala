@@ -60,10 +60,10 @@ C1.09   5       Scorecard           No. of CBPs mapped (by competency)
 
 */
 
-case class DummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
-case class DummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
+case class CMDummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
+case class CMDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
-case class Config(debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
+case class CMConfig(debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
                   fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
                   declaredCompetencyTopic: String, competencyGapTopic: String, courseRatingSummaryTopic: String,
                   sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
@@ -75,27 +75,27 @@ case class Config(debug: String, broker: String, compression: String, courseDeta
 /**
  * Model for processing competency metrics
  */
-object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, DummyOutput, DummyOutput] with Serializable {
+object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, CMDummyOutput, CMDummyOutput] with Serializable {
 
   implicit var debug: Boolean = false
 
   implicit val className: String = "org.ekstep.analytics.dashboard.CompetencyMetricsModel"
   override def name() = "CompetencyMetricsModel"
 
-  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyInput] = {
+  override def preProcess(data: RDD[String], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CMDummyInput] = {
     // we want this call to happen only once, so that timestamp is consistent for all data points
     val executionTime = System.currentTimeMillis()
-    sc.parallelize(Seq(DummyInput(executionTime)))
+    sc.parallelize(Seq(CMDummyInput(executionTime)))
   }
 
-  override def algorithm(data: RDD[DummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def algorithm(data: RDD[CMDummyInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CMDummyOutput] = {
     val timestamp = data.first().timestamp  // extract timestamp from input
     implicit val spark: SparkSession = SparkSession.builder.config(sc.getConf).getOrCreate()
     processCompetencyMetricsData(timestamp, config)
     sc.parallelize(Seq())  // return empty rdd
   }
 
-  override def postProcess(data: RDD[DummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[DummyOutput] = {
+  override def postProcess(data: RDD[CMDummyOutput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[CMDummyOutput] = {
     sc.parallelize(Seq())  // return empty rdd
   }
 
@@ -108,7 +108,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def processCompetencyMetricsData(timestamp: Long, config: Map[String, AnyRef])(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext): Unit = {
     // parse model config
     println(config)
-    implicit val conf: Config = parseConfig(config)
+    implicit val conf: CMConfig = parseConfig(config)
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
     val liveCourseIDsDF = liveCourseDataFrame()  // get ids for live courses from es api
@@ -288,8 +288,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
   def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
-  def parseConfig(config: Map[String, AnyRef]): Config = {
-    Config(
+  def parseConfig(config: Map[String, AnyRef]): CMConfig = {
+    CMConfig(
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
       compression = getConfigSideBrokerCompression(config),
@@ -332,7 +332,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     df.withColumn("timestamp", lit(timestamp))
   }
 
-  def kafkaDispatch(data: DataFrame, topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: Config): Unit = {
+  def kafkaDispatch(data: DataFrame, topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: CMConfig): Unit = {
     if (topic == "") {
       println("ERROR: topic is blank, skipping kafka dispatch")
     } else if (conf.broker == "") {
@@ -353,10 +353,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
       redisConnect = null
     }
   }
-  def redisDispatch(key: String, data: util.Map[String, String])(implicit conf: Config): Unit = {
+  def redisDispatch(key: String, data: util.Map[String, String])(implicit conf: CMConfig): Unit = {
     redisDispatch(conf.redisHost, conf.redisPort, conf.redisDB, key, data)
   }
-  def redisDispatch(db: Int, key: String, data: util.Map[String, String])(implicit conf: Config): Unit = {
+  def redisDispatch(db: Int, key: String, data: util.Map[String, String])(implicit conf: CMConfig): Unit = {
     redisDispatch(conf.redisHost, conf.redisPort, db, key, data)
   }
   def redisDispatch(host: String, port: Int, db: Int, key: String, data: util.Map[String, String]): Unit = {
@@ -385,13 +385,13 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
     }
     redisConnect
   }
-  def getOrCreateRedisConnect(conf: Config): Jedis = getOrCreateRedisConnect(conf.redisHost, conf.redisPort)
+  def getOrCreateRedisConnect(conf: CMConfig): Jedis = getOrCreateRedisConnect(conf.redisHost, conf.redisPort)
   def createRedisConnect(host: String, port: Int): Jedis = {
     redisHost = host
     redisPort = port
     new Jedis(host, port, 30000)
   }
-  def createRedisConnect(conf: Config): Jedis = createRedisConnect(conf.redisHost, conf.redisPort)
+  def createRedisConnect(conf: CMConfig): Jedis = createRedisConnect(conf.redisHost, conf.redisPort)
   /* redis util functions over */
 
 
@@ -459,7 +459,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
    * @return DataFrame(id)
    */
-  def liveCourseDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def liveCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     val result = elasticSearchCourseAPI(conf.sparkElasticsearchConnectionHost)
 
     var df = dataFrameFromJSONString(result)
@@ -481,7 +481,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * course details with competencies json from cassandra dev_hierarchy_store:content_hierarchy
    * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, competenciesJson)
    */
-  def courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     val rawCourseDF = cassandraTableAsDataFrame(conf.cassandraHierarchyStoreKeyspace, conf.cassandraContentHierarchyTable)
 
     // inner join so that we only retain live courses
@@ -524,7 +524,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param courseDetailsWithCompDF course details with competencies json
    * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
    */
-  def courseCompetencyDataFrame(courseDetailsWithCompDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def courseCompetencyDataFrame(courseDetailsWithCompDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     var df = courseDetailsWithCompDF.withColumn("competencies", from_json(col("competenciesJson"), courseCompetenciesSchema))
 
     df = df.select(
@@ -550,7 +550,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * data frame of course rating summary
    * @return DataFrame(courseID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
    */
-  def courseRatingSummaryDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def courseRatingSummaryDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     val df = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraRatingSummaryTable)
       .where(expr("LOWER(activitytype) == 'course' AND total_number_of_ratings > 0"))
       .withColumn("ratingAverage", expr("sum_of_total_ratings / total_number_of_ratings"))
@@ -576,7 +576,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param courseDetailsDF course details data frame
    * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
    */
-  def courseRatingSummaryWithDetailsDataFrame(courseRatingDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def courseRatingSummaryWithDetailsDataFrame(courseRatingDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     // courseRatingDF = DataFrame(courseID, ratingSum, ratingCount, ratingAverage, count1Star, count2Star, count3Star, count4Star, count5Star)
     // courseDetailsDF = DataFrame(courseID, courseName, courseStatus, courseOrgID)
     val df = courseRatingDF.join(courseDetailsDF, Seq("courseID"), "inner")
@@ -589,7 +589,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * data frame of user course completion percentage
    * @return DataFrame(userID, courseID, completionPercentage, completionStatus)
    */
-  def userCourseCompletionDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def userCourseCompletionDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     var df = cassandraTableAsDataFrame(conf.cassandraCourseKeyspace, conf.cassandraUserContentConsumptionTable)
       .select(
         col("userid").alias("userID"),
@@ -608,7 +608,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param courseDetailsDF course details data frame
    * @return DataFrame(userID, courseID, courseName, courseStatus, courseOrgID, completionPercentage, completionStatus)
    */
-  def userCourseCompletionWithDetailsDataFrame(courseCompletionDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def userCourseCompletionWithDetailsDataFrame(courseCompletionDF: DataFrame, courseDetailsDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     // courseCompletionDF = DataFrame(userID, courseID, completionPercentage, completionStatus)
     // courseDetailsDF = DataFrame(courseID, courseName, courseStatus, courseOrgID)
     val df = courseCompletionDF.join(courseDetailsDF, Seq("courseID"), "inner")
@@ -621,7 +621,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * User's expected competency data from the latest approved work orders issued for them from druid
    * @return DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
    */
-  def expectedCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
+  def expectedCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     val query = """SELECT edata_cb_data_deptId AS orgID, edata_cb_data_wa_id AS workOrderID, edata_cb_data_wa_userId AS userID, edata_cb_data_wa_competency_id AS competencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expectedCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
     val result = druidSQLAPI(query, conf.sparkDruidRouterHost)
 
@@ -643,7 +643,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param courseCompetencyDF course competency data frame
    * @return DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel, liveCourseCount)
    */
-  def expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+  def expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     // expectedCompetencyDF = DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
     // courseCompetencyDF = DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
 
@@ -675,7 +675,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * User's declared competency data from cassandra sunbird:user
    * @return DataFrame(userID, competencyID, declaredCompetencyLevel)
    */
-  def declaredCompetencyDataFrame()(implicit spark: SparkSession, conf: Config) : DataFrame = {
+  def declaredCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     val userdata = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
 
     val df = userdata.where(col("profiledetails").isNotNull)
@@ -698,7 +698,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * data frame of all approved competencies from frac dictionary api
    * @return DataFrame(competencyID, competencyName, competencyStatus)
    */
-  def fracCompetencyDataFrame()(implicit spark: SparkSession, conf: Config): DataFrame = {
+  def fracCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     val result = fracCompetencyAPI(conf.fracBackendHost)
     val df = dataFrameFromJSONString(result)
       .select(explode_outer(col("data.getAllCompetencies")).alias("competency"))
@@ -719,7 +719,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param courseCompetencyDF course competency data frame
    * @return DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount)
    */
-  def fracCompetencyWithCourseCountDataFrame(fracCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+  def fracCompetencyWithCourseCountDataFrame(fracCompetencyDF: DataFrame, courseCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     // fracCompetencyDF = DataFrame(competencyID, competencyName, competencyStatus)
     // courseCompetencyDF = DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
 
@@ -743,7 +743,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, DummyInput, Du
    * @param declaredCompetencyDF declared  competency data frame
    * @return DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount, officerCountExpected, officerCountDeclared)
    */
-  def fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF: DataFrame, expectedCompetencyDF: DataFrame, declaredCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: Config) : DataFrame = {
+  def fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF: DataFrame, expectedCompetencyDF: DataFrame, declaredCompetencyDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     // fracCompetencyWithCourseCountDF = DataFrame(competencyID, competencyName, competencyStatus, liveCourseCount)
     // expectedCompetencyDF = DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
     // declaredCompetencyDF = DataFrame(userID, competencyID, declaredCompetencyLevel)
