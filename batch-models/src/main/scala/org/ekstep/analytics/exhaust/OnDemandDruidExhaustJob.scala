@@ -100,16 +100,16 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
       (df.columns).map(f1 => {
         df = df.withColumn(f1, when((col(f1) === "unknown") || (col(f1) === "<NULL>"), "Null").otherwise(col(f1)))
       })
-      if (sortDfColNames.isDefined) {
-        df = df.sort(sortDfColNames.get.head, sortDfColNames.get.tail: _*)
-      }
       df = df.dropDuplicates()
       if (dataCount.value > 0) {
         val metricFields = f.metrics
         val fieldsList = (dimFields ++ metricFields).distinct
         val dimsLabels = labelsLookup.filter(x => f.dims.contains(x._1)).values.toList
         val filteredDf = df.select(fieldsList.head, fieldsList.tail: _*)
-        val renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
+        var renamedDf = filteredDf.select(filteredDf.columns.map(c => filteredDf.col(c).as(labelsLookup.getOrElse(c, c))): _*).na.fill("unknown")
+        if (sortDfColNames.isDefined) {
+          renamedDf = renamedDf.sort(sortDfColNames.get.head, sortDfColNames.get.tail: _*)
+        }
         val reportFinalId = reportConfig.id + "/" + request_id + "_" + reportDate
         fileSavedToBlob = saveReport(renamedDf, JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(config.modelParams.get)) ++
           Map("dims" -> dimsLabels, "reportId" -> reportFinalId, "fileParameters" -> f.fileParameters, "format" -> f.`type`), None, None)
