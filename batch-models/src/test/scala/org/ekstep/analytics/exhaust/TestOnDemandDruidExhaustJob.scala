@@ -1079,7 +1079,7 @@ object OnDemandDruidExhaustTestJob extends BaseReportsJob with Serializable with
   }
 }
 
-// Tests object with zipEnabled = false
+// Test object with zipEnabled = false
 object OnDemandDruidExhaustTestJob2 extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob2"
 
