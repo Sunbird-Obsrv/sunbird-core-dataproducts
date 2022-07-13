@@ -984,6 +984,439 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     }
   }
 
+  it should "generate project status csv with program dashboard date range filter with both start_date and end_date" in {
+    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/2022-07-01T05:30:00", Option("day"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("62034f90841a270008e82e46"),None),
+        DruidFilter("equals","solution_id",Option("6209fcfa841a270008e84603"),None)
+      )),None, None,
+      Option(List("__time","createdBy","user_type","designation","state_name","district_name","block_name",
+        "school_name","school_externalId","board_name","organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description",
+        "project_created_date","project_completed_date","project_duration","project_last_sync",
+        "status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+    val json: String =
+      """
+        |{"user_type":"<NULL>","organisation_name":"<NULL>","project_last_sync":"2022-06-25T14:12:00.519+05:30",
+        |"project_duration":"2 weeks","project_created_date":"2022-06-25T12:54:20.758+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"ecd5bbb9-5db2-4720-a51c-12fe1715d406","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-25T14:12:00.528+05:30","school_externalId":28162600904,
+        |"district_name":"KRISHNA","project_id":"62b7057c7871b60008d35b22",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260","designation":"HM",
+        |"state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"BAPULAPADU","__time":"1656146520528","school_name":"ZPHS REMALLI",
+        |"board_name":"<NULL>"}""".stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val json1: String =
+      """
+        |{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-23T15:36:05.301+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-23T15:32:48.599+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"154ab19a-e91d-414d-840c-159f7378949e","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-23T15:36:05.311+05:30","school_externalId":28144200402,
+        |"district_name":"EAST GODAVARI","project_id":"62b487a07871b60008d3590c",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260","block_name":"ALAMURU",
+        |"__time":"1655978765311","school_name":"MPPS NARSIPUDI COLONY",
+        |"board_name":"<NULL>"}""".stripMargin
+    val doc1: Json = parse(json1).getOrElse(Json.Null);
+    val json2: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-27T13:28:37.579+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-27T13:25:46.659+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"2b7c9de2-f930-4f3b-8bdb-f1a1e583f309","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-27T13:28:37.588+05:30","school_externalId":"<NULL>",
+        |"district_name":"KRISHNA","project_id":"62b9afda7871b60008d35eae",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"DEO","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"A.KONDURU","__time":"1656316717588","school_name":"<NULL>",
+        |"board_name":"<NULL>"}""".stripMargin
+    val doc2: Json = parse(json2).getOrElse(Json.Null);
+    val json3: String =
+      """{"user_type":"administrator",
+        |"organisation_name":"Staging Custodian Organization",
+        |"project_last_sync":"2022-06-29T11:50:59.497+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-29T11:48:49.477+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"ef0325e4-db5b-4dfc-95a8-89b3e53aca0e","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-29T11:50:59.512+05:30","school_externalId":28226200404,
+        |"district_name":"ANANTAPUR","project_id":"62bc3c24cf8b5d0008906e5a",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260","block_name":"AGALI",
+        |"__time":"1656483659512","school_name":"MPPS RAMANAHALLI",
+        |"board_name":"State (Karnataka)"}""".stripMargin
+    val doc3: Json = parse(json3).getOrElse(Json.Null);
+    val json4: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-23T09:45:22.956+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-23T08:15:34.440+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"3b1b8620-c22d-47ce-9fed-35adb074d7ee","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-23T09:45:22.967+05:30","school_externalId":28144200303,
+        |"district_name":"EAST GODAVARI","project_id":"62b421267871b60008d357bb",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"DEO,HM","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"ALAMURU","__time":"1655957722967",
+        |"school_name":"MPPS (GN) CHEMUDULANKA","board_name":"<NULL>"}""".stripMargin
+    val doc4: Json = parse(json4).getOrElse(Json.Null)
+    val json5: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"<NULL>","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-03T06:28:21.954+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"started",
+        |"createdBy":"fe7ecff7-3086-489d-9ac2-02634e641d12","program_name":"Testing program 4.7",
+        |"project_completed_date":"<NULL>","school_externalId":28192590424,"district_name":"NELLORE",
+        |"project_id":"6299aa057871b60008d3411c",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO,SPD","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"NELLORE","__time":"1654217901977",
+        |"school_name":"MCPS SANTHAPET","board_name":"<NULL>"}""".stripMargin
+    val doc5: Json = parse(json5).getOrElse(Json.Null)
+    val json6: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-16T10:58:19.377+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-15T07:34:50.603+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"inProgress",
+        |"createdBy":"0e0ebece-85c1-4855-b83d-666df314fa92","program_name":"Testing program 4.7",
+        |"project_completed_date":"<NULL>","school_externalId":28162102201,"district_name":"KRISHNA",
+        |"project_id":"62a98b9a7871b60008d34eb2",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO,SPD","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"GANNAVARAM","__time":"1655357299389",
+        |"school_name":"MPPS ALLAPURAM","board_name":"<NULL>"}""".stripMargin
+    val doc6: Json = parse(json6).getOrElse(Json.Null)
+    val events = List(DruidScanResult.apply(doc),DruidScanResult.apply(doc5),
+      DruidScanResult.apply(doc1), DruidScanResult.apply(doc6),DruidScanResult.apply(doc2),
+      DruidScanResult.apply(doc3),DruidScanResult.apply(doc4))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140123', " +
+      "'852ECFC2A5C74B6071727A70F247A3D6', 'druid-dataset', 'SUBMITTED', " +
+      "'{\"type\":\"ml-project-status-exhaust\",\"params\":{\"start_date\":\"2022-06-01\"," +
+      "\"end_date\":\"2022-07-01\",\"filters\":[{\"type\":\"equals\",\"dimension\":" +
+      "\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"sub_task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"project_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"program_id\",\"value\":\"62034f90841a270008e82e46\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"solution_id\",\"value\":\"6209fcfa841a270008e84603\"}]},\"title\":\"Status Report\"}', " +
+      "'3b200146-5c0c-4e95-ae06-dacb89460d99', 'ORG_001', '2022-07-08 13:20:18.666', '{}', NULL, NULL, 0, '' ,0,NULL);")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "852ECFC2A5C74B6071727A70F247A3D6"
+
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while(postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("requested_by") should be ("3b200146-5c0c-4e95-ae06-dacb89460d99")
+      postgresQuery.getString("requested_channel") should be ("ORG_001")
+      postgresQuery.getString("err_message") should be ("")
+      postgresQuery.getString("iteration") should be ("0")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-project-status-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate project status csv with program dashboard date range filter with no start_date and no end_date" in {
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("day"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("62034f90841a270008e82e46"),None),
+        DruidFilter("equals","solution_id",Option("6209fcfa841a270008e84603"),None),
+        DruidFilter("equals","district_externalId",Option("2f76dcf5-e43b-4f71-a3f2-c8f19e1fce03"),None)
+      )),None, None,
+      Option(List("__time","createdBy","user_type","designation","state_name","district_name","block_name",
+        "school_name","school_externalId","board_name","organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description",
+        "project_created_date","project_completed_date","project_duration","project_last_sync",
+        "status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+    val json: String =
+      """
+        |{"user_type":"<NULL>","organisation_name":"<NULL>","project_last_sync":"2022-06-25T14:12:00.519+05:30",
+        |"project_duration":"2 weeks","project_created_date":"2022-06-25T12:54:20.758+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"ecd5bbb9-5db2-4720-a51c-12fe1715d406","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-25T14:12:00.528+05:30","school_externalId":28162600904,
+        |"district_name":"KRISHNA","project_id":"62b7057c7871b60008d35b22",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260","designation":"HM",
+        |"state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"BAPULAPADU","__time":"1656146520528","school_name":"ZPHS REMALLI",
+        |"board_name":"<NULL>"}""".stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val json1: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-27T13:28:37.579+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-27T13:25:46.659+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"2b7c9de2-f930-4f3b-8bdb-f1a1e583f309","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-27T13:28:37.588+05:30","school_externalId":"<NULL>",
+        |"district_name":"KRISHNA","project_id":"62b9afda7871b60008d35eae",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"DEO","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"A.KONDURU","__time":"1656316717588","school_name":"<NULL>",
+        |"board_name":"<NULL>"}""".stripMargin
+    val doc1: Json = parse(json1).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc),DruidScanResult.apply(doc1))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140123', " +
+      "'852ECFC2A5C74B6071727A70F247A3D6', 'druid-dataset', 'SUBMITTED', " +
+      "'{\"type\":\"ml-project-status-exhaust\",\"params\":{\"filters\":[{\"type\":\"equals\",\"dimension\":" +
+      "\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"sub_task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"project_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"program_id\",\"value\":\"62034f90841a270008e82e46\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"solution_id\",\"value\":\"6209fcfa841a270008e84603\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"district_externalId\",\"value\":\"2f76dcf5-e43b-4f71-a3f2-c8f19e1fce03\"}]},\"title\":\"Status Report\"}', " +
+      "'3b200146-5c0c-4e95-ae06-dacb89460d99', 'ORG_001', '2022-07-08 13:20:18.666', '{}', NULL, NULL, 0, '' ,0,NULL);")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "852ECFC2A5C74B6071727A70F247A3D6"
+
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while(postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("requested_by") should be ("3b200146-5c0c-4e95-ae06-dacb89460d99")
+      postgresQuery.getString("requested_channel") should be ("ORG_001")
+      postgresQuery.getString("err_message") should be ("")
+      postgresQuery.getString("iteration") should be ("0")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-project-status-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate project status csv with program dashboard date range filter with start_date and no end_date" in {
+    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/2101-01-01T05:30:00", Option("day"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("62034f90841a270008e82e46"),None),
+        DruidFilter("equals","solution_id",Option("6209fcfa841a270008e84603"),None),
+        DruidFilter("equals","district_externalId",Option("2f76dcf5-e43b-4f71-a3f2-c8f19e1fce03"),None),
+        DruidFilter("equals","organisation_id",Option("0126796199493140480"),None)
+      )),None, None,
+      Option(List("__time","createdBy","user_type","designation","state_name","district_name","block_name",
+        "school_name","school_externalId","board_name","organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description",
+        "project_created_date","project_completed_date","project_duration","project_last_sync",
+        "status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+    val json: String =
+      """{"user_type":"administrator",
+        |"organisation_name":"Staging Custodian Organization",
+        |"project_last_sync":"2022-06-29T11:50:59.497+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-29T11:48:49.477+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"submitted",
+        |"createdBy":"ef0325e4-db5b-4dfc-95a8-89b3e53aca0e","program_name":"Testing program 4.7",
+        |"project_completed_date":"2022-06-29T11:50:59.512+05:30","school_externalId":28226200404,
+        |"district_name":"ANANTAPUR","project_id":"62bc3c24cf8b5d0008906e5a",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260","block_name":"AGALI",
+        |"__time":"1656483659512","school_name":"MPPS RAMANAHALLI",
+        |"board_name":"State (Karnataka)"}""".stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null);
+    val events = List(DruidScanResult.apply(doc))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140123', " +
+      "'852ECFC2A5C74B6071727A70F247A3D6', 'druid-dataset', 'SUBMITTED', " +
+      "'{\"type\":\"ml-project-status-exhaust\",\"params\":{\"start_date\":\"2022-06-01\"," +
+      "\"filters\":[{\"type\":\"equals\",\"dimension\":\"private_program\",\"value\":\"false\"}," +
+      "{\"type\":\"equals\",\"dimension\":" +
+      "\"sub_task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"project_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"program_id\",\"value\":\"62034f90841a270008e82e46\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"solution_id\",\"value\":\"6209fcfa841a270008e84603\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"district_externalId\",\"value\":\"2f76dcf5-e43b-4f71-a3f2-c8f19e1fce03\"}," +
+      "{\"type\":\"equals\",\"dimension\":\"organisation_id\",\"value\":\"0126796199493140480\"}]},\"title\":\"Status Report\"}', " +
+      "'3b200146-5c0c-4e95-ae06-dacb89460d99', 'ORG_001', '2022-07-08 13:20:18.666', '{}', NULL, NULL, 0, '' ,0,NULL);")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "852ECFC2A5C74B6071727A70F247A3D6"
+
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while(postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("requested_by") should be ("3b200146-5c0c-4e95-ae06-dacb89460d99")
+      postgresQuery.getString("requested_channel") should be ("ORG_001")
+      postgresQuery.getString("err_message") should be ("")
+      postgresQuery.getString("iteration") should be ("0")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-project-status-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
+
+  it should "generate project status csv with program dashboard date range filter with end_date and no start_date" in {
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2022-07-01T05:30:00", Option("day"),
+      None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
+        DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","task_deleted_flag",Option("false"),None),
+        DruidFilter("equals","project_deleted_flag",Option("false"),None),
+        DruidFilter("equals","program_id",Option("62034f90841a270008e82e46"),None),
+        DruidFilter("equals","solution_id",Option("6209fcfa841a270008e84603"),None)
+      )),None, None,
+      Option(List("__time","createdBy","user_type","designation","state_name","district_name","block_name",
+        "school_name","school_externalId","board_name","organisation_name","program_name",
+        "program_externalId","project_id","project_title_editable","project_description",
+        "project_created_date","project_completed_date","project_duration","project_last_sync",
+        "status_of_project")), None, None,None,None,None,0)
+    val druidQuery = DruidDataFetcher.getDruidQuery(query)
+    val json: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"<NULL>","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-03T06:28:21.954+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"started",
+        |"createdBy":"fe7ecff7-3086-489d-9ac2-02634e641d12","program_name":"Testing program 4.7",
+        |"project_completed_date":"<NULL>","school_externalId":28192590424,"district_name":"NELLORE",
+        |"project_id":"6299aa057871b60008d3411c",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO,SPD","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"NELLORE","__time":"1654217901977",
+        |"school_name":"MCPS SANTHAPET","board_name":"<NULL>"}""".stripMargin
+    val doc: Json = parse(json).getOrElse(Json.Null)
+    val json1: String =
+      """{"user_type":"<NULL>","organisation_name":"<NULL>",
+        |"project_last_sync":"2022-06-16T10:58:19.377+05:30","project_duration":"2 weeks",
+        |"project_created_date":"2022-06-15T07:34:50.603+05:30",
+        |"program_externalId":"PGM-FD255-testing_program-4.7","status_of_project":"inProgress",
+        |"createdBy":"0e0ebece-85c1-4855-b83d-666df314fa92","program_name":"Testing program 4.7",
+        |"project_completed_date":"<NULL>","school_externalId":28162102201,"district_name":"KRISHNA",
+        |"project_id":"62a98b9a7871b60008d34eb2",
+        |"project_title_editable":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"designation":"HM,DEO,SPD","state_name":"Andhra Pradesh",
+        |"project_description":"Project with Mandatory Tasks and Subtasks - FD260",
+        |"block_name":"GANNAVARAM","__time":"1655357299389",
+        |"school_name":"MPPS ALLAPURAM","board_name":"<NULL>"}""".stripMargin
+    val doc1: Json = parse(json1).getOrElse(Json.Null)
+    val events = List(DruidScanResult.apply(doc),DruidScanResult.apply(doc1))
+    val results = DruidScanResults.apply("sl-project_2020-06-08T00:00:00.000Z_2020-06-09T00:00:00.000Z_2020-11-20T06:13:29.089Z_45",List(),events)
+    val druidResponse =  DruidScanResponse.apply(List(results))
+    implicit val mockDruidConfig = DruidConfig.DefaultConfig
+    val mockDruidClient = mock[DruidClient]
+    (mockDruidClient.doQueryAsStream(_:com.ing.wbaa.druid.DruidQuery)(_:DruidConfig)).expects(druidQuery, mockDruidConfig)
+      .returns(Source(events)).anyNumberOfTimes()
+    (fc.getDruidClient: () => DruidClient).expects().returns(mockDruidClient).anyNumberOfTimes()
+    (mockDruidClient.actorSystem _).expects().returning(ActorSystem("OnDemandDruidExhaustQuery")).anyNumberOfTimes()
+    (fc.getHadoopFileUtil: () => HadoopFileUtil).expects()
+      .returns(new HadoopFileUtil).anyNumberOfTimes()
+    (fc.getStorageService(_:String,_:String,_:String)).expects(*,*,*)
+      .returns(mock[BaseStorageService]).anyNumberOfTimes()
+    (fc.getHadoopFileUtil _).expects().returns(hadoopFileUtil).anyNumberOfTimes();
+
+    EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
+    EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, " +
+      "download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration, encryption_key) VALUES ('126796199493140123', " +
+      "'852ECFC2A5C74B6071727A70F247A3D6', 'druid-dataset', 'SUBMITTED', " +
+      "'{\"type\":\"ml-project-status-exhaust\",\"params\":{"+
+      "\"end_date\":\"2022-07-01\",\"filters\":[{\"type\":\"equals\",\"dimension\":" +
+      "\"private_program\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"sub_task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"task_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"project_deleted_flag\",\"value\":\"false\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"program_id\",\"value\":\"62034f90841a270008e82e46\"},{\"type\":\"equals\",\"dimension\":" +
+      "\"solution_id\",\"value\":\"6209fcfa841a270008e84603\"}]},\"title\":\"Status Report\"}', " +
+      "'3b200146-5c0c-4e95-ae06-dacb89460d99', 'ORG_001', '2022-07-08 13:20:18.666', '{}', NULL, NULL, 0, '' ,0,NULL);")
+    val strConfig =
+      """{"search":{"type":"none"},"model":"org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob","modelParams":{"store":"local","container":"test-container",
+        |"key":"ml_reports/","format":"csv"},"output":[{"to":"file","params":{"file":"ml_reports/"}}],"parallelization":8,"appName":"ML Druid Data Model"}""".stripMargin
+
+    val jobConfig = JSONUtils.deserialize[JobConfig](strConfig)
+    val requestId = "852ECFC2A5C74B6071727A70F247A3D6"
+
+    implicit val config = jobConfig
+    implicit val conf = spark.sparkContext.hadoopConfiguration
+    OnDemandDruidExhaustJob.execute()
+    val postgresQuery = EmbeddedPostgresql.executeQuery("SELECT * FROM job_request WHERE job_id='druid-dataset'")
+    while(postgresQuery.next()) {
+      postgresQuery.getString("status") should be ("SUCCESS")
+      postgresQuery.getString("requested_by") should be ("3b200146-5c0c-4e95-ae06-dacb89460d99")
+      postgresQuery.getString("requested_channel") should be ("ORG_001")
+      postgresQuery.getString("err_message") should be ("")
+      postgresQuery.getString("iteration") should be ("0")
+      postgresQuery.getString("download_urls") should be (s"{ml_reports/ml-project-status-exhaust/"+requestId+"_"+reportDate+".zip}")
+    }
+  }
   it should "execute main method" in {
     EmbeddedPostgresql.execute(s"TRUNCATE $jobRequestTable")
     EmbeddedPostgresql.execute("INSERT INTO job_request (tag, request_id, job_id, status, request_data, requested_by, requested_channel, dt_job_submitted, download_urls, dt_file_created, dt_job_completed, execution_time, err_message ,iteration) VALUES ('do_1131350140968632321230_batch-001:01250894314817126443', '37564CF8F134EE7532F125651B51D17F', 'response-exhaust', 'SUBMITTED', '{\"batchId\": \"batch-001\"}', 'user-002', 'b00bc992ef25f1a9a8d63291e20efc8d', '2020-10-19 05:58:18.666', '{}', NULL, NULL, 0, '' ,0);")

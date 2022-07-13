@@ -117,13 +117,13 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
         JobLogger.log(reportConfig.id + "Total Records :" + dataCount.value, None, Level.INFO)
       }
       else {
-        JobLogger.log("No data found from druid", None, Level.INFO)
+        JobLogger.log("No data present", None, Level.INFO)
       }
     }
     if (fileSavedToBlob.length > 0) {
       OnDemandDruidResponse(fileSavedToBlob, "SUCCESS", "", System.currentTimeMillis())
     } else {
-      OnDemandDruidResponse(List(), "FAILED", "No data found from druid", System.currentTimeMillis())
+      OnDemandDruidResponse(List(), "FAILED", "No data present", System.currentTimeMillis())
     }
   }
 
@@ -174,8 +174,17 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             // TO:DO
             // Fetch report config from dataset_metadata table
             val datasetConf = getDataSetDetails(requestType)
-            val reportConf = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
+            var reportConf = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
             val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
+            // Date Range with dynamic Start Date and End Date
+            if (reportConf.contains("programDashboardDateRange").&(reportConf.getOrElse("programDashboardDateRange",None) == true)) {
+              val startDateVal = requestParamsBody.getOrElse("start_date",reportConf.getOrElse("defaultStartDate",None))
+              val endDateVal = requestParamsBody.getOrElse("end_date",reportConf.getOrElse("defaultEndDate",None))
+              val updatedDateRange:Map[String,AnyRef] = reportConf.get("dateRange").get.asInstanceOf[Map[String,AnyRef]] +
+                ("interval"->Map("startDate"->startDateVal,
+                  "endDate"->endDateVal))
+              reportConf = reportConf ++ Map("dateRange"->updatedDateRange)
+            }
             val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
               val updatedDruidQuery:Map[String,AnyRef] = met.get("druidQuery").get.asInstanceOf[Map[String,AnyRef]] + ("filters"->requestParamsBody.get("filters").get.asInstanceOf[List[Map[String,AnyRef]]])
               val updatedMet: Map[String, AnyRef] = (met ++ Map("druidQuery"->updatedDruidQuery))
@@ -185,6 +194,7 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(updatedReportConf))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
+            println(JSONUtils.serialize(reportConfig))
             val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
             JobLogger.log("Request is ",Some(request),INFO)
             JobLogger.log("Report Config is ",Some(reportConfig),INFO)
