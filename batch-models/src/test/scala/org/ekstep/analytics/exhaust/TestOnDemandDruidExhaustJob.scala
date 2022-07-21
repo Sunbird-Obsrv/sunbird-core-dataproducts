@@ -28,7 +28,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers}
 import org.sunbird.cloud.storage.BaseStorageService
 
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.{Calendar, Date}
 import scala.collection.immutable.{List, Map}
 
 class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndAfterAll with MockFactory with BaseReportsJob {
@@ -985,7 +985,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate project status csv with program dashboard date range filter with both start_date and end_date" in {
-    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/2022-07-01T05:30:00", Option("day"),
+    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/2022-07-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -1151,7 +1151,8 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate project status csv with program dashboard date range filter with no start_date and no end_date" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("day"),
+    val inputFormat = new SimpleDateFormat("yyyy-MM-dd")
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/"+inputFormat.format(new Date())+"T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -1244,7 +1245,8 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate project status csv with program dashboard date range filter with start_date and no end_date" in {
-    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/2101-01-01T05:30:00", Option("day"),
+    val inputFormat = new SimpleDateFormat("yyyy-MM-dd")
+    val query = DruidQueryModel("scan", "sl-project", "2022-06-01T05:30:00/"+inputFormat.format(new Date())+"T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -1327,7 +1329,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate project status csv with program dashboard date range filter with end_date and no start_date" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2022-07-01T05:30:00", Option("day"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2022-07-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),

@@ -9,6 +9,7 @@ import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext, StorageConfig, _}
 import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
+
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.{List, Map}
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -17,8 +18,9 @@ import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.util.BaseDruidQueryProcessor
 import org.joda.time.DateTime
+
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.util.{Calendar, Date}
 import java.util.concurrent.CompletableFuture
 import java.util.function.Supplier
 
@@ -177,14 +179,14 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             var reportConf = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
             val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
             // Date Range with dynamic Start Date and End Date
-            if (reportConf.contains("programDashboardDateRange").&(reportConf.getOrElse("programDashboardDateRange",None) == true)) {
-              val startDateVal = requestParamsBody.getOrElse("start_date",reportConf.getOrElse("defaultStartDate",None))
-              val endDateVal = requestParamsBody.getOrElse("end_date",reportConf.getOrElse("defaultEndDate",None))
-              val updatedDateRange:Map[String,AnyRef] = reportConf.get("dateRange").get.asInstanceOf[Map[String,AnyRef]] +
-                ("interval"->Map("startDate"->startDateVal,
-                  "endDate"->endDateVal))
-              reportConf = reportConf ++ Map("dateRange"->updatedDateRange)
-            }
+            val defaultStartDate = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]].getOrElse("startDate",None)
+            val startDateVal = requestParamsBody.getOrElse("start_date",defaultStartDate)
+            val inputFormat = new SimpleDateFormat("yyyy-MM-dd")
+            val endDateVal = requestParamsBody.getOrElse("end_date",inputFormat.format(new Date()))
+            val updatedDateRange:Map[String,AnyRef] = reportConf.get("dateRange").get.asInstanceOf[Map[String,AnyRef]] +
+              ("interval"->Map("startDate"->startDateVal,
+               "endDate"->endDateVal))
+            reportConf = reportConf ++ Map("dateRange"->updatedDateRange)
             val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
               val updatedDruidQuery:Map[String,AnyRef] = met.get("druidQuery").get.asInstanceOf[Map[String,AnyRef]] + ("filters"->requestParamsBody.get("filters").get.asInstanceOf[List[Map[String,AnyRef]]])
               val updatedMet: Map[String, AnyRef] = (met ++ Map("druidQuery"->updatedDruidQuery))
@@ -192,9 +194,9 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             })
             val updatedReportConf = reportConf ++ Map("metrics" -> updatedMetrics)
             val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(updatedReportConf))
+            println(JSONUtils.serialize(reportConfig))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
-            println(JSONUtils.serialize(reportConfig))
             val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
             JobLogger.log("Request is ",Some(request),INFO)
             JobLogger.log("Report Config is ",Some(reportConfig),INFO)
