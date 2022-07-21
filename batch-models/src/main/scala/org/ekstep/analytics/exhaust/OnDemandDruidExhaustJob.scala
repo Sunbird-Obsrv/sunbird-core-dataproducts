@@ -194,7 +194,6 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             })
             val updatedReportConf = reportConf ++ Map("metrics" -> updatedMetrics)
             val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(updatedReportConf))
-            println(JSONUtils.serialize(reportConfig))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
             val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
