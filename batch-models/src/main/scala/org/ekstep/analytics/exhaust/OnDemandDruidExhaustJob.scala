@@ -9,7 +9,6 @@ import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext, StorageConfig, _}
 import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
-
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.{List, Map}
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -18,9 +17,8 @@ import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.util.BaseDruidQueryProcessor
 import org.joda.time.DateTime
-
 import java.text.SimpleDateFormat
-import java.util.{Calendar, Date}
+import java.util.Calendar
 import java.util.concurrent.CompletableFuture
 import java.util.function.Supplier
 
@@ -181,8 +179,8 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             // Date Range with dynamic Start Date and End Date
             val defaultStartDate = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]].getOrElse("startDate",None)
             val startDateVal = requestParamsBody.getOrElse("start_date",defaultStartDate)
-            val inputFormat = new SimpleDateFormat("yyyy-MM-dd")
-            val endDateVal = requestParamsBody.getOrElse("end_date",inputFormat.format(new Date()))
+            val defaultEndDate = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]].getOrElse("endDate",None)
+            val endDateVal = requestParamsBody.getOrElse("end_date",defaultEndDate)
             val updatedDateRange:Map[String,AnyRef] = reportConf.get("dateRange").get.asInstanceOf[Map[String,AnyRef]] +
               ("interval"->Map("startDate"->startDateVal,
                "endDate"->endDateVal))
