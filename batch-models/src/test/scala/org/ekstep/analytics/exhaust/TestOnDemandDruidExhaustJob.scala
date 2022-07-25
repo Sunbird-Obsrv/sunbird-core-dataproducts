@@ -71,7 +71,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   "TestOnDemandDruidExhaustJob" should "generate report with correct values" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -111,7 +111,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
     var name = OnDemandDruidExhaustJob.name()
 
     val submissionDate = DateTime.now().toString("yyyy-MM-dd")
-    val druidQueryConf = """{"id":"ml-task-detail-exhaust","queryType":"scan","dateRange":{"staticInterval":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","granularity":"all"},"metrics":[{"metric":"total_content_plays_on_portal","label":"total_content_plays_on_portal","druidQuery":{"queryType":"scan","dataSource":"sl-project","intervals":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","columns":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"filters":[{"type":"equals","dimension":"private_program","value":"false"},{"type":"equals","dimension":"sub_task_deleted_flag","value":"false"},{"type":"equals","dimension":"task_deleted_flag","value":"false"},{"type":"equals","dimension":"project_deleted_flag","value":"false"},{"type":"equals","dimension":"program_id","value":"602512d8e6aefa27d9629bc3"},{"type":"equals","dimension":"solution_id","value":"602a19d840d02028f3af00f0"}]}}],"labels":{"createdBy":"UUID","designation":"Role","state_name":"Declared State","district_name":"District","block_name":"Block","school_name":"School Name","school_externalId":"School ID","organisation_name":"Organisation Name","program_name":"Program Name","program_externalId":"Program ID","project_id":"Project ID","project_title_editable":"Project Title","project_description":"Project Objective","area_of_improvement":"Category","project_duration":"Project Duration","tasks":"Tasks","sub_task":"Sub-Tasks","task_evidence":"Evidence","task_remarks":"Remarks","status_of_project":"Project Status"},"output":[{"type":"csv","metrics":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"fileParameters":["id","dims"],"zip":false,"dims":["date"],"label":""}]}"""
+    val druidQueryConf = """{"id":"ml-task-detail-exhaust","queryType":"scan","dateRange":{"interval":{"startDate":"1901-01-01","endDate":"2101-01-01"},"granularity":"all"},"metrics":[{"metric":"total_content_plays_on_portal","label":"total_content_plays_on_portal","druidQuery":{"queryType":"scan","dataSource":"sl-project","intervals":"1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00","columns":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"filters":[{"type":"equals","dimension":"private_program","value":"false"},{"type":"equals","dimension":"sub_task_deleted_flag","value":"false"},{"type":"equals","dimension":"task_deleted_flag","value":"false"},{"type":"equals","dimension":"project_deleted_flag","value":"false"},{"type":"equals","dimension":"program_id","value":"602512d8e6aefa27d9629bc3"},{"type":"equals","dimension":"solution_id","value":"602a19d840d02028f3af00f0"}]}}],"labels":{"createdBy":"UUID","designation":"Role","state_name":"Declared State","district_name":"District","block_name":"Block","school_name":"School Name","school_externalId":"School ID","organisation_name":"Organisation Name","program_name":"Program Name","program_externalId":"Program ID","project_id":"Project ID","project_title_editable":"Project Title","project_description":"Project Objective","area_of_improvement":"Category","project_duration":"Project Duration","tasks":"Tasks","sub_task":"Sub-Tasks","task_evidence":"Evidence","task_remarks":"Remarks","status_of_project":"Project Status"},"output":[{"type":"csv","metrics":["createdBy","designation","state_name","district_name","block_name","school_name","school_externalId","organisation_name","program_name","program_externalId","project_id","project_title_editable","project_description","area_of_improvement","project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project"],"fileParameters":["id","dims"],"zip":false,"dims":["date"],"label":""}]}"""
     EmbeddedPostgresql.execute(
       s"""insert into dataset_metadata ("dataset_id", "dataset_sub_id", "dataset_config", "visibility", "dataset_type", "version",
           "authorized_roles", "available_from", "sample_request", "sample_response", "druid_query")
@@ -152,7 +152,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "insert status as Invalid request in the absence request_data" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -349,7 +349,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "insert status as SUCCESS encryption key not provided" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -359,7 +359,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       Option(List("__time","createdBy","designation","state_name","district_name","block_name",
         "school_name","school_externalId", "organisation_name","program_name",
         "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
-        "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
+        "project_duration","status_of_project","tasks","sub_task","task_evidence","task_remarks")), None, None,None,None,None,0)
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
     val json: String ="""
             {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
@@ -433,7 +433,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate the report with quote column" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -499,7 +499,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate the report  with no label" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -561,7 +561,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "insert status as failed when filter doesn't match" in {
-    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-project", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","private_program",Option("false"),None),
         DruidFilter("equals","sub_task_deleted_flag",Option("false"),None),
         DruidFilter("equals","task_deleted_flag",Option("false"),None),
@@ -571,7 +571,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
       Option(List("__time","createdBy","designation","state_name","district_name","block_name",
         "school_name","school_externalId", "organisation_name","program_name",
         "program_externalId","project_id","project_title_editable","project_description", "area_of_improvement",
-        "project_duration","tasks","sub_task","task_evidence","task_remarks","status_of_project")), None, None,None,None,None,0)
+        "project_duration","status_of_project","tasks","sub_task","task_evidence","task_remarks")), None, None,None,None,None,0)
     val druidQuery = DruidDataFetcher.getDruidQuery(query)
     val json: String ="""
             {"block_name":"ALLAVARAM","project_title_editable":"Test-कृपया उस प्रोजेक्ट का शीर्षक जोड़ें जिसे आप ब्लॉक के Prerak HT के लिए सबमिट करना चाहते हैं","task_evidence":"<NULL>",
@@ -623,7 +623,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 
   it should "generate report with other generic query" in {
-    val query = DruidQueryModel("scan", "sl-observation", "1901-01-01T00:00+00:00/2101-01-01T00:00:00+00:00", Option("all"),
+    val query = DruidQueryModel("scan", "sl-observation", "1901-01-01T05:30:00/2101-01-01T05:30:00", Option("all"),
       None, None, Option(List(DruidFilter("equals","isAPrivateProgram",Option("false"),None),
         DruidFilter("equals","solution_type",Option("observation_with_out_rubric"),None),
         DruidFilter("equals","programId",Option("60549338acf1c71f0b2409c3"),None),
