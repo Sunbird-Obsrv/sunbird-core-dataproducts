@@ -183,10 +183,8 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
               val intervalStartDateUpd = intervalUpd.updated("startDate",requestParamsBody.get("start_date"))
               updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
                 ("interval" -> intervalStartDateUpd)
-              reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
-            }
-            if (updatedDateRange.nonEmpty) {
               intervalUpd = updatedDateRange.getOrElse("interval", None).asInstanceOf[Map[String, AnyRef]]
+              reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
             if (requestParamsBody.contains("end_date")){
               val intervalEndDateUpd = intervalUpd.updated("endDate",requestParamsBody.get("end_date"))
