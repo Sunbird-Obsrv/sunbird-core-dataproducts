@@ -178,17 +178,17 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
             // Date Range with dynamic Start Date and End Date
             if (requestParamsBody.contains("start_date")){
-              val intervalUpd = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
-              val intervalStartDateUpd = intervalUpd.updated("startDate",requestParamsBody.get("start_date"))
+              val updatedInterval = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
+              val updatedIntervalStartDate = updatedInterval.updated("startDate",requestParamsBody.get("start_date"))
               val updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
-                ("interval" -> intervalStartDateUpd)
+                ("interval" -> updatedIntervalStartDate)
               reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
             if (requestParamsBody.contains("end_date")){
-              val intervalUpd = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
-              val intervalEndDateUpd = intervalUpd.updated("endDate",requestParamsBody.get("end_date"))
+              val updatedInterval = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
+              val updatedIntervalEndDate = updatedInterval.updated("endDate",requestParamsBody.get("end_date"))
               val updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
-                ("interval" -> intervalEndDateUpd)
+                ("interval" -> updatedIntervalEndDate)
               reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
             val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
