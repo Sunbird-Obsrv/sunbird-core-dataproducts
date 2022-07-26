@@ -191,7 +191,6 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
                 ("interval" -> intervalEndDateUpd)
               reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
-            println(JSONUtils.serialize(reportConf))
             val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
               val updatedDruidQuery:Map[String,AnyRef] = met.get("druidQuery").get.asInstanceOf[Map[String,AnyRef]] + ("filters"->requestParamsBody.get("filters").get.asInstanceOf[List[Map[String,AnyRef]]])
               val updatedMet: Map[String, AnyRef] = (met ++ Map("druidQuery"->updatedDruidQuery))
