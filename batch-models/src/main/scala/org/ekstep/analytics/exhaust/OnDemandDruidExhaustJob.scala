@@ -177,22 +177,21 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             var reportConf  = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
             val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
             // Date Range with dynamic Start Date and End Date
-            var updatedDateRange: Map[String, AnyRef] = Map.empty
-            var intervalUpd = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
             if (requestParamsBody.contains("start_date")){
+              val intervalUpd = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
               val intervalStartDateUpd = intervalUpd.updated("startDate",requestParamsBody.get("start_date"))
-              updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
+              val updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
                 ("interval" -> intervalStartDateUpd)
-              intervalUpd = updatedDateRange.getOrElse("interval", None).asInstanceOf[Map[String, AnyRef]]
               reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
             if (requestParamsBody.contains("end_date")){
+              val intervalUpd = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
               val intervalEndDateUpd = intervalUpd.updated("endDate",requestParamsBody.get("end_date"))
-              updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
+              val updatedDateRange = reportConf.get("dateRange").get.asInstanceOf[Map[String, AnyRef]] +
                 ("interval" -> intervalEndDateUpd)
               reportConf = reportConf ++ Map("dateRange" -> updatedDateRange)
             }
-
+            println(JSONUtils.serialize(reportConf))
             val updatedMetrics:List[Map[String, AnyRef]] = reportConf.getOrElse("metrics", List()).asInstanceOf[List[Map[String,AnyRef]]].map( met => {
               val updatedDruidQuery:Map[String,AnyRef] = met.get("druidQuery").get.asInstanceOf[Map[String,AnyRef]] + ("filters"->requestParamsBody.get("filters").get.asInstanceOf[List[Map[String,AnyRef]]])
               val updatedMet: Map[String, AnyRef] = (met ++ Map("druidQuery"->updatedDruidQuery))
