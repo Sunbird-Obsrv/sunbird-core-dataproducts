@@ -422,7 +422,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
 
   def fracCompetencyAPI(host: String): String = {
     val url = s"https://${host}/graphql"
-    val requestBody = """{"operationName":"filterCompetencies","variables":{"cod":[""],"competencyType":[""],"competencyArea":[""]},"query":"query filterCompetencies($cod: [String], $competencyType: [String], $competencyArea: [String]) {\n  getAllCompetencies(\n    cod: $cod\n    competencyType: $competencyType\n    competencyArea: $competencyArea\n  ) {\n    name\n    id\n    description\n    status\n    source\n    additionalProperties {\n      competencyType\n      competencyArea\n      __typename\n    }\n    __typename\n  }\n}\n"}"""
+    val requestBody = """{"operationName":"filterCompetencies","variables":{"cod":[],"competencyType":[],"competencyArea":[],"competencySector":[]},"query":"query filterCompetencies($cod: [String], $competencyType: [String], $competencyArea: [String], $competencySector: [String]) {\n  getAllCompetencies(\n    cod: $cod\n    competencyType: $competencyType\n    competencyArea: $competencyArea\n    competencySector: $competencySector\n  ) {\n    name\n    id\n    description\n    status\n    source\n    additionalProperties {\n      cod\n      competencyType\n      competencyArea\n      competencySector\n      __typename\n    }\n    __typename\n  }\n}\n"}"""
     api("POST", url, requestBody)
   }
 
