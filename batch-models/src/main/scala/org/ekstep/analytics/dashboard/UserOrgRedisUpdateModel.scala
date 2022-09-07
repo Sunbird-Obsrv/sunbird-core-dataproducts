@@ -116,7 +116,7 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
     path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
     obj.getOrElse(path.last, default).asInstanceOf[T]
   }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
+  def getConfigModelParam(config: Map[String, AnyRef], key: String, default: String = ""): String = getConfig[String](config, key, default)
   def parseConfig(config: Map[String, AnyRef]): UConfig = {
     UConfig(
       debug = getConfigModelParam(config, "debug"),
@@ -147,12 +147,12 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
   }
 
   def getRedisConnect(redisHost: String, redisPort: Int):Jedis = {
-    new Jedis(redisHost, redisPort,30000)
+    new Jedis(redisHost, redisPort, 30000)
   }
 
   def cassandraTableAsDataFrame(keySpace: String, table: String)(implicit spark: SparkSession): DataFrame = {
     spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
-      .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
+        .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
   }
 
 }

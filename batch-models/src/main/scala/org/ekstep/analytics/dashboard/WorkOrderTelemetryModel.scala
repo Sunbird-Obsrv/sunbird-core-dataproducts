@@ -278,7 +278,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, WODummyInput,
     path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
     obj.getOrElse(path.last, default).asInstanceOf[T]
   }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
+  def getConfigModelParam(config: Map[String, AnyRef], key: String, default: String = ""): String = getConfig[String](config, key, default)
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
   def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")

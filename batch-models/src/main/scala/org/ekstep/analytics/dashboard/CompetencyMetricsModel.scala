@@ -10,8 +10,8 @@ import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{avg, col, count, countDistinct, explode_outer, expr, from_json, last, lit, max}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.functions.{avg, col, count, countDistinct, explode_outer, expr, from_json, last, lit, max, spark_partition_id}
 import org.apache.spark.sql.types.{ArrayType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
@@ -284,7 +284,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
     obj.getOrElse(path.last, default).asInstanceOf[T]
   }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
+  def getConfigModelParam(config: Map[String, AnyRef], key: String, default: String = ""): String = getConfig[String](config, key, default)
   def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
   def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
   def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
@@ -374,6 +374,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       return
     }
     val jedis = getOrCreateRedisConnect(host, port)
+    if (jedis == null) {
+      println(s"WARNING: jedis=null means host is not set, skipping saving to redis key=${key}")
+      return
+    }
     if (jedis.getDB != db) jedis.select(db)
     jedis.hmset(key, data)
   }
@@ -389,13 +393,14 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   def createRedisConnect(host: String, port: Int): Jedis = {
     redisHost = host
     redisPort = port
+    if (host == "") return null
     new Jedis(host, port, 30000)
   }
   def createRedisConnect(conf: CMConfig): Jedis = createRedisConnect(conf.redisHost, conf.redisPort)
   /* redis util functions over */
 
 
-  def api(method: String, url: String, body: String): String = {
+  def apiThrowException(method: String, url: String, body: String): String = {
     val request = method.toLowerCase() match {
       case "post" => new HttpPost(url)
       case _ => throw new Exception(s"HTTP method '${method}' not supported")
@@ -404,7 +409,34 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     request.setEntity(new StringEntity(body))  // add the JSON as a StringEntity
     val httpClient = HttpClientBuilder.create().build()  // create HttpClient
     val response = httpClient.execute(request)  // send the request
-    EntityUtils.toString(response.getEntity)
+    val statusCode = response.getStatusLine.getStatusCode  // get status code
+    if (statusCode < 200 || statusCode > 299) {
+      throw new Exception(s"ERROR: got status code=${statusCode}, response=${EntityUtils.toString(response.getEntity)}")
+    } else {
+      EntityUtils.toString(response.getEntity)
+    }
+  }
+
+  def api(method: String, url: String, body: String): String = {
+    try {
+      apiThrowException(method, url, body)
+    } catch {
+      case e: Throwable => {
+        println(s"ERROR: ${e.toString}")
+        return ""
+      }
+    }
+  }
+
+  def hasColumn(df: DataFrame, path: String): Boolean = Try(df(path)).isSuccess
+
+  def dataFrameFromJSONString(jsonString: String)(implicit spark: SparkSession): DataFrame = {
+    import spark.implicits._
+    val dataset = spark.createDataset(jsonString :: Nil)
+    spark.read.option("mode", "DROPMALFORMED").option("multiline", value = true).json(dataset)
+  }
+  def emptySchemaDataFrame(schema: StructType)(implicit spark: SparkSession): DataFrame = {
+    spark.createDataFrame(spark.sparkContext.emptyRDD[Row], schema)
   }
 
   def druidSQLAPI(query: String, host: String, resultFormat: String = "object", limit: Int = 10000): String = {
@@ -414,10 +446,54 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     api("POST", url, requestBody)
   }
 
+  def druidDFOption(query: String, host: String, resultFormat: String = "object", limit: Int = 10000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var result = druidSQLAPI(query, host, resultFormat, limit)
+    result = result.trim()
+    // return empty data frame if result is an empty string
+    if (result == "") {
+      println(s"ERROR: druidSQLAPI returned empty string")
+      return None
+    }
+    val df = dataFrameFromJSONString(result)
+    if (df.isEmpty) {
+      println(s"ERROR: druidSQLAPI json parse result is empty")
+      return None
+    }
+    // return empty data frame if there is an `error` field in the json
+    if (hasColumn(df, "error")) {
+      println(s"ERROR: druidSQLAPI returned error response, response=${result}")
+      return None
+    }
+    // now that error handling is done, proceed with business as usual
+    Some(df)
+  }
+
   def elasticSearchCourseAPI(host: String, limit: Int = 1000): String = {
     val url = s"http://${host}:9200/compositesearch/_search"
     val requestBody = s"""{"from":0,"size":${limit},"_source":["identifier","primaryCategory","status","channel","competencies"],"query":{"bool":{"must":[{"match":{"status":"Live"}},{"match":{"primaryCategory":"Course"}}]}}}"""
     api("POST", url, requestBody)
+  }
+
+  def elasticSearchCourseDFOption(host: String, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var result = elasticSearchCourseAPI(host, limit)
+    result = result.trim()
+    // return empty data frame if result is an empty string
+    if (result == "") {
+      println(s"ERROR: elasticSearchCourseAPI returned empty string")
+      return None
+    }
+    val df = dataFrameFromJSONString(result)  // parse json string
+    if (df.isEmpty) {
+      println(s"ERROR: druidSQLAPI json parse result is empty")
+      return None
+    }
+    // return empty data frame if there is an `error` field in the json
+    if (hasColumn(df, "error") || !hasColumn(df, "hits.hits")) {
+      println(s"ERROR: elasticSearchCourseAPI returned error response, response=${result}")
+      return None
+    }
+    // now that error handling is done, proceed with business as usual
+    Some(df)
   }
 
   def fracCompetencyAPI(host: String): String = {
@@ -426,10 +502,26 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     api("POST", url, requestBody)
   }
 
-  def dataFrameFromJSONString(jsonString: String)(implicit spark: SparkSession): DataFrame = {
-    import spark.implicits._
-    val dataset = spark.createDataset(jsonString :: Nil)
-    spark.read.option("multiline", value = true).json(dataset)
+  def fracCompetencyDFOption(host: String)(implicit spark: SparkSession): Option[DataFrame] = {
+    var result = fracCompetencyAPI(host)
+    result = result.trim()
+    // return empty data frame if result is an empty string
+    if (result == "") {
+      println(s"ERROR: fracCompetencyAPI returned empty string")
+      return None
+    }
+    val df = dataFrameFromJSONString(result)  // parse json string
+    if (df.isEmpty) {
+      println(s"ERROR: druidSQLAPI json parse result is empty")
+      return None
+    }
+    // return empty data frame if there is an `errors` field in the json
+    if (hasColumn(df, "errors")) {
+      println(s"ERROR: fracCompetencyAPI returned error response, response=${result}")
+      return None
+    }
+    // now that error handling is done, proceed with business as usual
+    Some(df)
   }
 
   def cassandraTableAsDataFrame(keySpace: String, table: String)(implicit spark: SparkSession): DataFrame = {
@@ -459,10 +551,14 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
    * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
    * @return DataFrame(id)
    */
+  val liveCourseSchema: StructType = StructType(Seq(
+    StructField("if",  StringType, nullable = true)
+  ))
   def liveCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    val result = elasticSearchCourseAPI(conf.sparkElasticsearchConnectionHost)
+    var df = elasticSearchCourseDFOption(conf.sparkElasticsearchConnectionHost).orNull
+    if (df == null) return emptySchemaDataFrame(liveCourseSchema)
 
-    var df = dataFrameFromJSONString(result)
+    // now that error handling is done, proceed with business as usual
     df = df.select(explode_outer(col("hits.hits")).alias("course"))
     df = df.select(col("course._source.identifier").alias("id")).distinct()
 
@@ -621,14 +717,17 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
    * User's expected competency data from the latest approved work orders issued for them from druid
    * @return DataFrame(orgID, workOrderID, userID, competencyID, expectedCompetencyLevel)
    */
+  val expectedCompetencySchema: StructType = StructType(Seq(
+    StructField("orgID",  StringType, nullable = true),
+    StructField("workOrderID",  StringType, nullable = true),
+    StructField("userID",  StringType, nullable = true),
+    StructField("competencyID",  StringType, nullable = true),
+    StructField("expectedCompetencyLevel",  IntegerType, nullable = true)
+  ))
   def expectedCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     val query = """SELECT edata_cb_data_deptId AS orgID, edata_cb_data_wa_id AS workOrderID, edata_cb_data_wa_userId AS userID, edata_cb_data_wa_competency_id AS competencyID, CAST(REGEXP_EXTRACT(edata_cb_data_wa_competency_level, '[0-9]+') AS INTEGER) AS expectedCompetencyLevel FROM \"cb-work-order-properties\" WHERE edata_cb_data_wa_competency_type='COMPETENCY' AND edata_cb_data_wa_id IN (SELECT LATEST(edata_cb_data_wa_id, 36) FROM \"cb-work-order-properties\" GROUP BY edata_cb_data_wa_userId)"""
-    val result = druidSQLAPI(query, conf.sparkDruidRouterHost)
-
-    var df = dataFrameFromJSONString(result)
-
-    val error = Try(df("error")).isSuccess
-    if (error) return dataFrameFromJSONString("[]")
+    var df = druidDFOption(query, conf.sparkDruidRouterHost).orNull
+    if (df == null) return emptySchemaDataFrame(expectedCompetencySchema)
 
     df = df.filter(col("competencyID").isNotNull && col("expectedCompetencyLevel").notEqual(0))
       .withColumn("expectedCompetencyLevel", expr("CAST(expectedCompetencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
@@ -698,9 +797,16 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
    * data frame of all approved competencies from frac dictionary api
    * @return DataFrame(competencyID, competencyName, competencyStatus)
    */
+  val fracCompetencySchema: StructType = StructType(Seq(
+    StructField("competencyID",  StringType, nullable = true),
+    StructField("competencyName",  StringType, nullable = true),
+    StructField("competencyStatus",  StringType, nullable = true)
+  ))
   def fracCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    val result = fracCompetencyAPI(conf.fracBackendHost)
-    val df = dataFrameFromJSONString(result)
+    var df = fracCompetencyDFOption(conf.fracBackendHost).orNull
+    if (df == null) return emptySchemaDataFrame(fracCompetencySchema)
+
+    df = df
       .select(explode_outer(col("data.getAllCompetencies")).alias("competency"))
       .select(
         col("competency.id").alias("competencyID"),
