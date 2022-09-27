@@ -37,8 +37,7 @@ object CompetencyMetricsTest extends Serializable {
         "courseCompetency" -> "dev.dashboards.competency.course",
         "expectedCompetency" -> "dev.dashboards.competency.expected",
         "declaredCompetency" -> "dev.dashboards.competency.declared",
-        "competencyGap" -> "dev.dashboards.competency.gap",
-        "courseRatingSummary" -> "dev.dashboards.course.rating.summary"
+        "competencyGap" -> "dev.dashboards.competency.gap"
       )
     )
     val modelParams = Map(
@@ -51,7 +50,7 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraCourseKeyspace" -> "sunbird_courses",
       "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
       "cassandraUserTable" -> "user",
-      "cassandraUserContentConsumptionTable" -> "user_content_consumption",
+      "cassandraUserEnrolmentsTable" -> "user_enrolments",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
       "cassandraRatingSummaryTable" -> "ratings_summary",
       "redisHost" -> "10.0.0.6",

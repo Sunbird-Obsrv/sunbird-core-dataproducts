@@ -36,6 +36,8 @@ object UserOrgRedisUpdateTest extends Serializable {
       "redisRegisteredOfficerCountKey" -> "mdo_registered_officer_count",
       "redisTotalOfficerCountKey" -> "mdo_total_officer_count",
       "redisOrgNameKey" -> "mdo_name_by_org",
+      "redisTotalRegisteredOfficerCountKey" -> "mdo_total_registered_officer_count",
+      "redisTotalOrgCountKey" -> "mdo_total_org_count",
       "redisHost" -> "10.0.0.6",
       "redisPort" -> "6379",
       "redisDB" -> "12"

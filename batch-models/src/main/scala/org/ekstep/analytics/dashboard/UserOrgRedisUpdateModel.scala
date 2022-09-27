@@ -1,12 +1,13 @@
 package org.ekstep.analytics.dashboard
 
 import redis.clients.jedis.Jedis
+
 import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, expr, lit}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 
@@ -17,9 +18,10 @@ case class UDummyInput(timestamp: Long) extends AlgoInput  // no input, there ar
 case class UDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 case class UConfig(debug: String, sparkCassandraConnectionHost: String, cassandraUserKeyspace: String,
-                  cassandraUserTable: String, cassandraOrgTable: String, redisRegisteredOfficerCountKey: String,
-                  redisTotalOfficerCountKey: String, redisOrgNameKey: String,
-                  redisHost: String, redisPort: Int, redisDB: Int) extends Serializable
+                   cassandraUserTable: String, cassandraOrgTable: String,
+                   redisRegisteredOfficerCountKey: String, redisTotalOfficerCountKey: String, redisOrgNameKey: String,
+                   redisTotalRegisteredOfficerCountKey: String, redisTotalOrgCountKey: String,
+                   redisHost: String, redisPort: Int, redisDB: Int) extends Serializable
 
 /**
  * Model for processing competency metrics
@@ -64,28 +66,31 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
   }
 
   def updateOrgUserCounts()(implicit spark: SparkSession, sc: SparkContext, conf: UConfig): Unit = {
-    val userData = cassandraTableAsDataFrame("sunbird", "user")
-    // show(userData)
-
-    val orgData = cassandraTableAsDataFrame("sunbird", "organisation")
-    // show(orgData)
-
-    val orgUserData = orgData.alias("o").join(
-      userData.alias("u"), orgData.col("id") === userData.col("rootorgid"), "leftouter")
-    // show(orgUserData)
-
-    val orgUserCountData = orgUserData.groupBy("o.id", "o.orgname").count()
-      .withColumn("totalCount", lit(10000))
+    val orgData = cassandraTableAsDataFrame("sunbird", "organisation").where(expr("status=1"))
       .select(
-        col("o.id").alias("orgID"),
-        col("o.orgname").alias("orgName"),
-        col("count").alias("registeredCount"),
-        col("totalCount")
-      )
-      .na.fill("", Seq("orgName"))
-    show(orgUserCountData)
+        col("id").alias("orgID"),
+        col("orgname").alias("orgName")
+      ).na.fill("", Seq("orgName"))
+    show(orgData)
 
-    // orgUserCountData.show(1000)
+    val activeOrgCount = orgData.count()
+
+    val userData = cassandraTableAsDataFrame("sunbird", "user").where(expr("status=1"))
+      .select(
+        col("id").alias("userID"),
+        col("rootorgid").alias("orgID")
+      ).na.fill("", Seq("orgID"))
+    show(userData)
+
+    val activeUserCount = userData.count()
+
+    val orgUserData = orgData.join(userData.filter(col("orgID").isNotNull), Seq("orgID"), "left")
+
+    show(orgUserData)
+
+    val orgUserCountData = orgUserData.groupBy("orgID", "orgName").agg(expr("count(userID)").alias("registeredCount"))
+      .withColumn("totalCount", lit(10000))
+    show(orgUserCountData)
 
     val orgRegisteredUserCountMap = new util.HashMap[String, String]()
     val orgTotalUserCountMap = new util.HashMap[String, String]()
@@ -101,11 +106,21 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
     val jedis = getRedisConnect(conf.redisHost, conf.redisPort)
     jedis.select(conf.redisDB) // need to use jedis because in redis-spark_2.11:2.7.0 selecting db does not seem to work
 
-    jedis.hmset(conf.redisRegisteredOfficerCountKey, orgRegisteredUserCountMap)
-    jedis.hmset(conf.redisTotalOfficerCountKey, orgTotalUserCountMap)
-    jedis.hmset(conf.redisOrgNameKey, orgNameMap)
+    // set global org counts
+    jedis.set(conf.redisTotalRegisteredOfficerCountKey, activeUserCount.toString)
+    jedis.set(conf.redisTotalOrgCountKey, activeOrgCount.toString)
+
+    redisReplaceMap(jedis, conf.redisRegisteredOfficerCountKey, orgRegisteredUserCountMap)
+    redisReplaceMap(jedis, conf.redisTotalOfficerCountKey, orgTotalUserCountMap)
+    redisReplaceMap(jedis, conf.redisOrgNameKey, orgNameMap)
 
     jedis.close()
+  }
+
+  def redisReplaceMap(jedis: Jedis, key: String, data: util.Map[String, String]): Unit = {
+    // TODO: needs better implementation
+    jedis.del(key)
+    jedis.hmset(key, data)
   }
 
   /* Config functions */
@@ -127,6 +142,8 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
       redisRegisteredOfficerCountKey = getConfigModelParam(config, "redisRegisteredOfficerCountKey"),
       redisTotalOfficerCountKey = getConfigModelParam(config, "redisTotalOfficerCountKey"),
       redisOrgNameKey = getConfigModelParam(config, "redisOrgNameKey"),
+      redisTotalRegisteredOfficerCountKey = getConfigModelParam(config, "redisTotalRegisteredOfficerCountKey"),
+      redisTotalOrgCountKey = getConfigModelParam(config, "redisTotalOrgCountKey"),
       redisHost = getConfigModelParam(config, "redisHost"),
       redisPort = getConfigModelParam(config, "redisPort").toInt,
       redisDB = getConfigModelParam(config, "redisDB").toInt
