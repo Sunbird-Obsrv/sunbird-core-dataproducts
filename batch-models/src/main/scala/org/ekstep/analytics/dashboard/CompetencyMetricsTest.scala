@@ -17,6 +17,7 @@ object CompetencyMetricsTest extends Serializable {
         .config("spark.cassandra.connection.host", cassandraHost)
         .config("spark.cassandra.output.batch.size.rows", "10000")
         //.config("spark.cassandra.read.timeoutMS", "60000")
+        .config("spark.sql.legacy.json.allowEmptyString.enabled", "true")
         .getOrCreate()
     implicit val sc: SparkContext = spark.sparkContext
     implicit val fc: FrameworkContext = new FrameworkContext()

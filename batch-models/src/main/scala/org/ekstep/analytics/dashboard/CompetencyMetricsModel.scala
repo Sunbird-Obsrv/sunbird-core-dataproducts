@@ -11,7 +11,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import org.apache.spark.sql.functions.{avg, col, countDistinct, explode_outer, expr, from_json, last, lit, max}
+import org.apache.spark.sql.functions.{avg, col, countDistinct, explode_outer, expr, from_json, last, lit, max, udf}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
 import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
@@ -20,6 +20,7 @@ import redis.clients.jedis.exceptions.JedisException
 
 import java.util
 import scala.util.Try
+import scala.util.matching.Regex
 
 /*
 
@@ -64,20 +65,20 @@ case class CMDummyInput(timestamp: Long) extends AlgoInput  // no input, there a
 case class CMDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 case class CMConfig(
-                  debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
-                  fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
-                  declaredCompetencyTopic: String, competencyGapTopic: String,
-                  sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
-                  sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
-                  cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
-                  cassandraUserEnrolmentsTable: String, cassandraContentHierarchyTable: String,
-                  cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int, redisDB: Int,
-                  redisExpectedUserCompetencyCount: String, redisDeclaredUserCompetencyCount: String,
-                  redisUserCompetencyDeclarationRate: String, redisOrgCompetencyDeclarationRate: String,
-                  redisUserCompetencyGapCount: String, redisUserCourseEnrollmentCount: String,
-                  redisUserCompetencyGapEnrollmentRate: String, redisOrgCompetencyGapEnrollmentRate: String,
-                  redisUserCourseCompletionCount: String, redisUserCompetencyGapClosedCount: String,
-                  redisUserCompetencyGapClosedRate: String, redisOrgCompetencyGapClosedRate: String
+                     debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
+                     fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
+                     declaredCompetencyTopic: String, competencyGapTopic: String,
+                     sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
+                     sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
+                     cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
+                     cassandraUserEnrolmentsTable: String, cassandraContentHierarchyTable: String,
+                     cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int, redisDB: Int,
+                     redisExpectedUserCompetencyCount: String, redisDeclaredUserCompetencyCount: String,
+                     redisUserCompetencyDeclarationRate: String, redisOrgCompetencyDeclarationRate: String,
+                     redisUserCompetencyGapCount: String, redisUserCourseEnrollmentCount: String,
+                     redisUserCompetencyGapEnrollmentRate: String, redisOrgCompetencyGapEnrollmentRate: String,
+                     redisUserCourseCompletionCount: String, redisUserCompetencyGapClosedCount: String,
+                     redisUserCompetencyGapClosedRate: String, redisOrgCompetencyGapClosedRate: String
                    ) extends Serializable
 
 /**
@@ -602,12 +603,11 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
    */
   def courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
     val rawCourseDF = cassandraTableAsDataFrame(conf.cassandraHierarchyStoreKeyspace, conf.cassandraContentHierarchyTable)
+      .select(col("identifier").alias("id"), col("hierarchy"))
 
     // inner join so that we only retain live courses
-    var df = liveCourseIDsDF.join(rawCourseDF,
-      liveCourseIDsDF.col("id") <=> rawCourseDF.col("identifier"), "inner")
-      .filter(col("hierarchy").isNotNull)
-
+    var df = liveCourseIDsDF.join(rawCourseDF, Seq("id"), "inner")
+    df = df.filter(col("hierarchy").isNotNull)
     df = df.withColumn("data", from_json(col("hierarchy"), courseHierarchySchema))
     df = df.select(
       col("id").alias("courseID"),
@@ -617,9 +617,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       col("data.leafNodesCount").alias("courseResourceCount"),
       col("data.channel").alias("courseOrgID"),
       col("data.competencies_v3").alias("competenciesJson")
-    ).na.fill(0.0, Seq("courseDuration")).na.fill(0, Seq("courseResourceCount"))
+    )
+    df = df.na.fill(0.0, Seq("courseDuration")).na.fill(0, Seq("courseResourceCount"))
 
-    show(df)
+    show(df, "courseDetailsWithCompetenciesJsonDataFrame (courseID, courseName, courseStatus, courseDuration, courseResourceCount, courseOrgID, competenciesJson)")
     df
   }
 
@@ -646,26 +647,27 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
    * @return DataFrame(courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)
    */
   def courseCompetencyDataFrame(courseDetailsWithCompDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    var df = courseDetailsWithCompDF.withColumn("competencies", from_json(col("competenciesJson"), courseCompetenciesSchema))
+    var df = courseDetailsWithCompDF.filter(col("competenciesJson").isNotNull)
+    df = df.withColumn("competencies", from_json(col("competenciesJson"), courseCompetenciesSchema))
 
     df = df.select(
       col("courseID"), col("courseName"), col("courseStatus"), col("courseOrgID"),
       explode_outer(col("competencies")).alias("competency")
-    ).filter(col("competency").isNotNull)
-
+    )
+    df = df.filter(col("competency").isNotNull)
     df = df.withColumn("competencyLevel", expr("TRIM(competency.selectedLevelLevel)"))
     df = df.withColumn("competencyLevel",
       expr("IF(competencyLevel RLIKE '[0-9]+', CAST(REGEXP_EXTRACT(competencyLevel, '[0-9]+', 0) AS INTEGER), 1)"))
-
     df = df.select(
       col("courseID"), col("courseName"), col("courseStatus"), col("courseOrgID"),
       col("competency.id").alias("competencyID"),
       col("competencyLevel")
     )
 
-    show(df)
+    show(df, "courseCompetencyDataFrame (courseID, courseName, courseStatus, courseOrgID, competencyID, competencyLevel)")
     df
   }
+
 
   /**
    * data frame of course rating summary
@@ -748,6 +750,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
 
     df = df.filter(col("competencyID").isNotNull && col("expectedCompetencyLevel").notEqual(0))
       .withColumn("expectedCompetencyLevel", expr("CAST(expectedCompetencyLevel as INTEGER)"))  // Important to cast as integer otherwise a cast will fail later on
+      .filter(col("expectedCompetencyLevel").isNotNull && col("expectedCompetencyLevel").notEqual(0))
 
     show(df)
     df
@@ -782,11 +785,65 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     StructField("name",  StringType, nullable = true),
     StructField("status",  StringType, nullable = true),
     StructField("competencyType",  StringType, nullable = true),
-    StructField("competencySelfAttestedLevel",  IntegerType, nullable = true)
+    StructField("competencySelfAttestedLevel",  StringType, nullable = true), // this is sometimes an int other times a string
+    StructField("competencySelfAttestedLevelValue",  StringType, nullable = true)
   ))
-  val profileDetailsSchema: StructType = StructType(
-    StructField("competencies", ArrayType(profileCompetencySchema), nullable = true) :: Nil
-  )
+  val profileDetailsSchema: StructType = StructType(Seq(
+    StructField("competencies", ArrayType(profileCompetencySchema), nullable = true)
+  ))
+
+  /**
+   * return parsed int or zero if parsing fails
+   * @param s string to parse
+   * @return int or zero
+   */
+  def intOrZero(s: String): Int = {
+    try {
+      s.toInt
+    } catch {
+      case e: Exception => 0
+    }
+  }
+
+  val competencyLevelPattern: Regex = ".*[Ll]evel[ ]+?([0-9]+).*".r
+  /**
+   * match string against level pattern and return level or zero
+   * @param s string to parse
+   * @return level or zero
+   */
+  def parseCompetencyLevelString(s: String): Int = {
+    s match {
+      case competencyLevelPattern(level) => level.toInt
+      case _ => 0
+    }
+  }
+
+  /**
+   * get competency level from string value
+   * @param levelString level string
+   * @return level value as int
+   */
+  def getCompetencyLevel(levelString: String): Int = {
+    intOrZero(levelString) match {
+      case 0 => parseCompetencyLevelString(levelString)
+      case default => default
+    }
+  }
+
+  /**
+   * spark udf to infer competency level value, returns 1 if no value could be inferred
+   * @param csaLevel value of competencySelfAttestedLevel column
+   * @param csaLevelValue value of competencySelfAttestedLevelValue column
+   * @return level value as int
+   */
+  def compLevelParser(csaLevel: String, csaLevelValue: String): Int = {
+    for (levelString <- Seq(csaLevel, csaLevelValue)) {
+      val level = getCompetencyLevel(levelString)
+      if (level != 0) return level
+    }
+    1 // return 1 as default
+  }
+
   /**
    * User's declared competency data from cassandra sunbird:user
    * @return DataFrame(userID, competencyID, declaredCompetencyLevel)
@@ -794,19 +851,29 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   def declaredCompetencyDataFrame()(implicit spark: SparkSession, conf: CMConfig) : DataFrame = {
     val userdata = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
 
-    val df = userdata.where(col("profiledetails").isNotNull)
-      .select("userid", "profiledetails")
-      .withColumn("profile", from_json(col("profiledetails"), profileDetailsSchema))
-      .select(col("userid"), explode_outer(col("profile.competencies")).alias("competency"))
-      .where(col("competency").isNotNull && col("competency.id").isNotNull)
-      .select(
-        col("userid").alias("userID"),
-        col("competency.id").alias("competencyID"),
-        col("competency.competencySelfAttestedLevel").alias("declaredCompetencyLevel")
-      )
-      .na.fill(1, Seq("declaredCompetencyLevel"))  // if competency is listed without a level assume level 1
+    // select id and profile details column where profile details are available
+    var df = userdata.where(col("profiledetails").isNotNull).select("id", "profiledetails")
+    // json parse profile details
+    df = df.withColumn("profile", from_json(col("profiledetails"), profileDetailsSchema))
+    // explode competencies
+    df = df.select(col("id"), explode_outer(col("profile.competencies")).alias("competency"))
+    // filter out where competency or competency id not present
+    df = df.where(col("competency").isNotNull && col("competency.id").isNotNull)
 
-    show(df)
+    // use udf for competency level parsing, as the schema for competency level is broken
+    val compLevelParserUdf = udf(compLevelParser _)
+    df = df.withColumn("declaredCompetencyLevel",
+      compLevelParserUdf(col("competency.competencySelfAttestedLevel"), col("competency.competencySelfAttestedLevelValue"))
+    ).na.fill(1, Seq("declaredCompetencyLevel"))  // if competency is listed without a level assume level 1
+
+    // select useful columns
+    df = df.select(
+      col("id").alias("userID"),
+      col("competency.id").alias("competencyID"),
+      col("declaredCompetencyLevel")
+    )
+
+    show(df, "declaredCompetencyDataFrame [userID, competencyID, declaredCompetencyLevel]")
     df
   }
 
