@@ -17,10 +17,13 @@ import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
 import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import redis.clients.jedis.exceptions.JedisException
+import redis.clients.jedis.params.ScanParams
 
 import java.util
 import scala.util.Try
 import scala.util.matching.Regex
+import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 
 /*
 
@@ -65,12 +68,14 @@ case class CMDummyInput(timestamp: Long) extends AlgoInput  // no input, there a
 case class CMDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 case class CMConfig(
-                     debug: String, broker: String, compression: String, courseDetailsTopic: String, userCourseProgressTopic: String,
+                     debug: String, broker: String, compression: String, allCourseTopic: String, userRoleTopic: String,
+                     courseDetailsTopic: String, userCourseProgressTopic: String,
                      fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
                      declaredCompetencyTopic: String, competencyGapTopic: String,
                      sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
                      sparkElasticsearchConnectionHost: String, fracBackendHost: String, cassandraUserKeyspace: String,
-                     cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String, cassandraUserTable: String,
+                     cassandraCourseKeyspace: String, cassandraHierarchyStoreKeyspace: String,
+                     cassandraUserTable: String, cassandraUserRolesTable: String, cassandraOrgTable: String,
                      cassandraUserEnrolmentsTable: String, cassandraContentHierarchyTable: String,
                      cassandraRatingSummaryTable: String, redisHost: String, redisPort: Int, redisDB: Int,
                      redisExpectedUserCompetencyCount: String, redisDeclaredUserCompetencyCount: String,
@@ -120,7 +125,14 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     implicit val conf: CMConfig = parseConfig(config)
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
-    val liveCourseIDsDF = liveCourseDataFrame()  // get ids for live courses from es api
+    val userOrgRoleDF = userOrgRoleDataFrame()
+    kafkaDispatch(withTimestamp(userOrgRoleDF, timestamp), conf.userRoleTopic)
+
+    // get all courses with name, status and org, dispatch to kafka to be ingested by druid data-source: dashboards-courses
+    val allCourseDF = allCourseDataFrame()
+    kafkaDispatch(withTimestamp(allCourseDF, timestamp), conf.allCourseTopic)
+
+    val liveCourseIDsDF = liveCourseDataFrame(allCourseDF)  // get ids for live courses from es api
 
     // get course details, attach rating info, dispatch to kafka to be ingested by druid data-source: dashboards-course-details
     val courseDetailsWithCompDF = courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF)
@@ -299,6 +311,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
       compression = getConfigSideBrokerCompression(config),
+      allCourseTopic = getConfigSideTopic(config, "allCourses"),
+      userRoleTopic = getConfigSideTopic(config, "userRoleTopic"),
       courseDetailsTopic = getConfigSideTopic(config, "courseDetails"),
       userCourseProgressTopic = getConfigSideTopic(config, "userCourseProgress"),
       fracCompetencyTopic = getConfigSideTopic(config, "fracCompetency"),
@@ -314,6 +328,8 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       cassandraCourseKeyspace = getConfigModelParam(config, "cassandraCourseKeyspace"),
       cassandraHierarchyStoreKeyspace = getConfigModelParam(config, "cassandraHierarchyStoreKeyspace"),
       cassandraUserTable = getConfigModelParam(config, "cassandraUserTable"),
+      cassandraUserRolesTable = getConfigModelParam(config, "cassandraUserRolesTable"),
+      cassandraOrgTable = getConfigModelParam(config, "cassandraOrgTable"),
       cassandraUserEnrolmentsTable = getConfigModelParam(config, "cassandraUserEnrolmentsTable"),
       cassandraContentHierarchyTable = getConfigModelParam(config, "cassandraContentHierarchyTable"),
       cassandraRatingSummaryTable = getConfigModelParam(config, "cassandraRatingSummaryTable"),
@@ -398,9 +414,26 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     if (jedis.getDB != db) jedis.select(db)
     redisReplaceMap(jedis, key, data)
   }
+
+  def redisGetHashKeys(jedis: Jedis, key: String): Seq[String] = {
+    val keys = ListBuffer[String]()
+    val scanParams = new ScanParams().count(100)
+    var cur = ScanParams.SCAN_POINTER_START
+    do {
+      val scanResult = jedis.hscan(key, cur, scanParams)
+      scanResult.getResult.foreach(res => {
+        keys += res.getKey
+      })
+      cur = scanResult.getCursor
+    } while (!cur.equals(ScanParams.SCAN_POINTER_START))
+    keys.toList
+  }
   def redisReplaceMap(jedis: Jedis, key: String, data: util.Map[String, String]): Unit = {
-    // TODO: needs better implementation
-    jedis.del(key)
+    // this deletes the keys that do not exist anymore manually
+    val existingKeys = redisGetHashKeys(jedis, key)
+    val toDelete = existingKeys.toSet.diff(data.keySet())
+    if (toDelete.nonEmpty) jedis.hdel(key, toDelete.toArray:_*)
+    // this will update redis hash map keys and create new ones, but will not delete ones that have been deleted
     jedis.hmset(key, data)
   }
   def getOrCreateRedisConnect(host: String, port: Int): Jedis = {
@@ -490,14 +523,14 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     Some(df)
   }
 
-  def elasticSearchCourseAPI(host: String, limit: Int = 1000): String = {
+  def elasticSearchCourseAPI(host: String, offset: Int = 0, limit: Int = 1000): String = {
     val url = s"http://${host}:9200/compositesearch/_search"
-    val requestBody = s"""{"from":0,"size":${limit},"_source":["identifier","primaryCategory","status","channel","competencies"],"query":{"bool":{"must":[{"match":{"status":"Live"}},{"match":{"primaryCategory":"Course"}}]}}}"""
+    val requestBody = s"""{"from":${offset},"size":${limit},"_source":["identifier","name","primaryCategory","status","channel","competencies"],"query":{"bool":{"must":[{"match":{"primaryCategory":"Course"}}]}}}"""
     api("POST", url, requestBody)
   }
 
-  def elasticSearchCourseDFOption(host: String, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
-    var result = elasticSearchCourseAPI(host, limit)
+  def elasticSearchCourseDFOption(host: String, offset: Int = 0, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var result = elasticSearchCourseAPI(host, offset, limit)
     result = result.trim()
     // return empty data frame if result is an empty string
     if (result == "") {
@@ -514,7 +547,28 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       println(s"ERROR: elasticSearchCourseAPI returned error response, response=${result}")
       return None
     }
-    // now that error handling is done, proceed with business as usual
+    Some(df)
+  }
+
+  def elasticSearchAllCoursesDFOption(host: String, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var df = elasticSearchCourseDFOption(host, 0, limit).orNull
+    if (df == null) return None
+    var fetchedCount = limit
+    val totalHits = df.select(col("hits.total")).head().getLong(0)
+    println(totalHits)
+    df = df.select(explode_outer(col("hits.hits")).alias("course"))
+    var break = false
+    while (totalHits > fetchedCount && !break) {
+      var nextPageDF = elasticSearchCourseDFOption(host, fetchedCount, limit).orNull
+      if (nextPageDF == null) {
+        break = true
+      } else {
+        nextPageDF = nextPageDF.select(explode_outer(col("hits.hits")).alias("course"))
+        println(nextPageDF.count())
+        df = df.union(nextPageDF)
+        fetchedCount += limit
+      }
+    }
     Some(df)
   }
 
@@ -569,20 +623,74 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   /* Data processing functions */
 
   /**
-   * Distinct live course ids from elastic search api
+   *
+   * @return DataFrame(userID, userStatus, orgID, orgName, orgStatus, role)
+   */
+  def userOrgRoleDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
+    val orgDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraOrgTable)
+      .select(
+        col("id").alias("orgID"),
+        col("orgname").alias("orgName"),
+        col("status").alias("orgStatus")
+      ).na.fill("", Seq("orgName"))
+    show(orgDF)
+
+    val userDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
+      .select(
+        col("id").alias("userID"),
+        col("rootorgid").alias("orgID"),
+        col("status").alias("userStatus")
+      ).na.fill("", Seq("orgID"))
+    show(userDF)
+
+    val userWithOrgDF = userDF.join(orgDF, Seq("orgID"), "left")
+    show(userWithOrgDF)
+
+    val roleDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserRolesTable)
+      .select(
+        col("userid").alias("userID"),
+        col("role").alias("role")
+      )
+    show(roleDF)
+
+    val userOrgRoleDF = userWithOrgDF.join(roleDF, Seq("userID"), "left")
+    show(userOrgRoleDF)
+
+    userOrgRoleDF
+  }
+
+  /**
+   * All courses from elastic search api
    * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
    * @return DataFrame(id)
    */
+  val allCourseSchema: StructType = StructType(Seq(
+    StructField("courseID",  StringType, nullable = true),
+    StructField("courseName",  StringType, nullable = true),
+    StructField("courseStatus",  StringType, nullable = true),
+    StructField("courseOrgID",  StringType, nullable = true)
+  ))
+  def allCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
+    var df = elasticSearchAllCoursesDFOption(conf.sparkElasticsearchConnectionHost).orNull
+    if (df == null) return emptySchemaDataFrame(allCourseSchema)
+
+    // now that error handling is done, proceed with business as usual
+    df = df.select(
+      col("course._source.identifier").alias("courseID"),
+      col("course._source.name").alias("courseName"),
+      col("course._source.status").alias("courseStatus"),
+      col("course._source.channel").alias("courseOrgID")
+    ).dropDuplicates("courseID")
+
+    show(df)
+    df
+  }
+
   val liveCourseSchema: StructType = StructType(Seq(
     StructField("id",  StringType, nullable = true)
   ))
-  def liveCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    var df = elasticSearchCourseDFOption(conf.sparkElasticsearchConnectionHost).orNull
-    if (df == null) return emptySchemaDataFrame(liveCourseSchema)
-
-    // now that error handling is done, proceed with business as usual
-    df = df.select(explode_outer(col("hits.hits")).alias("course"))
-    df = df.select(col("course._source.identifier").alias("id")).distinct()
+  def liveCourseDataFrame(allCourseDF: DataFrame)(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
+    val df = allCourseDF.where(col("courseStatus").equalTo("Live")).select(col("courseID").alias("id")).distinct()
 
     show(df)
     df
@@ -620,7 +728,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     )
     df = df.na.fill(0.0, Seq("courseDuration")).na.fill(0, Seq("courseResourceCount"))
 
-    show(df, "courseDetailsWithCompetenciesJsonDataFrame (courseID, courseName, courseStatus, courseDuration, courseResourceCount, courseOrgID, competenciesJson)")
+    show(df, "courseDetailsWithCompetenciesJsonDataFrame() = (courseID, courseName, courseStatus, courseDuration, courseResourceCount, courseOrgID, competenciesJson)")
     df
   }
 

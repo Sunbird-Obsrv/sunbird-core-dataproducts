@@ -32,6 +32,8 @@ object CompetencyMetricsTest extends Serializable {
       "brokerList" -> "10.0.0.5:9092",
       "compression" -> "snappy",
       "topics" -> Map(
+        "allCourses" -> "dev.dashboards.course",
+        "userRoles" -> "dev.dashboards.user.role",
         "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",
         "fracCompetency" -> "dev.dashboards.competency.frac",
@@ -51,6 +53,8 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraCourseKeyspace" -> "sunbird_courses",
       "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
       "cassandraUserTable" -> "user",
+      "cassandraUserRolesTable" -> "user_roles",
+      "cassandraOrgTable" -> "organisation",
       "cassandraUserEnrolmentsTable" -> "user_enrolments",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
       "cassandraRatingSummaryTable" -> "ratings_summary",
