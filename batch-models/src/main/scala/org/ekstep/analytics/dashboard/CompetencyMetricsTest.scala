@@ -33,6 +33,7 @@ object CompetencyMetricsTest extends Serializable {
       "compression" -> "snappy",
       "topics" -> Map(
         "allCourses" -> "dev.dashboards.course",
+        "allResources" -> "dev.dashboards.resource",
         "userRoles" -> "dev.dashboards.user.role",
         "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",

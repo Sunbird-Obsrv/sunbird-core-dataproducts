@@ -68,8 +68,8 @@ case class CMDummyInput(timestamp: Long) extends AlgoInput  // no input, there a
 case class CMDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 case class CMConfig(
-                     debug: String, broker: String, compression: String, allCourseTopic: String, userRoleTopic: String,
-                     courseDetailsTopic: String, userCourseProgressTopic: String,
+                     debug: String, broker: String, compression: String, allCourseTopic: String, allResourceTopic: String,
+                     userRoleTopic: String, courseDetailsTopic: String, userCourseProgressTopic: String,
                      fracCompetencyTopic: String, courseCompetencyTopic: String, expectedCompetencyTopic: String,
                      declaredCompetencyTopic: String, competencyGapTopic: String,
                      sparkCassandraConnectionHost: String, sparkDruidRouterHost: String,
@@ -131,6 +131,10 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     // get all courses with name, status and org, dispatch to kafka to be ingested by druid data-source: dashboards-courses
     val allCourseDF = allCourseDataFrame()
     kafkaDispatch(withTimestamp(allCourseDF, timestamp), conf.allCourseTopic)
+
+    // get all resources with status and org, dispatch to kafka to be ingested by druid data-source: dashboards-resources
+    val liveResourceDF = liveResourceDataFrame()
+    kafkaDispatch(withTimestamp(liveResourceDF, timestamp), conf.allResourceTopic)
 
     val liveCourseIDsDF = liveCourseDataFrame(allCourseDF)  // get ids for live courses from es api
 
@@ -295,7 +299,6 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   }
 
   /* Config functions */
-
   def getConfig[T](config: Map[String, AnyRef], key: String, default: T = null): T = {
     val path = key.split('.')
     var obj = config
@@ -312,6 +315,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       broker = getConfigSideBroker(config),
       compression = getConfigSideBrokerCompression(config),
       allCourseTopic = getConfigSideTopic(config, "allCourses"),
+      allResourceTopic = getConfigSideTopic(config, "allResources"),
       userRoleTopic = getConfigSideTopic(config, "userRoles"),
       courseDetailsTopic = getConfigSideTopic(config, "courseDetails"),
       userCourseProgressTopic = getConfigSideTopic(config, "userCourseProgress"),
@@ -524,13 +528,42 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   }
 
   def elasticSearchCourseAPI(host: String, offset: Int = 0, limit: Int = 1000): String = {
+    // TODO: use es spark connector
     val url = s"http://${host}:9200/compositesearch/_search"
-    val requestBody = s"""{"from":${offset},"size":${limit},"_source":["identifier","name","primaryCategory","status","channel","competencies"],"query":{"bool":{"must":[{"match":{"primaryCategory":"Course"}}]}}}"""
+    val requestBody = s"""{"from":${offset},"size":${limit},"_source":["identifier","name","primaryCategory","status","reviewStatus","channel","competencies"],"query":{"bool":{"must":[{"match":{"primaryCategory":"Course"}}]}}}"""
+    api("POST", url, requestBody)
+  }
+
+  def elasticSearchLiveLearningResourceAPI(host: String, offset: Int = 0, limit: Int = 1000): String = {
+    // TODO: use es spark connector
+    val url = s"http://${host}:9200/compositesearch/_search"
+    val requestBody = s"""{"from":${offset},"size":${limit},"_source":["identifier","primaryCategory","status","reviewStatus","channel"],"query":{"bool":{"must":[{"match":{"status":"Live"}},{"match":{"primaryCategory":"Learning Resource"}}]}}}"""
     api("POST", url, requestBody)
   }
 
   def elasticSearchCourseDFOption(host: String, offset: Int = 0, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
     var result = elasticSearchCourseAPI(host, offset, limit)
+    result = result.trim()
+    // return empty data frame if result is an empty string
+    if (result == "") {
+      println(s"ERROR: elasticSearchCourseAPI returned empty string")
+      return None
+    }
+    val df = dataFrameFromJSONString(result)  // parse json string
+    if (df.isEmpty) {
+      println(s"ERROR: druidSQLAPI json parse result is empty")
+      return None
+    }
+    // return empty data frame if there is an `error` field in the json
+    if (hasColumn(df, "error") || !hasColumn(df, "hits.hits")) {
+      println(s"ERROR: elasticSearchCourseAPI returned error response, response=${result}")
+      return None
+    }
+    Some(df)
+  }
+
+  def elasticSearchLiveLearningResourceDFOption(host: String, offset: Int = 0, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var result = elasticSearchLiveLearningResourceAPI(host, offset, limit)
     result = result.trim()
     // return empty data frame if result is an empty string
     if (result == "") {
@@ -564,6 +597,28 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
         break = true
       } else {
         nextPageDF = nextPageDF.select(explode_outer(col("hits.hits")).alias("course"))
+        println(nextPageDF.count())
+        df = df.union(nextPageDF)
+        fetchedCount += limit
+      }
+    }
+    Some(df)
+  }
+
+  def elasticSearchLiveResourcesDFOption(host: String, limit: Int = 1000)(implicit spark: SparkSession): Option[DataFrame] = {
+    var df = elasticSearchLiveLearningResourceDFOption(host, 0, limit).orNull
+    if (df == null) return None
+    var fetchedCount = limit
+    val totalHits = df.select(col("hits.total")).head().getLong(0)
+    println(totalHits)
+    df = df.select(explode_outer(col("hits.hits")).alias("resource"))
+    var break = false
+    while (totalHits > fetchedCount && !break) {
+      var nextPageDF = elasticSearchLiveLearningResourceDFOption(host, fetchedCount, limit).orNull
+      if (nextPageDF == null) {
+        break = true
+      } else {
+        nextPageDF = nextPageDF.select(explode_outer(col("hits.hits")).alias("resource"))
         println(nextPageDF.count())
         df = df.union(nextPageDF)
         fetchedCount += limit
@@ -661,13 +716,13 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
 
   /**
    * All courses from elastic search api
-   * need to do this because otherwise we will have to parse all json records in cassandra to filter live ones
-   * @return DataFrame(id)
+   * @return DataFrame(courseID, courseName, courseStatus, courseReviewStatus, courseOrgID)
    */
   val allCourseSchema: StructType = StructType(Seq(
     StructField("courseID",  StringType, nullable = true),
     StructField("courseName",  StringType, nullable = true),
     StructField("courseStatus",  StringType, nullable = true),
+    StructField("courseReviewStatus",  StringType, nullable = true),
     StructField("courseOrgID",  StringType, nullable = true)
   ))
   def allCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
@@ -679,13 +734,43 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
       col("course._source.identifier").alias("courseID"),
       col("course._source.name").alias("courseName"),
       col("course._source.status").alias("courseStatus"),
+      col("course._source.reviewStatus").alias("courseReviewStatus"),
       col("course._source.channel").alias("courseOrgID")
-    ).dropDuplicates("courseID")
+    )
+    df = df.dropDuplicates("courseID")
 
     show(df)
     df
   }
 
+  /**
+   * Live resources from elastic search api
+   * @return DataFrame(resourceID, resourceStatus, resourceReviewStatus, resourceOrgID)
+   */
+  val allResourceSchema: StructType = StructType(Seq(
+    StructField("resourceID",  StringType, nullable = true),
+    StructField("resourceStatus",  StringType, nullable = true),
+    StructField("resourceReviewStatus",  StringType, nullable = true),
+    StructField("resourceOrgID",  StringType, nullable = true)
+  ))
+  def liveResourceDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
+    var df = elasticSearchLiveResourcesDFOption(conf.sparkElasticsearchConnectionHost).orNull
+    if (df == null) return emptySchemaDataFrame(allResourceSchema)
+
+    // now that error handling is done, proceed with business as usual
+    df = df.select(
+      col("resource._source.identifier").alias("resourceID"),
+      col("resource._source.status").alias("resourceStatus"),
+      col("resource._source.reviewStatus").alias("resourceReviewStatus"),
+      col("resource._source.channel").alias("resourceOrgID")
+    )
+    df = df.dropDuplicates("resourceID")
+
+    show(df)
+    df
+  }
+
+  // only live course ids
   val liveCourseSchema: StructType = StructType(Seq(
     StructField("id",  StringType, nullable = true)
   ))
