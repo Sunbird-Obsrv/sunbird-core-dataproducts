@@ -27,11 +27,20 @@ object UserOrgRedisUpdateTest extends Serializable {
   }
 
   def testModelConfig(): Map[String, AnyRef] = {
+    val sideOutput = Map(
+      "brokerList" -> "10.0.0.5:9092",
+      "compression" -> "snappy",
+      "topics" -> Map(
+        "roleUserCount" -> "dev.dashboards.role.count",
+        "orgRoleUserCount" -> "dev.dashboards.org.role.count"
+      )
+    )
     val modelParams = Map(
       "debug" -> "true",
       "sparkCassandraConnectionHost" -> "10.0.0.7",
       "cassandraUserKeyspace" -> "sunbird",
       "cassandraUserTable" -> "user",
+      "cassandraUserRolesTable" -> "user_roles",
       "cassandraOrgTable" -> "organisation",
       "redisRegisteredOfficerCountKey" -> "mdo_registered_officer_count",
       "redisTotalOfficerCountKey" -> "mdo_total_officer_count",
@@ -40,7 +49,8 @@ object UserOrgRedisUpdateTest extends Serializable {
       "redisTotalOrgCountKey" -> "mdo_total_org_count",
       "redisHost" -> "10.0.0.6",
       "redisPort" -> "6379",
-      "redisDB" -> "12"
+      "redisDB" -> "12",
+      "sideOutput" -> sideOutput
     )
     modelParams
   }

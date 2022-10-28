@@ -5,11 +5,10 @@ import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.apache.spark.sql.functions.{col, collect_list, from_json, lit}
+import org.apache.spark.sql.functions.{col, collect_list, from_json}
 import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, StringType, StructField, StructType}
-import org.apache.spark.storage.StorageLevel
 import org.ekstep.analytics.framework._
-import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
+import DashboardUtil._
 
 
 // input output case classes
@@ -17,9 +16,11 @@ case class WODummyInput(timestamp: Long) extends AlgoInput  // no input, there a
 case class WODummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
 // config case class
-case class WOConfig(debug: String, broker: String, compression: String, rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
-                  cassandraSunbirdKeyspace: String, cassandraWorkOrderTable: String, cassandraWorkAllocationTable: String,
-                  cassandraUserWorkAllocationMappingTable: String) extends Serializable
+case class WOConfig(debug: String, broker: String, compression: String,
+                    redisHost: String, redisPort: Int, redisDB: Int,
+                    rawTelemetryTopic: String, sparkCassandraConnectionHost: String,
+                    cassandraSunbirdKeyspace: String, cassandraWorkOrderTable: String, cassandraWorkAllocationTable: String,
+                    cassandraUserWorkAllocationMappingTable: String) extends DashboardConfig
 
 // work order & allocation case classes
 case class CompetencyAdditionalProperties(competencyArea: String, competencyType: String)
@@ -197,7 +198,7 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, WODummyInput,
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
     val eventDS = workOrderEventDataSet()
-    kafkaDispatch(eventDS, conf.rawTelemetryTopic)
+    kafkaDispatchDS(eventDS, conf.rawTelemetryTopic)
   }
 
   def workOrderEventDataSet()(implicit spark: SparkSession, conf: WOConfig): Dataset[Event] = {
@@ -272,21 +273,14 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, WODummyInput,
 
   /* Config functions */
 
-  def getConfig[T](config: Map[String, AnyRef], key: String, default: T = null): T = {
-    val path = key.split('.')
-    var obj = config
-    path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
-    obj.getOrElse(path.last, default).asInstanceOf[T]
-  }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String, default: String = ""): String = getConfig[String](config, key, default)
-  def getConfigSideBroker(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.brokerList", "")
-  def getConfigSideBrokerCompression(config: Map[String, AnyRef]): String = getConfig[String](config, "sideOutput.compression", "snappy")
-  def getConfigSideTopic(config: Map[String, AnyRef], key: String): String = getConfig[String](config, s"sideOutput.topics.${key}", "")
   def parseConfig(config: Map[String, AnyRef]): WOConfig = {
     WOConfig(
       debug = getConfigModelParam(config, "debug"),
       broker = getConfigSideBroker(config),
       compression = getConfigSideBrokerCompression(config),
+      redisHost = getConfigModelParam(config, "redisHost"),
+      redisPort = getConfigModelParam(config, "redisPort").toInt,
+      redisDB = getConfigModelParam(config, "redisDB").toInt,
       rawTelemetryTopic = getConfigSideTopic(config, "rawTelemetryTopic"),
       sparkCassandraConnectionHost = getConfigModelParam(config, "sparkCassandraConnectionHost"),
       cassandraSunbirdKeyspace = getConfigModelParam(config, "cassandraSunbirdKeyspace"),
@@ -296,36 +290,5 @@ object WorkOrderTelemetryModel extends IBatchModelTemplate[String, WODummyInput,
     )
   }
 
-  /* Util functions */
-  def show(df: DataFrame): Unit = {
-    if (debug) {
-      df.show()
-      println("Count: " + df.count())
-    }
-    df.printSchema()
-  }
-
-  def showDS[T](df: Dataset[T]): Unit = {
-    if (debug) {
-      df.show()
-      println("Count: " + df.count())
-    }
-    df.printSchema()
-  }
-
-  def kafkaDispatch[T](data: Dataset[T], topic: String)(implicit sc: SparkContext, fc: FrameworkContext, conf: WOConfig): Unit = {
-    if (topic == "") {
-      println("ERROR: topic is blank, skipping kafka dispatch")
-    } else if (conf.broker == "") {
-      println("ERROR: broker list is blank, skipping kafka dispatch")
-    } else {
-      KafkaDispatcher.dispatch(Map("brokerList" -> conf.broker, "topic" -> topic, "compression" -> conf.compression), data.toJSON.rdd)
-    }
-  }
-
-  def cassandraTableAsDataFrame(keySpace: String, table: String)(implicit spark: SparkSession): DataFrame = {
-    spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
-      .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
-  }
 
 }

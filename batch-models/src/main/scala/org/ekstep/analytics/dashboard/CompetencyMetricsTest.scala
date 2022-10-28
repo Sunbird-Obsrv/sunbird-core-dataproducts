@@ -9,6 +9,7 @@ object CompetencyMetricsTest extends Serializable {
 
   def main(args: Array[String]): Unit = {
     val cassandraHost = testModelConfig().getOrElse("sparkCassandraConnectionHost", "localhost").asInstanceOf[String]
+    val esHost = testModelConfig().getOrElse("sparkElasticsearchConnectionHost", "localhost").asInstanceOf[String]
     implicit val spark: SparkSession =
       SparkSession
         .builder()
@@ -18,6 +19,9 @@ object CompetencyMetricsTest extends Serializable {
         .config("spark.cassandra.output.batch.size.rows", "10000")
         //.config("spark.cassandra.read.timeoutMS", "60000")
         .config("spark.sql.legacy.json.allowEmptyString.enabled", "true")
+        .config("spark.sql.caseSensitive", "true")
+        .config("es.nodes", esHost)
+        .config("es.port", "9200")
         .getOrCreate()
     implicit val sc: SparkContext = spark.sparkContext
     implicit val fc: FrameworkContext = new FrameworkContext()
@@ -34,7 +38,6 @@ object CompetencyMetricsTest extends Serializable {
       "topics" -> Map(
         "allCourses" -> "dev.dashboards.course",
         "allResources" -> "dev.dashboards.resource",
-        "userRoles" -> "dev.dashboards.user.role",
         "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",
         "fracCompetency" -> "dev.dashboards.competency.frac",
@@ -54,7 +57,6 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraCourseKeyspace" -> "sunbird_courses",
       "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
       "cassandraUserTable" -> "user",
-      "cassandraUserRolesTable" -> "user_roles",
       "cassandraOrgTable" -> "organisation",
       "cassandraUserEnrolmentsTable" -> "user_enrolments",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
