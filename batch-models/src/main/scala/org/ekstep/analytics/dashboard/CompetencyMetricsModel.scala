@@ -5,7 +5,7 @@ import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{avg, col, countDistinct, explode_outer, expr, from_json, last, max, udf}
+import org.apache.spark.sql.functions.{avg, col, count, countDistinct, explode_outer, expr, from_json, last, max, udf}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StringType, StructField, StructType}
 import org.ekstep.analytics.framework._
 
@@ -114,136 +114,149 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
 
     // get all courses with name, status and org, dispatch to kafka to be ingested by druid data-source: dashboards-courses
     val allCourseDF = allCourseDataFrame()
-    kafkaDispatch(withTimestamp(allCourseDF, timestamp), conf.allCourseTopic)
 
-    // get all resources with status and org, dispatch to kafka to be ingested by druid data-source: dashboards-resources
-//    val liveResourceDF = liveResourceDataFrame()
-//    kafkaDispatch(withTimestamp(liveResourceDF, timestamp), conf.allResourceTopic)
+    val statusExpr =
+      """CASE
+        |WHEN courseStatus='Live' THEN 'Published'
+        |WHEN courseStatus='Draft' THEN 'Drafted'
+        |WHEN courseStatus='Review' AND courseReviewStatus='Reviewed' THEN 'Reviewed'
+        |WHEN courseStatus='Review' THEN 'Under Review'
+        |ELSE 'Other' END
+        |""".stripMargin
+    val groupCountDF = allCourseDF.withColumn("overallStatus", expr(statusExpr))
+      .groupBy("overallStatus").agg(countDistinct("courseID"))
+    show(groupCountDF)
 
-    val liveCourseIDsDF = liveCourseDataFrame(allCourseDF)  // get ids for live courses from es api
-
-    // get course details, attach rating info, dispatch to kafka to be ingested by druid data-source: dashboards-course-details
-    val courseDetailsWithCompDF = courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF)
-    val courseDetailsDF = courseDetailsDataFrame(courseDetailsWithCompDF)
-    val courseRatingDF = courseRatingSummaryDataFrame()
-    val courseDetailsWithRatingDF = courseDetailsWithRatingDataFrame(courseDetailsDF, courseRatingDF)
-    kafkaDispatch(withTimestamp(courseDetailsWithRatingDF, timestamp), conf.courseDetailsTopic)
-
-    // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
-    val courseCompetencyDF = courseCompetencyDataFrame(courseDetailsWithCompDF)
-    kafkaDispatch(withTimestamp(courseCompetencyDF, timestamp), conf.courseCompetencyTopic)
-
-    // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
-    val courseCompletionWithDetailsDF = userCourseCompletionWithDetailsDataFrame(courseDetailsDF)
-    kafkaDispatch(withTimestamp(courseCompletionWithDetailsDF, timestamp), conf.userCourseProgressTopic)
-
-    // get user's expected competency data, dispatch to kafka to be ingested by druid data-source: dashboards-expected-user-competency
-    val expectedCompetencyDF = expectedCompetencyDataFrame()
-    val expectedCompetencyWithCourseCountDF = expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF, courseCompetencyDF)
-    kafkaDispatch(withTimestamp(expectedCompetencyWithCourseCountDF, timestamp), conf.expectedCompetencyTopic)
-
-    // get user's declared competency data, dispatch to kafka to be ingested by druid data-source: dashboards-declared-user-competency
-    val declaredCompetencyDF = declaredCompetencyDataFrame()
-    kafkaDispatch(withTimestamp(declaredCompetencyDF, timestamp), conf.declaredCompetencyTopic)
-
-    // get frac competency data, dispatch to kafka to be ingested by druid data-source: dashboards-frac-competency
-    val fracCompetencyDF = fracCompetencyDataFrame()
-    val fracCompetencyWithCourseCountDF = fracCompetencyWithCourseCountDataFrame(fracCompetencyDF, courseCompetencyDF)
-    val fracCompetencyWithDetailsDF = fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF, expectedCompetencyDF, declaredCompetencyDF)
-    kafkaDispatch(withTimestamp(fracCompetencyWithDetailsDF, timestamp), conf.fracCompetencyTopic)
-
-    // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
-    val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
-    val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionWithDetailsDF)  // add course completion status
-    kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
-
-    // officer dashboard metrics redis dispatch
-    // OL01 - user: expected_competency_count
-    val userExpectedCompetencyCountDF = expectedCompetencyDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("count"), last("orgID").alias("orgID"))
-    show(userExpectedCompetencyCountDF, "OL01")
-    redisDispatchDataFrame[Long](conf.redisExpectedUserCompetencyCount, userExpectedCompetencyCountDF, "userID", "count")
-
-    // OL02 - user: declared_competency_count
-    val userDeclaredCompetencyCountDF = declaredCompetencyDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("count"))
-    show(userDeclaredCompetencyCountDF, "OL02")
-    redisDispatchDataFrame[Long](conf.redisDeclaredUserCompetencyCount, userDeclaredCompetencyCountDF, "userID", "count")
-
-    // OL03 - user: (declared_competency intersection expected_competency).count / expected_competency_count
-    val coveredCompetencyDF = expectedCompetencyDF.join(declaredCompetencyDF, Seq("userID", "competencyID"), "leftouter")
-      .na.fill(0, Seq("declaredCompetencyLevel"))
-      .where(expr("declaredCompetencyLevel >= expectedCompetencyLevel"))
-    val userCoveredCompetencyCountDF = coveredCompetencyDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("coveredCount"))
-    val userCompetencyCoverRateDF = userExpectedCompetencyCountDF.join(userCoveredCompetencyCountDF, Seq("userID"), "leftouter")
-      .na.fill(0, Seq("coveredCount"))
-      .withColumn("rate", expr("coveredCount / count"))
-    show(userCompetencyCoverRateDF, "OL03")
-    redisDispatchDataFrame[Double](conf.redisUserCompetencyDeclarationRate, userCompetencyCoverRateDF, "userID", "rate")
-
-    // OL04 - mdo: average_competency_declaration_rate
-    val orgCompetencyAvgCoverRateDF = userCompetencyCoverRateDF.groupBy("orgID")
-      .agg(avg("rate").alias("rate"))
-    show(orgCompetencyAvgCoverRateDF, "OL04")
-    redisDispatchDataFrame[Double](conf.redisOrgCompetencyDeclarationRate, orgCompetencyAvgCoverRateDF, "orgID", "rate")
-
-    // OL05 - user: competency gap count
-    val userCompetencyGapDF = competencyGapDF.where(expr("competencyGap > 0"))
-    val userCompetencyGapCountDF = userCompetencyGapDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("count"), last("orgID").alias("orgID"))
-    show(userCompetencyGapCountDF, "OL05")
-    redisDispatchDataFrame[Long](conf.redisUserCompetencyGapCount, userCompetencyGapCountDF, "userID", "count")
-
-    // OL06 - user: enrolled cbp count (IMPORTANT: excluding completed courses)
-    val userCourseEnrolledDF = courseCompletionWithDetailsDF.where(expr("completionStatus in ('started', 'in-progress')"))
-    val userCourseEnrolledCountDF = userCourseEnrolledDF.groupBy("userID").agg(
-      countDistinct("courseID").alias("count"))
-    show(userCourseEnrolledCountDF, "OL06")
-    redisDispatchDataFrame[Long](conf.redisUserCourseEnrollmentCount, userCourseEnrolledCountDF, "userID", "count")
-
-    // OL08 - user: competency gaps enrolled percentage (IMPORTANT: excluding completed ones)
-    val userCompetencyGapEnrolledDF = competencyGapWithCompletionDF.where(expr("competencyGap > 0 AND completionStatus in ('started', 'in-progress')"))
-    val userCompetencyGapEnrolledCountDF = userCompetencyGapEnrolledDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("enrolledCount"))
-    val userCompetencyGapEnrolledRateDF = userCompetencyGapCountDF.join(userCompetencyGapEnrolledCountDF, Seq("userID"), "leftouter")
-      .na.fill(0, Seq("enrolledCount"))
-      .withColumn("rate", expr("enrolledCount / count"))
-    show(userCompetencyGapEnrolledRateDF, "OL08")
-    redisDispatchDataFrame[Double](conf.redisUserCompetencyGapEnrollmentRate, userCompetencyGapEnrolledRateDF, "userID", "rate")
-
-    // OL09 - mdo: average competency gaps enrolled percentage
-    val orgCompetencyGapAvgEnrolledRateDF = userCompetencyGapEnrolledRateDF.groupBy("orgID")
-      .agg(avg("rate").alias("rate"))
-    show(orgCompetencyGapAvgEnrolledRateDF, "OL09")
-    redisDispatchDataFrame[Double](conf.redisOrgCompetencyGapEnrollmentRate, orgCompetencyGapAvgEnrolledRateDF, "orgID", "rate")
-
-    // OL10 - user: completed cbp count
-    val userCourseCompletedDF = courseCompletionWithDetailsDF.where(expr("completionStatus = 'completed'"))
-    val userCourseCompletedCountDF = userCourseCompletedDF.groupBy("userID").agg(
-      countDistinct("courseID").alias("count"))
-    show(userCourseCompletedCountDF, "OL10")
-    redisDispatchDataFrame[Long](conf.redisUserCourseCompletionCount, userCourseCompletedCountDF, "userID", "count")
-
-    // OL11 - user: competency gap closed count
-    val userCompetencyGapClosedDF = competencyGapWithCompletionDF.where(expr("competencyGap > 0 AND completionStatus = 'completed'"))
-    val userCompetencyGapClosedCountDF = userCompetencyGapClosedDF.groupBy("userID").agg(
-      countDistinct("competencyID").alias("closedCount"))
-    show(userCompetencyGapClosedCountDF, "OL11")
-    redisDispatchDataFrame[Long](conf.redisUserCompetencyGapClosedCount, userCompetencyGapClosedCountDF, "userID", "closedCount")
-
-    // OL12 - user: competency gap closed percent
-    val userCompetencyGapClosedRateDF = userCompetencyGapCountDF.join(userCompetencyGapClosedCountDF, Seq("userID"), "leftouter")
-      .na.fill(0, Seq("closedCount"))
-      .withColumn("rate", expr("closedCount / count"))
-    show(userCompetencyGapClosedRateDF,  "OL12")
-    redisDispatchDataFrame[Double](conf.redisUserCompetencyGapClosedCount, userCompetencyGapClosedRateDF, "userID", "rate")
-
-    // OL13 - mdo: avg competency gap closed percent
-    val orgCompetencyGapAvgClosedRateDF = userCompetencyGapClosedRateDF.groupBy("orgID")
-      .agg(avg("rate").alias("rate"))
-    show(orgCompetencyGapAvgClosedRateDF, "OL13")
-    redisDispatchDataFrame[Double](conf.redisOrgCompetencyGapClosedRate, orgCompetencyGapAvgClosedRateDF, "orgID", "rate")
+//    kafkaDispatch(withTimestamp(allCourseDF, timestamp), conf.allCourseTopic)
+//
+//    // get all resources with status and org, dispatch to kafka to be ingested by druid data-source: dashboards-resources
+////    val liveResourceDF = liveResourceDataFrame()
+////    kafkaDispatch(withTimestamp(liveResourceDF, timestamp), conf.allResourceTopic)
+//
+//    val liveCourseIDsDF = liveCourseDataFrame(allCourseDF)  // get ids for live courses from es api
+//
+//    // get course details, attach rating info, dispatch to kafka to be ingested by druid data-source: dashboards-course-details
+//    val courseDetailsWithCompDF = courseDetailsWithCompetenciesJsonDataFrame(liveCourseIDsDF)
+//    val courseDetailsDF = courseDetailsDataFrame(courseDetailsWithCompDF)
+//    val courseRatingDF = courseRatingSummaryDataFrame()
+//    val courseDetailsWithRatingDF = courseDetailsWithRatingDataFrame(courseDetailsDF, courseRatingDF)
+//    kafkaDispatch(withTimestamp(courseDetailsWithRatingDF, timestamp), conf.courseDetailsTopic)
+//
+//    // get course competency mapping data, dispatch to kafka to be ingested by druid data-source: dashboards-course-competency
+//    val courseCompetencyDF = courseCompetencyDataFrame(courseDetailsWithCompDF)
+//    kafkaDispatch(withTimestamp(courseCompetencyDF, timestamp), conf.courseCompetencyTopic)
+//
+//    // get course completion data, dispatch to kafka to be ingested by druid data-source: dashboards-user-course-progress
+//    val courseCompletionWithDetailsDF = userCourseCompletionWithDetailsDataFrame(courseDetailsDF)
+//    kafkaDispatch(withTimestamp(courseCompletionWithDetailsDF, timestamp), conf.userCourseProgressTopic)
+//
+//    // get user's expected competency data, dispatch to kafka to be ingested by druid data-source: dashboards-expected-user-competency
+//    val expectedCompetencyDF = expectedCompetencyDataFrame()
+//    val expectedCompetencyWithCourseCountDF = expectedCompetencyWithCourseCountDataFrame(expectedCompetencyDF, courseCompetencyDF)
+//    kafkaDispatch(withTimestamp(expectedCompetencyWithCourseCountDF, timestamp), conf.expectedCompetencyTopic)
+//
+//    // get user's declared competency data, dispatch to kafka to be ingested by druid data-source: dashboards-declared-user-competency
+//    val declaredCompetencyDF = declaredCompetencyDataFrame()
+//    kafkaDispatch(withTimestamp(declaredCompetencyDF, timestamp), conf.declaredCompetencyTopic)
+//
+//    // get frac competency data, dispatch to kafka to be ingested by druid data-source: dashboards-frac-competency
+//    val fracCompetencyDF = fracCompetencyDataFrame()
+//    val fracCompetencyWithCourseCountDF = fracCompetencyWithCourseCountDataFrame(fracCompetencyDF, courseCompetencyDF)
+//    val fracCompetencyWithDetailsDF = fracCompetencyWithOfficerCountDataFrame(fracCompetencyWithCourseCountDF, expectedCompetencyDF, declaredCompetencyDF)
+//    kafkaDispatch(withTimestamp(fracCompetencyWithDetailsDF, timestamp), conf.fracCompetencyTopic)
+//
+//    // calculate competency gaps, add course completion status, dispatch to kafka to be ingested by druid data-source: dashboards-user-competency-gap
+//    val competencyGapDF = competencyGapDataFrame(expectedCompetencyDF, declaredCompetencyDF)
+//    val competencyGapWithCompletionDF = competencyGapCompletionDataFrame(competencyGapDF, courseCompetencyDF, courseCompletionWithDetailsDF)  // add course completion status
+//    kafkaDispatch(withTimestamp(competencyGapWithCompletionDF, timestamp), conf.competencyGapTopic)
+//
+//    // officer dashboard metrics redis dispatch
+//    // OL01 - user: expected_competency_count
+//    val userExpectedCompetencyCountDF = expectedCompetencyDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("count"), last("orgID").alias("orgID"))
+//    show(userExpectedCompetencyCountDF, "OL01")
+//    redisDispatchDataFrame[Long](conf.redisExpectedUserCompetencyCount, userExpectedCompetencyCountDF, "userID", "count")
+//
+//    // OL02 - user: declared_competency_count
+//    val userDeclaredCompetencyCountDF = declaredCompetencyDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("count"))
+//    show(userDeclaredCompetencyCountDF, "OL02")
+//    redisDispatchDataFrame[Long](conf.redisDeclaredUserCompetencyCount, userDeclaredCompetencyCountDF, "userID", "count")
+//
+//    // OL03 - user: (declared_competency intersection expected_competency).count / expected_competency_count
+//    val coveredCompetencyDF = expectedCompetencyDF.join(declaredCompetencyDF, Seq("userID", "competencyID"), "leftouter")
+//      .na.fill(0, Seq("declaredCompetencyLevel"))
+//      .where(expr("declaredCompetencyLevel >= expectedCompetencyLevel"))
+//    val userCoveredCompetencyCountDF = coveredCompetencyDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("coveredCount"))
+//    val userCompetencyCoverRateDF = userExpectedCompetencyCountDF.join(userCoveredCompetencyCountDF, Seq("userID"), "leftouter")
+//      .na.fill(0, Seq("coveredCount"))
+//      .withColumn("rate", expr("coveredCount / count"))
+//    show(userCompetencyCoverRateDF, "OL03")
+//    redisDispatchDataFrame[Double](conf.redisUserCompetencyDeclarationRate, userCompetencyCoverRateDF, "userID", "rate")
+//
+//    // OL04 - mdo: average_competency_declaration_rate
+//    val orgCompetencyAvgCoverRateDF = userCompetencyCoverRateDF.groupBy("orgID")
+//      .agg(avg("rate").alias("rate"))
+//    show(orgCompetencyAvgCoverRateDF, "OL04")
+//    redisDispatchDataFrame[Double](conf.redisOrgCompetencyDeclarationRate, orgCompetencyAvgCoverRateDF, "orgID", "rate")
+//
+//    // OL05 - user: competency gap count
+//    val userCompetencyGapDF = competencyGapDF.where(expr("competencyGap > 0"))
+//    val userCompetencyGapCountDF = userCompetencyGapDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("count"), last("orgID").alias("orgID"))
+//    show(userCompetencyGapCountDF, "OL05")
+//    redisDispatchDataFrame[Long](conf.redisUserCompetencyGapCount, userCompetencyGapCountDF, "userID", "count")
+//
+//    // OL06 - user: enrolled cbp count (IMPORTANT: excluding completed courses)
+//    val userCourseEnrolledDF = courseCompletionWithDetailsDF.where(expr("completionStatus in ('started', 'in-progress')"))
+//    val userCourseEnrolledCountDF = userCourseEnrolledDF.groupBy("userID").agg(
+//      countDistinct("courseID").alias("count"))
+//    show(userCourseEnrolledCountDF, "OL06")
+//    redisDispatchDataFrame[Long](conf.redisUserCourseEnrollmentCount, userCourseEnrolledCountDF, "userID", "count")
+//
+//    // OL08 - user: competency gaps enrolled percentage (IMPORTANT: excluding completed ones)
+//    val userCompetencyGapEnrolledDF = competencyGapWithCompletionDF.where(expr("competencyGap > 0 AND completionStatus in ('started', 'in-progress')"))
+//    val userCompetencyGapEnrolledCountDF = userCompetencyGapEnrolledDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("enrolledCount"))
+//    val userCompetencyGapEnrolledRateDF = userCompetencyGapCountDF.join(userCompetencyGapEnrolledCountDF, Seq("userID"), "leftouter")
+//      .na.fill(0, Seq("enrolledCount"))
+//      .withColumn("rate", expr("enrolledCount / count"))
+//    show(userCompetencyGapEnrolledRateDF, "OL08")
+//    redisDispatchDataFrame[Double](conf.redisUserCompetencyGapEnrollmentRate, userCompetencyGapEnrolledRateDF, "userID", "rate")
+//
+//    // OL09 - mdo: average competency gaps enrolled percentage
+//    val orgCompetencyGapAvgEnrolledRateDF = userCompetencyGapEnrolledRateDF.groupBy("orgID")
+//      .agg(avg("rate").alias("rate"))
+//    show(orgCompetencyGapAvgEnrolledRateDF, "OL09")
+//    redisDispatchDataFrame[Double](conf.redisOrgCompetencyGapEnrollmentRate, orgCompetencyGapAvgEnrolledRateDF, "orgID", "rate")
+//
+//    // OL10 - user: completed cbp count
+//    val userCourseCompletedDF = courseCompletionWithDetailsDF.where(expr("completionStatus = 'completed'"))
+//    val userCourseCompletedCountDF = userCourseCompletedDF.groupBy("userID").agg(
+//      countDistinct("courseID").alias("count"))
+//    show(userCourseCompletedCountDF, "OL10")
+//    redisDispatchDataFrame[Long](conf.redisUserCourseCompletionCount, userCourseCompletedCountDF, "userID", "count")
+//
+//    // OL11 - user: competency gap closed count
+//    val userCompetencyGapClosedDF = competencyGapWithCompletionDF.where(expr("competencyGap > 0 AND completionStatus = 'completed'"))
+//    val userCompetencyGapClosedCountDF = userCompetencyGapClosedDF.groupBy("userID").agg(
+//      countDistinct("competencyID").alias("closedCount"))
+//    show(userCompetencyGapClosedCountDF, "OL11")
+//    redisDispatchDataFrame[Long](conf.redisUserCompetencyGapClosedCount, userCompetencyGapClosedCountDF, "userID", "closedCount")
+//
+//    // OL12 - user: competency gap closed percent
+//    val userCompetencyGapClosedRateDF = userCompetencyGapCountDF.join(userCompetencyGapClosedCountDF, Seq("userID"), "leftouter")
+//      .na.fill(0, Seq("closedCount"))
+//      .withColumn("rate", expr("closedCount / count"))
+//    show(userCompetencyGapClosedRateDF,  "OL12")
+//    redisDispatchDataFrame[Double](conf.redisUserCompetencyGapClosedCount, userCompetencyGapClosedRateDF, "userID", "rate")
+//
+//    // OL13 - mdo: avg competency gap closed percent
+//    val orgCompetencyGapAvgClosedRateDF = userCompetencyGapClosedRateDF.groupBy("orgID")
+//      .agg(avg("rate").alias("rate"))
+//    show(orgCompetencyGapAvgClosedRateDF, "OL13")
+//    redisDispatchDataFrame[Double](conf.redisOrgCompetencyGapClosedRate, orgCompetencyGapAvgClosedRateDF, "orgID", "rate")
 
     closeRedisConnect()
   }
@@ -309,13 +322,13 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
   }
 
   def elasticSearchCourseDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    val query = """{"_source":["identifier","name","primaryCategory","status","reviewStatus","channel","competencies"],"query":{"bool":{"must":[{"match":{"primaryCategory":"Course"}}]}}}"""
+    val query = """{"_source":["identifier","name","primaryCategory","status","reviewStatus","channel","competencies"],"query":{"bool":{"must":[{"match":{"primaryCategory.raw":"Course"}}]}}}"""
     val fields = Seq("identifier", "name", "primaryCategory", "status", "reviewStatus", "channel")
     elasticSearchDataFrame(conf.sparkElasticsearchConnectionHost, "compositesearch", query, fields)
   }
 
   def elasticSearchLiveResourceDataFrame()(implicit spark: SparkSession, conf: CMConfig): DataFrame = {
-    val query = """{"_source":["identifier","name","primaryCategory","status","reviewStatus","channel"],"query":{"bool":{"must":[{"match":{"status":"Live"}},{"match":{"primaryCategory":"Learning Resource"}}]}}}"""
+    val query = """{"_source":["identifier","name","primaryCategory","status","reviewStatus","channel"],"query":{"bool":{"must":[{"match":{"status.raw":"Live"}},{"match":{"primaryCategory.raw":"Learning Resource"}}]}}}"""
     val fields = Seq("identifier", "name", "primaryCategory", "status", "reviewStatus", "channel")
     elasticSearchDataFrame(conf.sparkElasticsearchConnectionHost, "compositesearch", query, fields)
   }
@@ -389,7 +402,7 @@ object CompetencyMetricsModel extends IBatchModelTemplate[String, CMDummyInput, 
     )
     df = df.dropDuplicates("courseID")
 
-    show(df)
+    show(df, "allCourseDataFrame")
     df
   }
 
