@@ -1,32 +1,32 @@
 package org.ekstep.analytics.dashboard
 
-import redis.clients.jedis.Jedis
 import java.io.Serializable
 import org.ekstep.analytics.framework.IBatchModelTemplate
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, lit}
-import org.apache.spark.storage.StorageLevel
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions.{col, countDistinct, expr, last, lit}
 import org.ekstep.analytics.framework._
 
 import java.util
+import DashboardUtil._
 
 
 case class UDummyInput(timestamp: Long) extends AlgoInput  // no input, there are multiple sources to query
 case class UDummyOutput() extends Output with AlgoOutput  // no output as we take care of kafka dispatches ourself
 
-case class UConfig(debug: String, sparkCassandraConnectionHost: String, cassandraUserKeyspace: String,
-                  cassandraUserTable: String, cassandraOrgTable: String, redisRegisteredOfficerCountKey: String,
-                  redisTotalOfficerCountKey: String, redisOrgNameKey: String,
-                  redisHost: String, redisPort: Int, redisDB: Int) extends Serializable
+case class UConfig(debug: String, broker: String, compression: String,
+                   redisHost: String, redisPort: Int, redisDB: Int,
+                   roleUserCountTopic: String, orgRoleUserCountTopic: String,
+                   sparkCassandraConnectionHost: String, cassandraUserKeyspace: String,
+                   cassandraUserTable: String, cassandraUserRolesTable: String, cassandraOrgTable: String,
+                   redisRegisteredOfficerCountKey: String, redisTotalOfficerCountKey: String, redisOrgNameKey: String,
+                   redisTotalRegisteredOfficerCountKey: String, redisTotalOrgCountKey: String) extends DashboardConfig
 
 /**
  * Model for processing competency metrics
  */
 object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, UDummyOutput, UDummyOutput] with Serializable {
-
-  implicit var debug: Boolean = false
 
   implicit val className: String = "org.ekstep.analytics.dashboard.UserOrgRedisUpdateModel"
   override def name() = "UserOrgRedisUpdateModel"
@@ -60,32 +60,70 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
     implicit val conf: UConfig = parseConfig(config)
     if (conf.debug == "true") debug = true // set debug to true if explicitly specified in the config
 
-    updateOrgUserCounts()
+    updateOrgUserCounts(timestamp)
   }
 
-  def updateOrgUserCounts()(implicit spark: SparkSession, sc: SparkContext, conf: UConfig): Unit = {
-    val userData = cassandraTableAsDataFrame("sunbird", "user")
-    // show(userData)
-
-    val orgData = cassandraTableAsDataFrame("sunbird", "organisation")
-    // show(orgData)
-
-    val orgUserData = orgData.alias("o").join(
-      userData.alias("u"), orgData.col("id") === userData.col("rootorgid"), "leftouter")
-    // show(orgUserData)
-
-    val orgUserCountData = orgUserData.groupBy("o.id", "o.orgname").count()
-      .withColumn("totalCount", lit(10000))
+  def updateOrgUserCounts(timestamp: Long)(implicit spark: SparkSession, sc: SparkContext, fc: FrameworkContext, conf: UConfig): Unit = {
+    // orgID, orgName, orgStatus
+    val orgDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraOrgTable)
       .select(
-        col("o.id").alias("orgID"),
-        col("o.orgname").alias("orgName"),
-        col("count").alias("registeredCount"),
-        col("totalCount")
-      )
-      .na.fill("", Seq("orgName"))
-    show(orgUserCountData)
+        col("id").alias("orgID"),
+        col("orgname").alias("orgName"),
+        col("status").alias("orgStatus")
+      ).na.fill("", Seq("orgName"))
+    show(orgDF, "Org DataFrame")
 
-    // orgUserCountData.show(1000)
+    val activeOrgCount = orgDF.where(expr("orgStatus=1")).count()
+
+    // userID, orgID, userStatus
+    val userDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserTable)
+      .select(
+        col("id").alias("userID"),
+        col("rootorgid").alias("orgID"),
+        col("status").alias("userStatus")
+      ).na.fill("", Seq("orgID"))
+    show(userDF, "User DataFrame")
+
+    val activeUserCount = userDF.where(expr("userStatus=1")).count()
+
+    // userID, role
+    val roleDF = cassandraTableAsDataFrame(conf.cassandraUserKeyspace, conf.cassandraUserRolesTable)
+      .select(
+        col("userid").alias("userID"),
+        col("role").alias("role")
+      )
+    show(roleDF, "User Role DataFrame")
+
+    // userID, userStatus, orgID, orgName, orgStatus
+    val userWithOrgDF = userDF.join(orgDF, Seq("orgID"), "left")
+    show(userWithOrgDF)
+
+    // userID, userStatus, orgID, orgName, orgStatus, role
+    val userOrgRoleDF = userWithOrgDF.join(roleDF, Seq("userID"), "left").where(expr("userStatus=1 AND orgStatus=1"))
+    show(userOrgRoleDF)
+
+    // save role counts to kafka
+    // role, count
+    val roleCountDF = userOrgRoleDF.groupBy("role").agg(countDistinct("userID").alias("count"))
+    show(roleCountDF)
+    kafkaDispatch(withTimestamp(roleCountDF, timestamp), conf.roleUserCountTopic)
+
+    // orgID, orgName, role, count
+    val orgRoleCount = userOrgRoleDF.groupBy("orgID", "role").agg(
+      last("orgName").alias("orgName"),
+      countDistinct("userID").alias("count")
+    )
+    show(orgRoleCount)
+    kafkaDispatch(withTimestamp(orgRoleCount, timestamp), conf.orgRoleUserCountTopic)
+
+    // org user count
+    val orgUserDF = orgDF.join(userDF.filter(col("orgID").isNotNull), Seq("orgID"), "left")
+      .where(expr("userStatus=1 AND orgStatus=1"))
+    show(orgUserDF, "Org User DataFrame")
+
+    val orgUserCountData = orgUserDF.groupBy("orgID", "orgName").agg(expr("count(userID)").alias("registeredCount"))
+      .withColumn("totalCount", lit(10000))
+    show(orgUserCountData)
 
     val orgRegisteredUserCountMap = new util.HashMap[String, String]()
     val orgTotalUserCountMap = new util.HashMap[String, String]()
@@ -98,61 +136,42 @@ object UserOrgRedisUpdateModel extends IBatchModelTemplate[String, UDummyInput, 
       orgNameMap.put(orgID, row.getAs[String]("orgName"))
     })
 
-    val jedis = getRedisConnect(conf.redisHost, conf.redisPort)
+    val jedis = getOrCreateRedisConnect(conf.redisHost, conf.redisPort)
     jedis.select(conf.redisDB) // need to use jedis because in redis-spark_2.11:2.7.0 selecting db does not seem to work
 
-    jedis.hmset(conf.redisRegisteredOfficerCountKey, orgRegisteredUserCountMap)
-    jedis.hmset(conf.redisTotalOfficerCountKey, orgTotalUserCountMap)
-    jedis.hmset(conf.redisOrgNameKey, orgNameMap)
+    // set global org counts
+    jedis.set(conf.redisTotalRegisteredOfficerCountKey, activeUserCount.toString)
+    jedis.set(conf.redisTotalOrgCountKey, activeOrgCount.toString)
+
+    redisReplaceMap(jedis, conf.redisRegisteredOfficerCountKey, orgRegisteredUserCountMap)
+    redisReplaceMap(jedis, conf.redisTotalOfficerCountKey, orgTotalUserCountMap)
+    redisReplaceMap(jedis, conf.redisOrgNameKey, orgNameMap)
 
     jedis.close()
   }
 
   /* Config functions */
-
-  def getConfig[T](config: Map[String, AnyRef], key: String, default: T = null): T = {
-    val path = key.split('.')
-    var obj = config
-    path.slice(0, path.length - 1).foreach(f => { obj = obj.getOrElse(f, Map()).asInstanceOf[Map[String, AnyRef]] })
-    obj.getOrElse(path.last, default).asInstanceOf[T]
-  }
-  def getConfigModelParam(config: Map[String, AnyRef], key: String): String = getConfig[String](config, key, "")
   def parseConfig(config: Map[String, AnyRef]): UConfig = {
     UConfig(
       debug = getConfigModelParam(config, "debug"),
+      broker = getConfigSideBroker(config),
+      compression = getConfigSideBrokerCompression(config),
+      redisHost = getConfigModelParam(config, "redisHost"),
+      redisPort = getConfigModelParam(config, "redisPort").toInt,
+      redisDB = getConfigModelParam(config, "redisDB").toInt,
+      roleUserCountTopic = getConfigSideTopic(config, "roleUserCount"),
+      orgRoleUserCountTopic = getConfigSideTopic(config, "orgRoleUserCount"),
       sparkCassandraConnectionHost = getConfigModelParam(config, "sparkCassandraConnectionHost"),
       cassandraUserKeyspace = getConfigModelParam(config, "cassandraUserKeyspace"),
       cassandraUserTable = getConfigModelParam(config, "cassandraUserTable"),
+      cassandraUserRolesTable = getConfigModelParam(config, "cassandraUserRolesTable"),
       cassandraOrgTable = getConfigModelParam(config, "cassandraOrgTable"),
       redisRegisteredOfficerCountKey = getConfigModelParam(config, "redisRegisteredOfficerCountKey"),
       redisTotalOfficerCountKey = getConfigModelParam(config, "redisTotalOfficerCountKey"),
       redisOrgNameKey = getConfigModelParam(config, "redisOrgNameKey"),
-      redisHost = getConfigModelParam(config, "redisHost"),
-      redisPort = getConfigModelParam(config, "redisPort").toInt,
-      redisDB = getConfigModelParam(config, "redisDB").toInt
+      redisTotalRegisteredOfficerCountKey = getConfigModelParam(config, "redisTotalRegisteredOfficerCountKey"),
+      redisTotalOrgCountKey = getConfigModelParam(config, "redisTotalOrgCountKey")
     )
-  }
-
-  /* Util functions */
-  def show(df: DataFrame): Unit = {
-    if (debug) {
-      df.show()
-      println("Count: " + df.count())
-    }
-    df.printSchema()
-  }
-
-  def withTimestamp(df: DataFrame, timestamp: Long): DataFrame = {
-    df.withColumn("timestamp", lit(timestamp))
-  }
-
-  def getRedisConnect(redisHost: String, redisPort: Int):Jedis = {
-    new Jedis(redisHost, redisPort,30000)
-  }
-
-  def cassandraTableAsDataFrame(keySpace: String, table: String)(implicit spark: SparkSession): DataFrame = {
-    spark.read.format("org.apache.spark.sql.cassandra").option("inferSchema", "true")
-      .option("keyspace", keySpace).option("table", table).load().persist(StorageLevel.MEMORY_ONLY)
   }
 
 }

@@ -53,7 +53,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
       val metricEvent = getMetricJson("OnDemandDruidExhaustJob", Option(new DateTime().toString(CommonUtil.dateFormat)), "SUCCESS", metrics)
       // $COVERAGE-OFF$
       if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-        KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker"), "compression" -> AppConf.getConfigOr("metric.kafka.compression", "snappy")))
+        KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
       // $COVERAGE-ON$
       JobLogger.end(s"OnDemandDruidExhaustJob completed execution", "SUCCESS", Option(Map("timeTaken" -> res._1, "totalRequests" -> res._2.totalRequests, "successRequests" -> res._2.successRequests, "failedRequests" -> res._2.failedRequests)));
     } catch {
@@ -67,7 +67,7 @@ object OnDemandDruidExhaustJob extends optional.Application with BaseReportsJob 
         val metricEvent = getMetricJson("OnDemandDruidExhaustJob", Option(new
             DateTime().toString(CommonUtil.dateFormat)), "FAILED", List())
         if (AppConf.getConfig("push.metrics.kafka").toBoolean)
-          KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker"), "compression" -> AppConf.getConfigOr("metric.kafka.compression", "snappy")))
+          KafkaDispatcher.dispatch(Array(metricEvent), Map("topic" -> AppConf.getConfig("metric.kafka.topic"), "brokerList" -> AppConf.getConfig("metric.kafka.broker")))
       // $COVERAGE-ON$
     } finally {
       frameworkContext.closeContext();

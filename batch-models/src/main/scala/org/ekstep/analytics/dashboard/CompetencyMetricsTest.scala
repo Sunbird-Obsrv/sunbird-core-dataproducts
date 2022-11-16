@@ -9,6 +9,7 @@ object CompetencyMetricsTest extends Serializable {
 
   def main(args: Array[String]): Unit = {
     val cassandraHost = testModelConfig().getOrElse("sparkCassandraConnectionHost", "localhost").asInstanceOf[String]
+    val esHost = testModelConfig().getOrElse("sparkElasticsearchConnectionHost", "localhost").asInstanceOf[String]
     implicit val spark: SparkSession =
       SparkSession
         .builder()
@@ -17,6 +18,10 @@ object CompetencyMetricsTest extends Serializable {
         .config("spark.cassandra.connection.host", cassandraHost)
         .config("spark.cassandra.output.batch.size.rows", "10000")
         //.config("spark.cassandra.read.timeoutMS", "60000")
+        .config("spark.sql.legacy.json.allowEmptyString.enabled", "true")
+        .config("spark.sql.caseSensitive", "true")
+        .config("es.nodes", esHost)
+        .config("es.port", "9200")
         .getOrCreate()
     implicit val sc: SparkContext = spark.sparkContext
     implicit val fc: FrameworkContext = new FrameworkContext()
@@ -31,14 +36,15 @@ object CompetencyMetricsTest extends Serializable {
       "brokerList" -> "10.0.0.5:9092",
       "compression" -> "snappy",
       "topics" -> Map(
+        "allCourses" -> "dev.dashboards.course",
+        "allResources" -> "dev.dashboards.resource",
         "courseDetails" -> "dev.dashboards.course.details",
         "userCourseProgress" -> "dev.dashboards.user.course.progress",
         "fracCompetency" -> "dev.dashboards.competency.frac",
         "courseCompetency" -> "dev.dashboards.competency.course",
         "expectedCompetency" -> "dev.dashboards.competency.expected",
         "declaredCompetency" -> "dev.dashboards.competency.declared",
-        "competencyGap" -> "dev.dashboards.competency.gap",
-        "courseRatingSummary" -> "dev.dashboards.course.rating.summary"
+        "competencyGap" -> "dev.dashboards.competency.gap"
       )
     )
     val modelParams = Map(
@@ -51,7 +57,8 @@ object CompetencyMetricsTest extends Serializable {
       "cassandraCourseKeyspace" -> "sunbird_courses",
       "cassandraHierarchyStoreKeyspace" -> "dev_hierarchy_store",
       "cassandraUserTable" -> "user",
-      "cassandraUserContentConsumptionTable" -> "user_content_consumption",
+      "cassandraOrgTable" -> "organisation",
+      "cassandraUserEnrolmentsTable" -> "user_enrolments",
       "cassandraContentHierarchyTable" -> "content_hierarchy",
       "cassandraRatingSummaryTable" -> "ratings_summary",
       "redisHost" -> "10.0.0.6",
