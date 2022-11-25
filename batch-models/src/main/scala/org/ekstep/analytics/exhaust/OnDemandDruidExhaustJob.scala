@@ -3,12 +3,13 @@ package org.ekstep.analytics.exhaust
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SQLContext, SparkSession}
-import org.apache.spark.sql.functions.{col, when}
+import org.apache.spark.sql.functions.{col, concat, concat_ws, when,lit}
 import org.ekstep.analytics.framework.Level.{ERROR, INFO}
 import org.ekstep.analytics.framework.conf.AppConf
 import org.ekstep.analytics.framework.util.{CommonUtil, JSONUtils, JobLogger, RestUtil}
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext, StorageConfig, _}
 import org.ekstep.analytics.model.{OutputConfig, ReportConfig}
+
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.immutable.{List, Map}
 import org.ekstep.analytics.framework.util.DatasetUtil.extensions
@@ -17,6 +18,7 @@ import org.ekstep.analytics.framework.dispatcher.KafkaDispatcher
 import org.ekstep.analytics.framework.driver.BatchJobDriver.getMetricJson
 import org.ekstep.analytics.util.BaseDruidQueryProcessor
 import org.joda.time.DateTime
+
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.concurrent.CompletableFuture
@@ -85,7 +87,7 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
     updateStatus(request);
   }
 
-  def druidPostProcess(data: RDD[DruidOutput], request_id: String, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]])(implicit spark: SparkSession, sqlContext: SQLContext, fc: FrameworkContext, sc: SparkContext, config: JobConfig): OnDemandDruidResponse = {
+  def druidPostProcess(data: RDD[DruidOutput], request_id: String, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]], pubAttachObj: Map[String,AnyRef])(implicit spark: SparkSession, sqlContext: SQLContext, fc: FrameworkContext, sc: SparkContext, config: JobConfig): OnDemandDruidResponse = {
     val labelsLookup = reportConfig.labels
     val dimFields = reportConfig.metrics.flatMap { m =>
       if (m.druidQuery.dimensions.nonEmpty) m.druidQuery.dimensions.get.map(f => f.aliasName.getOrElse(f.fieldName))
@@ -100,6 +102,13 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
       (df.columns).map(f1 => {
         df = df.withColumn(f1, when((col(f1) === "unknown") || (col(f1) === "<NULL>"), "Null").otherwise(col(f1)))
       })
+
+      if (pubAttachObj.nonEmpty && pubAttachObj.get("exists").get.asInstanceOf[Boolean] == true) {
+          val attachColName = pubAttachObj.get("druid_col_names").asInstanceOf[Option[List[String]]].get
+          attachColName.map(ev => {
+            df = df.withColumn(ev, concat(lit(pubAttachObj.get("base_url").get.asInstanceOf[String]), col(ev)))
+          })
+      }
       df = df.dropDuplicates()
       if (dataCount.value > 0) {
         val metricFields = f.metrics
@@ -131,10 +140,10 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
     new SimpleDateFormat(pattern)
   }
 
-  def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]])(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
+  def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]], pubAttachObj: Map[String,AnyRef])(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
     markRequestAsProcessing(request)
     val druidData: RDD[DruidOutput] = fetchDruidData(reportConfig, true, false, false)
-    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(reportConfig)), storageConfig, sortDfColNames))
+    val result = CommonUtil.time(druidPostProcess(druidData, request.request_id, JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(reportConfig)), storageConfig, sortDfColNames, pubAttachObj))
     val response = result._2;
     val failedOnDemandDruidRes = response.status.equals("FAILED")
     if (failedOnDemandDruidRes) {
@@ -176,6 +185,8 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             val datasetConf = getDataSetDetails(requestType)
             var reportConf  = if(datasetConf.druid_query.nonEmpty) JSONUtils.deserialize[Map[String,AnyRef]](datasetConf.druid_query.get) else JSONUtils.deserialize[Map[String,AnyRef]](AppConf.getConfig("druid_query." + requestType))
             val sortDfColNames = reportConf.get("sort").asInstanceOf[Option[List[String]]]
+            val pubAttachObj = reportConf.getOrElse("publicAttachments",Map()).asInstanceOf[Map[String,AnyRef]]
+
             // Date Range with dynamic Start Date and End Date
             if (requestParamsBody.contains("start_date")){
               val updatedInterval = reportConf.getOrElse("dateRange",None).asInstanceOf[Map[String,AnyRef]].getOrElse("interval",None).asInstanceOf[Map[String,AnyRef]]
@@ -200,7 +211,7 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
             val reportConfig = JSONUtils.deserialize[ReportConfig](JSONUtils.serialize(updatedReportConf))
             val storageConfig = getStorageConfig(config, AppConf.getConfig("collection.exhaust.store.prefix"))
             JobLogger.log("Total Requests are ", Some(Map("jobId" -> jobId, "totalRequests" -> requests.length)), INFO)
-            val res = processRequest(request, reportConfig, storageConfig, sortDfColNames)
+            val res = processRequest(request, reportConfig, storageConfig, sortDfColNames,pubAttachObj)
             JobLogger.log("Request is ",Some(request),INFO)
             JobLogger.log("Report Config is ",Some(reportConfig),INFO)
             JobLogger.log("The Request is processed. Pending zipping", Some(Map("requestId" -> request.request_id, "timeTaken" -> res.execution_time,
