@@ -1475,7 +1475,7 @@ class TestOnDemandDruidExhaustJob extends BaseSpec with Matchers with BeforeAndA
   }
 }
 
-// Test object with canZipExceptionBeIgnored = false
+// Tests object with canZipExceptionBeIgnored = false
 object OnDemandDruidExhaustTestJob extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustTestJob"
 
