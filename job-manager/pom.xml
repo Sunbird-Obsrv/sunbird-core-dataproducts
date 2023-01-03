@@ -40,6 +40,17 @@
 		</dependency>
 		<dependency>
 			<groupId>org.sunbird</groupId>
+			<artifactId>analytics-job-driver</artifactId>
+			<version>2.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-codec</groupId>
+					<artifactId>commons-codec</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.sunbird</groupId>
 			<artifactId>analytics-core</artifactId>
 			<version>2.0</version>
 		</dependency>
@@ -75,9 +86,21 @@
 					<groupId>io.dropwizard.metrics</groupId>
 					<artifactId>metrics-core</artifactId>
 				</exclusion>
+				<!--<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
+				</exclusion>-->
+				<exclusion>
+					<groupId>org.apache.xbean</groupId>
+					<artifactId>xbean-asm6-shaded</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
-
+		<dependency>
+			<groupId>org.apache.xbean</groupId>
+			<artifactId>xbean-asm6-shaded</artifactId>
+			<version>4.10</version>
+		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jets3t</groupId>
 			<artifactId>jets3t</artifactId>
@@ -90,6 +113,7 @@
 			<version>2.8.1</version>
 		</dependency>
 
+		<!--
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka_${scala.maj.version}</artifactId>
@@ -101,19 +125,26 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		
+		-->
 		<dependency>
 			<groupId>org.scalatest</groupId>
 			<artifactId>scalatest_${scala.maj.version}</artifactId>
-			<version>2.2.4</version>
+			<version>3.0.5</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- -->
+		<dependency>
+			<groupId>net.manub</groupId>
+			<artifactId>scalatest-embedded-kafka_${scala.maj.version}</artifactId>
+			<version>1.1.0</version>
+			<scope>test</scope>
+		</dependency>
+		<!--
 		<dependency>
 			<groupId>optional</groupId>
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
+		-->
 		<!-- https://mvnrepository.com/artifact/com.datastax.cassandra/cassandra-driver-core -->
 		<!-- <dependency>
 			<groupId>org.sunbird</groupId>
@@ -122,8 +153,8 @@
 		</dependency> -->
 		<dependency>
 		    <groupId>org.sunbird</groupId>
-		    <artifactId>cloud-store-sdk</artifactId>
-		    <version>1.2.6</version>
+		    <artifactId>cloud-store-sdk_${scala.maj.version}</artifactId>
+		    <version>1.4.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
@@ -134,8 +165,16 @@
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
 				<exclusion>
+					<groupId>com.fasterxml.jackson.module</groupId>
+					<artifactId>jackson-module-scala_${scala.maj.version}.0-RC1</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.apache.httpcomponents</groupId>
 					<artifactId>httpclient</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
 				</exclusion>
         	</exclusions>
     	</dependency>
@@ -143,6 +182,16 @@
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-lang3</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		
 	</dependencies>
@@ -165,6 +214,7 @@
 							<args>
 								<arg>-dependencyfile</arg>
 								<arg>${project.build.directory}/.scala_dependencies</arg>
+								<arg>-nobootcp</arg>
 							</args>
 						</configuration>
 					</execution>
@@ -200,19 +250,19 @@
 			<plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.1.0</version>
-                <configuration>
-                		<transformers>
-						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-	              			<resource>META-INF/services/org.jclouds.apis.ApiMetadata</resource>
-	            			</transformer>
-	            			<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-	              			<resource>META-INF/services/org.jclouds.providers.ProviderMetadata</resource>
-	            			</transformer>
-	            		</transformers>
-                    <descriptors>
-                        <descriptor>src/main/assembly/src.xml</descriptor>
-                    </descriptors>
-                </configuration>
+				<configuration>
+<!--					<transformers>-->
+<!--						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">-->
+<!--							<resource>META-INF/services/org.jclouds.apis.ApiMetadata</resource>-->
+<!--						</transformer>-->
+<!--						<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">-->
+<!--							<resource>META-INF/services/org.jclouds.providers.ProviderMetadata</resource>-->
+<!--						</transformer>-->
+<!--					</transformers>-->
+					<descriptors>
+						<descriptor>src/main/assembly/src.xml</descriptor>
+					</descriptors>
+				</configuration>
                 <executions>
                     <execution>
                         <id>make-assembly</id>

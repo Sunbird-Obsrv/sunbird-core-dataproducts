@@ -78,7 +78,17 @@
 					<groupId>io.dropwizard.metrics</groupId>
 					<artifactId>metrics-core</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
+				</exclusion>
 			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-client</artifactId>
+			<version>2.7.4</version>
+			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.spark</groupId>
@@ -107,7 +117,7 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.5.2</version>
+			<version>4.5.6</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -128,37 +138,22 @@
 			<version>4.1.0</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- -->
 		<dependency>
 			<groupId>optional</groupId>
 			<artifactId>optional_${scala.version}</artifactId>
 			<version>1.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.datastax.cassandra/cassandra-driver-core -->
-		<!--
-		<dependency>
-			<groupId>com.datastax.cassandra</groupId>
-			<artifactId>cassandra-driver-core</artifactId>
-			<version>3.1.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.google.guava</groupId>
-					<artifactId>guava</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		-->
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
 			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>
-			<version>2.0.8</version>
+			<version>3.1.0</version>
 		</dependency>
-		<dependency>
-			<groupId>org.scalanlp</groupId>
-			<artifactId>breeze_${scala.maj.version}</artifactId>
-			<version>0.11.2</version>
-			<scope>provided</scope>
-		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>org.scalanlp</groupId>-->
+<!--			<artifactId>breeze_${scala.maj.version}</artifactId>-->
+<!--			<version>0.11.2</version>-->
+<!--			<scope>provided</scope>-->
+<!--		</dependency>-->
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-mllib_${scala.maj.version}</artifactId>
@@ -167,14 +162,9 @@
 			<exclusions>
 				<exclusion>
 					<groupId>org.apache.spark</groupId>
-					<artifactId>spark-core_2.11</artifactId>
+					<artifactId>spark-core_${scala.maj.version}</artifactId>
 				</exclusion>
 			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.pygmalios</groupId>
-			<artifactId>reactiveinflux-spark_2.11</artifactId>
-			<version>1.4.0.10.0.4.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.typesafe.netty</groupId>
@@ -201,7 +191,7 @@
 		<dependency>
 			<groupId>org.cassandraunit</groupId>
 			<artifactId>cassandra-unit</artifactId>
-			<version>3.1.1.0</version>
+			<version>4.3.1.0</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -216,13 +206,15 @@
 		</dependency>
 		<dependency>
 			<groupId>net.liftweb</groupId>
-			<artifactId>lift-json_2.11</artifactId>
+			<artifactId>lift-json_${scala.maj.version}</artifactId>
 			<version>3.0.1</version>
 		</dependency>
 		<dependency>
 			<groupId>com.flyberrycapital</groupId>
-			<artifactId>scala-slack_2.11</artifactId>
-			<version>0.1.0</version>
+			<!--<artifactId>scala-slack_2.11</artifactId>
+			<version>0.1.0</version> -->
+			<artifactId>scala-slack_${scala.maj.version}</artifactId>
+			<version>0.3.1</version>
 		</dependency>
 		<dependency>
             <groupId>com.github.java-json-tools</groupId>
@@ -230,21 +222,15 @@
             <version>2.2.8</version>
             <scope>test</scope>
         </dependency>
-		<dependency>
+		<!--<dependency>
 			<groupId>org.sunbird</groupId>
 			<artifactId>video-streaming</artifactId>
             <version>1.0</version>
-        </dependency>
-        <!-- <dependency>
+        </dependency>-->
+        <dependency>
 			<groupId>org.sunbird</groupId>
-			<artifactId>sunbird-cloud-store-sdk</artifactId>
-			<version>1.0</version>
-			<scope>provided</scope>
-		</dependency> -->
-		<dependency>
-			<groupId>org.sunbird</groupId>
-			<artifactId>cloud-store-sdk</artifactId>
-			<version>1.2.6</version>
+			<artifactId>cloud-store-sdk_${scala.maj.version}</artifactId>
+			<version>1.4.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
@@ -255,8 +241,16 @@
                     <artifactId>jackson-core</artifactId>
                 </exclusion>
 				<exclusion>
+					<groupId>com.fasterxml.jackson.module</groupId>
+					<artifactId>jackson-module-scala_${scala.maj.version}.0-RC1</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.apache.httpcomponents</groupId>
 					<artifactId>httpclient</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-client</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -264,33 +258,41 @@
 			<groupId>com.microsoft.azure</groupId>
 			<artifactId>azure-storage</artifactId>
 			<version>3.0.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-lang3</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.fasterxml.jackson.core</groupId>
+					<artifactId>jackson-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch-hadoop -->
-		<!--<dependency>-->
-			<!--<groupId>org.elasticsearch</groupId>-->
-			<!--<artifactId>elasticsearch-hadoop</artifactId>-->
-			<!--<version>6.7.0</version>-->
-			<!--<scope>provided</scope>-->
-		<!--</dependency>-->
-		<!-- https://mvnrepository.com/artifact/ing.wbaa.druid/scruid -->
+
 		<dependency>
-			<groupId>ing.wbaa.druid</groupId>
-			<artifactId>scruid_2.11</artifactId>
-			<version>2.3.0</version>
-			<scope>provided</scope>
+			<groupId>com.ing.wbaa.druid</groupId>
+			<artifactId>scruid_${scala.maj.version}</artifactId>
+			<version>2.5.0</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/lib/scruid_2.12-2.5.0.jar</systemPath>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.elasticsearch/elasticsearch -->
 		<dependency>
 		    <groupId>pl.allegro.tech</groupId>
 		    <artifactId>embedded-elasticsearch</artifactId>
 		    <version>2.10.0</version>
 		    <scope>test</scope>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/io.zonky.test/embedded-postgres -->
 		<dependency>
 			<groupId>io.zonky.test</groupId>
 			<artifactId>embedded-postgres</artifactId>
 			<version>1.2.6</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>net.manub</groupId>
+			<artifactId>scalatest-embedded-kafka_${scala.maj.version}</artifactId>
+			<version>1.1.0</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -313,6 +315,7 @@
 							<args>
 								<arg>-dependencyfile</arg>
 								<arg>${project.build.directory}/.scala_dependencies</arg>
+								<arg>-nobootcp</arg>
 							</args>
 						</configuration>
 					</execution>
