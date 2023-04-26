@@ -190,6 +190,11 @@ trait OnDemandBaseExhaustJob {
         storageConfig.fileName
     }
     val objKey = url.replace(filePrefix, "");
+    JobLogger.log("Request is zipAndEncrypt1", Some(Map("requestId" -> request.request_id, "url" -> url)), INFO)
+    JobLogger.log("Request is zipAndEncrypt1", Some(Map("requestId" -> request.request_id, "filePrefix" -> filePrefix)), INFO)
+    JobLogger.log("Request is zipAndEncrypt1", Some(Map("requestId" -> request.request_id, "tempDir" -> tempDir)), INFO)
+    JobLogger.log("Request is zipAndEncrypt1", Some(Map("requestId" -> request.request_id, "objKey" -> objKey)), INFO)
+    JobLogger.log("Request is zipAndEncrypt1", Some(Map("requestId" -> request.request_id, "container" -> storageConfig.container)), INFO)
     if (storageConfig.store.equals("local")) {
       fc.getHadoopFileUtil().copy(filePrefix, localPath, conf)
     }
