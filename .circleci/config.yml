@@ -15,7 +15,7 @@ jobs:
               target_branch=$(echo "${prdata}" | jq -r '.base.ref')
           fi
           git clone https://github.com/ocisunbird/sunbird-analytics-core.git
-          cd sunbird-analytics-core && git checkout oci-5.1.0-JAPACCOE-2839-release-5.0.0_RC2_spark-reports-change
+          cd sunbird-analytics-core && git checkout oci-5.1.0-JAPACCOE-2839-release-5.0.0_RC2
           # echo $target_branch
           # git clone https://github.com/Sunbird-Obsrv/sunbird-analytics-core.git
           # branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
