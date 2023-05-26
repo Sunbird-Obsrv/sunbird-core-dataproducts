@@ -144,7 +144,8 @@
 		</dependency>
 		<dependency>
 			<groupId>com.datastax.spark</groupId>
-			<artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId>
+			<!-- <artifactId>spark-cassandra-connector_${scala.maj.version}</artifactId> -->
+			<artifactId>spark-cassandra-connector-assembly_${scala.maj.version} </artifactId>
 			<version>3.2.0</version>
 		</dependency>
 <!--		<dependency>-->
