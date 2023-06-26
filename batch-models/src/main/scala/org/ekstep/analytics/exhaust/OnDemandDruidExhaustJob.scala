@@ -28,6 +28,9 @@ case class OnDemandDruidResponse(file: List[String], status: String, statusMsg: 
 case class Metrics(totalRequests: Option[Int], failedRequests: Option[Int], successRequests: Option[Int])
 
 object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
+  /**
+   * Define implicit variables and constants required for Job that is Job ID and name
+   */
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob"
 
   val jobId: String = "druid-dataset"
@@ -46,6 +49,10 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
 
     implicit val frameworkContext: FrameworkContext = getReportingFrameworkContext()
     implicit val conf = spark.sparkContext.hadoopConfiguration
+    /**
+     * This code block performs job execution, metrics generation, error handling, and cleanup tasks, ensuring accurate measurement of job performance and logging of relevant information.
+     * Additionally, it dispatches metric events to a Kafka topic based on configuration settings, enabling further analysis and monitoring of the job's execution.
+     */
     try {
       val res = CommonUtil.time(execute());
       // generate metric event and push it to kafka topic
