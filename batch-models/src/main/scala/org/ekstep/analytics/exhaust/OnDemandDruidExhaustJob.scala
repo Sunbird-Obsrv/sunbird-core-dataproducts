@@ -131,6 +131,10 @@ object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJo
     new SimpleDateFormat(pattern)
   }
 
+  /**
+   * This method processes a job request, fetches data from Druid, performs post-processing, updates the request status,
+   * and handles success or failure scenarios.
+   */
   def processRequest(request: JobRequest, reportConfig: ReportConfig, storageConfig: StorageConfig, sortDfColNames: Option[List[String]])(implicit spark: SparkSession, fc: FrameworkContext, sqlContext: SQLContext, sc: SparkContext, config: JobConfig, conf: Configuration): JobRequest = {
     markRequestAsProcessing(request)
     val druidData: RDD[DruidOutput] = fetchDruidData(reportConfig, true, false, false)
