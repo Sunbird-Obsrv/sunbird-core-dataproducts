@@ -29,7 +29,7 @@ case class Metrics(totalRequests: Option[Int], failedRequests: Option[Int], succ
 
 object OnDemandDruidExhaustJob extends BaseReportsJob with Serializable with IJob with OnDemandBaseExhaustJob with BaseDruidQueryProcessor {
   /**
-   * Define implicit variables and constants required for Job that is Job ID and name
+   * Define implicit variables and constants required for Job
    */
   implicit override val className: String = "org.sunbird.analytics.exhaust.OnDemandDruidExhaustJob"
 
