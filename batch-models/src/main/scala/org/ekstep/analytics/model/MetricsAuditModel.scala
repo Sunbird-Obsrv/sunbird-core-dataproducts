@@ -31,7 +31,7 @@ object MetricsAuditModel extends IBatchModelTemplate[Empty, Empty, V3DerivedEven
       val queryType = queryConfig.search.`type`
 
       queryType match {
-        case "azure" | "oci" | "local" =>
+        case "azure" | "local" =>
           metricsEvent = getSecorMetrics(queryConfig)
         case "druid" =>
           metricsEvent = getDruidCount(queryConfig)
