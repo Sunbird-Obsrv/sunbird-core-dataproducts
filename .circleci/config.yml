@@ -32,12 +32,12 @@ jobs:
         name: Build analytics-core dependency jar
         command: |
           java -version
-          cd sunbird-analytics-core && mvn install -DskipTests
+          cd sunbird-analytics-core && mvn install -DskipTests -DCLOUD_STORE_GROUP_ID=org.sunbird -DCLOUD_STORE_ARTIFACT_ID=cloud-store-sdk_2.12 -DCLOUD_STORE_VERSION=1.4.0
     - run:
         name: data-products-build
         command: |
           java -version
-          mvn scoverage:report
+          mvn scoverage:report -DCLOUD_STORE_GROUP_ID=org.sunbird -DCLOUD_STORE_ARTIFACT_ID=cloud-store-sdk_2.12 -DCLOUD_STORE_VERSION=1.4.0
     - save_cache:
         key: dp-dependency-cache-{{ checksum "pom.xml" }}
         paths: ~/.m2
@@ -45,7 +45,7 @@ jobs:
         name: sonar
         command: |
           export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
-          mvn -X sonar:sonar -Dsonar.projectKey=project-sunbird_sunbird-core-dataproducts -Dsonar.organization=project-sunbird -Dsonar.exclusions=video-streaming/**,optional-master/**,batch-models/src/main/scala/org/ekstep/analytics/job/batch/VideoStreamingJob.scala -Dsonar.host.url=https://sonarcloud.io -Dsonar.scala.coverage.reportPaths=/home/circleci/project/target/scoverage.xml
+          mvn -X sonar:sonar -DCLOUD_STORE_GROUP_ID=org.sunbird -DCLOUD_STORE_ARTIFACT_ID=cloud-store-sdk_2.12 -DCLOUD_STORE_VERSION=1.4.0 -Dsonar.projectKey=project-sunbird_sunbird-core-dataproducts -Dsonar.organization=project-sunbird -Dsonar.exclusions=video-streaming/**,optional-master/**,batch-models/src/main/scala/org/ekstep/analytics/job/batch/VideoStreamingJob.scala -Dsonar.host.url=https://sonarcloud.io -Dsonar.scala.coverage.reportPaths=/home/circleci/project/target/scoverage.xml
 
 workflows:
   version: 2.1
