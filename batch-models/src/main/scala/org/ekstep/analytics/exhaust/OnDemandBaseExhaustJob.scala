@@ -181,6 +181,8 @@ trait OnDemandBaseExhaustJob {
       // $COVERAGE-OFF$ Disabling scoverage
       case "s3" =>
         CommonUtil.getS3File(storageConfig.container, "");
+      case "oci" =>
+        CommonUtil.getS3File(storageConfig.container, "");
       case "gcloud" =>
         CommonUtil.getGCloudFile(storageConfig.container, "");
       case "azure" =>
