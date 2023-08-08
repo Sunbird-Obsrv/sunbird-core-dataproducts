@@ -67,7 +67,7 @@
 			<exclusions>
 				<exclusion>
 					<artifactId>jets3t</artifactId>
-					<groupId>org.jets3t</groupId>
+					<groupId>net.java.dev.jets3t</groupId>
 				</exclusion>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -80,14 +80,6 @@
 				<exclusion>
 					<groupId>org.apache.hadoop</groupId>
 					<artifactId>hadoop-client</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.hadoop</groupId>
-					<artifactId>hadoop-client-api</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.hadoop</groupId>
-					<artifactId>hadoop-client-runtime</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -116,9 +108,9 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.jets3t</groupId>
+			<groupId>net.java.dev.jets3t</groupId>
 			<artifactId>jets3t</artifactId>
-			<version>0.9.7</version>
+			<version>0.9.4</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -237,7 +229,7 @@
         <dependency>
 			<groupId>org.sunbird</groupId>
 			<artifactId>cloud-store-sdk_${scala.maj.version}</artifactId>
-			<version>1.4.6</version>
+			<version>1.4.0</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
