@@ -18,19 +18,17 @@ jobs:
               prdata=$(curl -X GET -u $GITHUB_USER_TOKEN:x-oauth-basic https://api.github.com/repos/Sunbird-Obsrv/sunbird-core-dataproducts/pulls/$CIRCLE_PR_NUMBER)
               target_branch=$(echo "${prdata}" | jq -r '.base.ref')
           fi
-          git clone https://github.com/manjudr/sunbird-analytics-core.git
-          cd sunbird-analytics-core && git checkout csp-changes
-#          echo $target_branch
-#          git clone https://github.com/Sunbird-Obsrv/sunbird-analytics-core.git
-#          branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
-#          echo $branchExists
-#          if [ -z ${branchExists} ]; then
-#              latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
-#              echo $latest_branch
-#              cd sunbird-analytics-core && git checkout $latest_branch
-#          else
-#              cd sunbird-analytics-core && git checkout $target_branch
-#          fi
+         echo $target_branch
+         git clone https://github.com/Sunbird-Obsrv/sunbird-analytics-core.git
+         branchExists=$(cd sunbird-analytics-core && git ls-remote --heads origin $target_branch)
+         echo $branchExists
+         if [ -z ${branchExists} ]; then
+             latest_branch=$(cd sunbird-analytics-core && git for-each-ref --count=1 --sort=-committerdate 'refs/remotes/**/release*' --format='%(refname:short)' | head -1)
+             echo $latest_branch
+             cd sunbird-analytics-core && git checkout $latest_branch
+         else
+             cd sunbird-analytics-core && git checkout $target_branch
+         fi
     - restore_cache:
         keys: 
           - dp-dependency-cache-{{ checksum "pom.xml" }}
