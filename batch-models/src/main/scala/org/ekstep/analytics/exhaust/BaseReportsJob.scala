@@ -5,6 +5,8 @@ import org.apache.spark.sql.types.StructType
 import org.ekstep.analytics.framework.{FrameworkContext, JobConfig, JobContext, StorageConfig}
 import org.ekstep.analytics.framework.util.CommonUtil
 import org.sunbird.cloud.storage.conf.AppConf
+import org.ekstep.analytics.framework.util
+import org.ekstep.analytics.framework.util.CloudStorageProviders.setSparkCSPConfigurations
 
 trait BaseReportsJob {
 
@@ -42,25 +44,7 @@ trait BaseReportsJob {
     val store = modelParams.getOrElse("store", "local").asInstanceOf[String];
     val storageKey = modelParams.getOrElse("storageKeyConfig", "reports_storage_key").asInstanceOf[String];
     val storageSecret = modelParams.getOrElse("storageSecretConfig", "reports_storage_secret").asInstanceOf[String];
-    store.toLowerCase() match {
-      case "s3" =>
-        spark.sparkContext.hadoopConfiguration.set("fs.s3n.awsAccessKeyId", AppConf.getConfig(storageKey));
-        spark.sparkContext.hadoopConfiguration.set("fs.s3n.awsSecretAccessKey", AppConf.getConfig(storageSecret));
-      case "azure" =>
-        val storageKeyValue = AppConf.getConfig(storageKey);
-        spark.sparkContext.hadoopConfiguration.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
-        spark.sparkContext.hadoopConfiguration.set(s"fs.azure.account.key.$storageKeyValue.blob.core.windows.net", AppConf.getConfig(storageSecret))
-        spark.sparkContext.hadoopConfiguration.set(s"fs.azure.account.keyprovider.$storageKeyValue.blob.core.windows.net", "org.apache.hadoop.fs.azure.SimpleKeyProvider")
-      case "gcloud" =>
-        spark.sparkContext.hadoopConfiguration.set("fs.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem")
-        spark.sparkContext.hadoopConfiguration.set("fs.AbstractFileSystem.gs.impl", "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS")
-        spark.sparkContext.hadoopConfiguration.set("fs.gs.auth.service.account.email", AppConf.getConfig(storageKey))
-        spark.sparkContext.hadoopConfiguration.set("fs.gs.auth.service.account.private.key", AppConf.getConfig(storageSecret))
-        spark.sparkContext.hadoopConfiguration.set("fs.gs.auth.service.account.private.key.id", AppConf.getConfig("gcloud_private_secret_id"))
-      case _ =>
-
-    }
-
+    setSparkCSPConfigurations(spark.sparkContext, store, Some(storageKey), Some(storageSecret))
   }
 
   def getStorageConfig(config: JobConfig, key: String): StorageConfig = {
