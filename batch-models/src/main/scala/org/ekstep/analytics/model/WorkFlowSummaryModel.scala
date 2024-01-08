@@ -55,62 +55,32 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
         val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (getWorkflowIndex(x._1, partitionIndex), Buffer(x._2))}
           .partitionBy(new HashPartitioner(parallelization))
           .reduceByKey((a, b) => a ++ b);
-//        val partitionedDataOld = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
-//            .partitionBy(new HashPartitioner(parallelization))
-//            .reduceByKey((a, b) => a ++ b);
 
         partitionedData.map { x => WorkflowInput(x._1, x._2) }
     }
 
     def getWorkflowIndex(indexEvent: WorkFlowIndexEvent, partitionIndex: List[String]): List[String] = {
       val indexEventMap = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(indexEvent))
-      val finalKeys = partitionIndex.map(f =>
-        if(f.contains("did")) getDid(indexEvent)
-        else if(f.contains("channel")) getChannel(indexEvent)
-        else if(f.contains("pdata")) getPDataId(indexEvent)
-        else if(f.contains("actor")) getActorId(indexEvent)
-        else None
-      )
-      finalKeys.asInstanceOf[List[String]]
+      partitionIndex.map(getValueFromEvent(indexEventMap, _))
     }
 
-    def getPDataId(indexEvent: WorkFlowIndexEvent): Option[String] = {
-      Option(indexEvent) flatMap { e =>
-        Option(e.context) flatMap { c =>
-          c.pdata flatMap { p =>
-            Option(p.id)
-          }
-        }
-      }
+    def getValueFromEvent(indexEventMap: Map[String, AnyRef], keyPath: String): String = {
+      val keys = keyPath.split("\\.")
+      keys.foldLeft(Option(indexEventMap)) {
+        case (Some(map), subKey) =>
+          map.get(subKey).flatMap(asMap)
+        case (_, _) => None
+      }.getOrElse(Map[String, AnyRef]()).head._2.toString
     }
 
-    def getChannel(indexEvent: WorkFlowIndexEvent): Option[String] = {
-      Option(indexEvent) flatMap { e =>
-        Option(e.context) flatMap { c =>
-          Option(c.channel)
-        }
+    def asMap(obj: Any): Option[Map[String, AnyRef]] =
+      Option(obj).collect {
+        case map: Map[String, AnyRef] => map
+        case string: String => Map("value" -> string.asInstanceOf[AnyRef])
       }
-    }
 
-    def getDid(indexEvent: WorkFlowIndexEvent): Option[String] = {
-      Option(indexEvent) flatMap { e =>
-        Option(e.context) flatMap { c =>
-          c.did
-        }
-      }
-    }
-
-    def getActorId(indexEvent: WorkFlowIndexEvent): Option[String] = {
-      Option(indexEvent) flatMap { e =>
-        Option(e.actor) flatMap { c =>
-          Option(c.id)
-        }
-      }
-    }
-    
     override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
-        
-        
+
         val idleTime = config.getOrElse("idleTime", 600).asInstanceOf[Int];
         val sessionBreakTime = config.getOrElse("sessionBreakTime", 30).asInstanceOf[Int];
         
