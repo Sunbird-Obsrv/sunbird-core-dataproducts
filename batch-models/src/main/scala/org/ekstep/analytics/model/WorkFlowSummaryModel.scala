@@ -24,10 +24,12 @@ class WFSInputEvent(val eid: String, val ets: Long, val `@timestamp`: String, va
 class WFSInputEData(val `type`: String, val mode: String, val duration: Long, val pageid: String, val item: Question,
                     val resvalues: Array[Map[String, AnyRef]], val pass: String, val score: Int) extends Serializable {}
 
-case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[String]) extends AlgoInput
-case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
+//case class WorkflowInput(sessionKey: WorkflowIndex, events: Buffer[String]) extends AlgoInput
+case class WorkflowInput(sessionKey: List[String], events: Buffer[String]) extends AlgoInput
+//case class WorkflowOutput(index: WorkflowIndex, summaries: Buffer[MeasuredEvent]) extends AlgoOutput
+case class WorkflowOutput(index: List[String], summaries: Buffer[MeasuredEvent]) extends AlgoOutput
 case class WorkflowIndex(did: String, channel: String, pdataId: String)
-case class WorkFlowIndexEvent(eid: String, context: V3Context)
+case class WorkFlowIndexEvent(eid: String, context: V3Context, actor: Actor)
 
 object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, MeasuredEvent, MeasuredEvent] with Serializable {
 
@@ -49,16 +51,36 @@ object WorkFlowSummaryModel extends IBatchModelTemplate[String, WorkflowInput, M
                         (null.asInstanceOf[WorkFlowIndexEvent], "")
                 }
         }.filter(f => null != f._1)
-        val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (WorkflowIndex(x._1.context.did.getOrElse(""), x._1.context.channel, x._1.context.pdata.getOrElse(defaultPDataId).id), Buffer(x._2))}
-            .partitionBy(new HashPartitioner(parallelization))
-            .reduceByKey((a, b) => a ++ b);
+        val partitionIndex = config.getOrElse("partitionIndex", List("context.did", "context.channel", "context.pdata.id")).asInstanceOf[List[String]]
+        val partitionedData = indexedData.filter(f => null != f._1.eid && !serverEvents.contains(f._1.eid)).map { x => (getWorkflowIndex(x._1, partitionIndex), Buffer(x._2))}
+          .partitionBy(new HashPartitioner(parallelization))
+          .reduceByKey((a, b) => a ++ b);
 
         partitionedData.map { x => WorkflowInput(x._1, x._2) }
     }
-    
+
+    def getWorkflowIndex(indexEvent: WorkFlowIndexEvent, partitionIndex: List[String]): List[String] = {
+      val indexEventMap = JSONUtils.deserialize[Map[String, AnyRef]](JSONUtils.serialize(indexEvent))
+      partitionIndex.map(getValueFromEvent(indexEventMap, _))
+    }
+
+    def getValueFromEvent(indexEventMap: Map[String, AnyRef], keyPath: String): String = {
+      val keys = keyPath.split("\\.")
+      keys.foldLeft(Option(indexEventMap)) {
+        case (Some(map), subKey) =>
+          map.get(subKey).flatMap(asMap)
+        case (_, _) => None
+      }.getOrElse(Map[String, AnyRef]()).head._2.toString
+    }
+
+    def asMap(obj: Any): Option[Map[String, AnyRef]] =
+      Option(obj).collect {
+        case map: Map[String, AnyRef] => map
+        case string: String => Map("value" -> string.asInstanceOf[AnyRef])
+      }
+
     override def algorithm(data: RDD[WorkflowInput], config: Map[String, AnyRef])(implicit sc: SparkContext, fc: FrameworkContext): RDD[MeasuredEvent] = {
-        
-        
+
         val idleTime = config.getOrElse("idleTime", 600).asInstanceOf[Int];
         val sessionBreakTime = config.getOrElse("sessionBreakTime", 30).asInstanceOf[Int];
         
