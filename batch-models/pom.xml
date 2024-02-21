@@ -235,9 +235,17 @@
             <version>1.0</version>
         </dependency>-->
         <dependency>
-			<groupId>${CLOUD_STORE_GROUP_ID}</groupId>
-			<artifactId>${CLOUD_STORE_ARTIFACT_ID}</artifactId>
-			<version>${CLOUD_STORE_VERSION}</version>
+<!--			<groupId>${CLOUD_STORE_GROUP_ID}</groupId>-->
+<!--			<artifactId>${CLOUD_STORE_ARTIFACT_ID}</artifactId>-->
+<!--			<version>${CLOUD_STORE_VERSION}</version>-->
+<!--			<groupId>org.sunbird</groupId>-->
+<!--			<artifactId>cloud-store-sdk_2.12</artifactId>-->
+<!--			<version>1.4.6</version>-->
+			<groupId>org.sunbird</groupId>
+			<artifactId>cloud-store-sdk_2.12</artifactId>
+			<version>1.4.6</version>
+			<scope>system</scope>
+			<systemPath>${project.basedir}/lib/cloud-store-sdk_2.12-1.4.6.jar</systemPath>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
