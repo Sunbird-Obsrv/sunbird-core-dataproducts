@@ -12,6 +12,9 @@
 	</parent>
 	<properties>
 		<scoverage.plugin.version>1.1.1</scoverage.plugin.version>
+		<CLOUD_STORE_GROUP_ID>org.sunbird</CLOUD_STORE_GROUP_ID>
+		<CLOUD_STORE_ARTIFACT_ID>cloud-store-sdk_2.12</CLOUD_STORE_ARTIFACT_ID>
+		<CLOUD_STORE_VERSION>1.4.6</CLOUD_STORE_VERSION>
 	</properties>
 	
 	<repositories>
@@ -235,17 +238,9 @@
             <version>1.0</version>
         </dependency>-->
         <dependency>
-<!--			<groupId>${CLOUD_STORE_GROUP_ID}</groupId>-->
-<!--			<artifactId>${CLOUD_STORE_ARTIFACT_ID}</artifactId>-->
-<!--			<version>${CLOUD_STORE_VERSION}</version>-->
-<!--			<groupId>org.sunbird</groupId>-->
-<!--			<artifactId>cloud-store-sdk_2.12</artifactId>-->
-<!--			<version>1.4.6</version>-->
-			<groupId>org.sunbird</groupId>
-			<artifactId>cloud-store-sdk_2.12</artifactId>
-			<version>1.4.6</version>
-			<scope>system</scope>
-			<systemPath>${project.basedir}/lib/cloud-store-sdk_2.12-1.4.6.jar</systemPath>
+			<groupId>${CLOUD_STORE_GROUP_ID}</groupId>
+			<artifactId>${CLOUD_STORE_ARTIFACT_ID}</artifactId>
+			<version>${CLOUD_STORE_VERSION}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.microsoft.azure</groupId>
