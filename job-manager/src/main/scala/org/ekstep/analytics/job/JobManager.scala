@@ -86,9 +86,9 @@ class JobRunner(config: JobManagerConfig, consumer: JobConsumerV2, doneSignal: C
     override def run {
         implicit val fc = new FrameworkContext();
         // Register the storage service for all data
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("storage.key.config"), AppConf.getConfig("storage.secret.config"));
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), "cloud_storage_key", "cloud_storage_secret");
         // Register the reports storage service
-        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), AppConf.getConfig("reports.storage.key.config"), AppConf.getConfig("reports.storage.secret.config"));
+        fc.getStorageService(AppConf.getConfig("cloud_storage_type"), "reports_storage_key", "reports_storage_secret");
         try {
             while(running.get()) {
                 val record = consumer.read;
